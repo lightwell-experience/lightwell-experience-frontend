@@ -1,4 +1,19 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>RedHatInsights/shared-workflows//renovate/frontend"]
+    "extends": [
+        "github>konflux-ci/mintmaker//config/renovate/renovate.json"
+    ],
+    "schedule": [
+        "on Monday after 3am and before 10am"
+    ],
+    "minimumReleaseAge": "5 days",
+    "packageRules": [
+      {
+        "description": "Disable all npm dependency updates",
+        "matchManagers": ["npm"],
+        "enabled": false
+      }
+    ],
+    "lockFileMaintenance": {
+        "enabled": false
+    }
 }

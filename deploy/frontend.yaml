@@ -17,7 +17,7 @@ objects:
           - v1
       envName: ${ENV_NAME}
       title: LightwellNetworkUI
-      deploymentRepo: https://github.com/lightwell-network/lightwell-network-frontend
+      deploymentRepo: https://github.com/lightwell-experience/lightwell-experience-frontend
       frontend:
         paths:
           - /apps/lightwell-network-ui
@@ -30,7 +30,7 @@ objects:
           - id: 'lightwell-network-ui'
             module: './RootApp'
             routes:
-              - pathname: /staging/lightwell # TODO: confirm temporary route for lightwell tenant to use during onboarding
+              - pathname: /staging-lightwell # temporary onboarding route
 parameters:
   - name: ENV_NAME
     required: true

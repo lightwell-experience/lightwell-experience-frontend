@@ -1,0 +1,152 @@
+name: Build & Unit Tests
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  malware-scan:
+    runs-on: ubuntu-latest
+    name: malware-scan
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Supply chain malware scan
+        working-directory: .github/
+        env:
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          chmod +x workflowScripts/malware-pr-check.py
+          python3 workflowScripts/malware-pr-check.py
+
+  lint:
+    needs: [malware-scan]
+    runs-on: ubuntu-latest
+    name: lint
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Cache - node_modules
+        if: always()
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-build-test-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-test-
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install Dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Lint
+        run: yarn lint
+
+  format:
+    needs: [malware-scan]
+    runs-on: ubuntu-latest
+    name: format
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Cache - node_modules
+        if: always()
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-build-test-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-test-
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install Dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Format code with prettier
+        run: yarn format:check
+
+  build-check:
+    needs: [malware-scan]
+    runs-on: ubuntu-latest
+    name: build-check
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Cache - node_modules
+        if: always()
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-build-test-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-test-
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install Dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build the application
+        run: yarn build
+
+  unit-test:
+    needs: [malware-scan]
+    name: unit-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Cache - node_modules
+        if: always()
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-build-test-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-test-
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install Dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Tests
+        run: yarn test

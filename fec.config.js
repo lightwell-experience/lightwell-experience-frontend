@@ -1,36 +1,49 @@
-const { insights } = require('./package.json');
+/* eslint-disable @typescript-eslint/no-require-imports */
+const path = require('path');
+const { dependencies, insights } = require('./package.json');
 
 const sassPrefix = insights.appname.replace(/-(\w)/g, (_, match) => match.toUpperCase());
+const srcDir = path.resolve(__dirname, './src');
 
 module.exports = {
-  appUrl: '/staging/lightwell',
-  debug: true,
-  useProxy: true,
-  proxyVerbose: true,
-  /**
-   * Change accordingly to your appname in package.json.
-   * The `sassPrefix` attribute is only required if your `appname` includes the dash `-` characters.
-   * If the dash character is present, you will have add a camelCase version of it to the sassPrefix.
-   * If it does not contain the dash character, remove this configuration.
-   */
   sassPrefix: `.${sassPrefix}`,
-  /**
-   * Change to false after your app is registered in configuration files
-   */
+  appUrl: '/staging-lightwell',
+  debug: true,
+  devtool: 'hidden-source-map',
+  useProxy: true,
   interceptChromeConfig: false,
-  /**
-   * Add additional webpack plugins
-   */
   plugins: [],
-  hotReload: process.env.HOT === 'true',
   moduleFederation: {
     exposes: {
-      './RootApp': './src/AppEntry',
-      './frontendModules/useFedModulesStore':
-        './src/hooks/sharedStores/useFedModulesStore',
-      './frontendModules/useFedModulesFilter':
-        './src/hooks/sharedStores/useFedModulesFilter',
+      './RootApp': path.resolve(__dirname, './src/AppEntry.tsx'),
     },
-    shared: [],
+    exclude: ['react-router-dom'],
+    shared: [
+      {
+        'react-router-dom': {
+          singleton: true,
+          import: false,
+          version: dependencies['react-router-dom'],
+          requiredVersion: '>=6.0.0 <7.0.0',
+        },
+      },
+    ],
+  },
+  resolve: {
+    modules: [srcDir, path.resolve(__dirname, './node_modules')],
+  },
+  routes: {
+    ...(process.env.BACKEND_PORT && {
+      '/api/staging-lightwell': {
+        host: `http://127.0.0.1:${process.env.BACKEND_PORT}`,
+        // lightwell-experience backend serves /ping from the root
+        pathRewrite: {
+          '^/api/staging-lightwell': '',
+        },
+      },
+      '/api/content-sources/': {
+        host: `http://127.0.0.1:${process.env.BACKEND_PORT}`,
+      },
+    }),
   },
 };

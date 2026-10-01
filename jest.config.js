@@ -1,16 +1,20 @@
-const transformIgnorePatterns = ['node_modules/(?!(uuid)/)'];
-
-/** @type {import('ts-jest').JestConfigWithTsJest} */
 module.exports = {
-  preset: 'ts-jest/presets/js-with-babel-esm',
-  testEnvironment: 'jsdom',
-  coverageDirectory: './coverage/',
-  collectCoverage: true,
-  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/stories/*'],
   roots: ['<rootDir>/src/'],
-  moduleNameMapper: {
-    '\\.(css|scss)$': 'identity-obj-proxy',
+  preset: 'ts-jest',
+  maxWorkers: '50%',
+  testEnvironment: 'jsdom',
+  transform: {
+    '^.+\\.(ts|tsx)$': 'ts-jest',
   },
-  transformIgnorePatterns,
+  setupFiles: [],
   setupFilesAfterEnv: ['<rootDir>/config/jest.setup.ts'],
+  moduleDirectories: ['<rootDir>/node_modules', '<rootDir>/src'],
+  moduleNameMapper: {
+    '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$':
+      '<rootDir>/config/empty.js',
+    '\\.(css|scss|sass|less)$': 'identity-obj-proxy',
+    // use cjs versions of patternfly packages, not esm
+    '^(@patternfly/[a-zA-Z0-9_-]+)/dist/esm/(.*)$': '$1/dist/js/$2',
+  },
+  transformIgnorePatterns: [],
 };

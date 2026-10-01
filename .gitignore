@@ -22,18 +22,3 @@ coverage
 
 # cache folder
 .cache
-.swc
-
-# cypress output
-.cypress-cache
-cypress/screenshots
-cypress/videos
-.nyc_output
-
-# playwright
-playwright-report
-test-results
-playwright/.auth
-
-# Project tmp folder
-/tmp

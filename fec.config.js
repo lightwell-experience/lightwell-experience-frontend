@@ -7,7 +7,7 @@ const srcDir = path.resolve(__dirname, './src');
 
 module.exports = {
   sassPrefix: `.${sassPrefix}`,
-  appUrl: '/staging-lightwell',
+  appUrl: '/lightwell-next',
   debug: true,
   devtool: 'hidden-source-map',
   useProxy: true,
@@ -34,12 +34,8 @@ module.exports = {
   },
   routes: {
     ...(process.env.BACKEND_PORT && {
-      '/api/staging-lightwell': {
+      '/api/lightwell-next': {
         host: `http://127.0.0.1:${process.env.BACKEND_PORT}`,
-        // lightwell-experience backend serves /ping from the root
-        pathRewrite: {
-          '^/api/staging-lightwell': '',
-        },
       },
       '/api/content-sources/': {
         host: `http://127.0.0.1:${process.env.BACKEND_PORT}`,

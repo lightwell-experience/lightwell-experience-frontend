@@ -3,12 +3,12 @@
 apiVersion: v1
 kind: Template
 metadata:
-  name: lightwell-network-ui-frontend
+  name: lightwell-experience-frontend
 objects:
   - apiVersion: cloud.redhat.com/v1alpha1
     kind: Frontend
     metadata:
-      name: lightwell-network-ui
+      name: lightwell-experience
     spec:
       feoConfigEnabled: true
       # TODO: add serviceTiles and searchEntries for lightwell
@@ -16,18 +16,18 @@ objects:
         versions:
           - v1
       envName: ${ENV_NAME}
-      title: LightwellNetworkUI
+      title: LightwellExperience
       deploymentRepo: https://github.com/lightwell-experience/lightwell-experience-frontend
       frontend:
         paths:
-          - /apps/lightwell-network-ui
+          - /apps/lightwell-experience
       image: ${IMAGE}:${IMAGE_TAG}
       pushCacheEnabled: true
 
       module:
-        manifestLocation: '/apps/lightwell-network-ui/fed-mods.json'
+        manifestLocation: '/apps/lightwell-experience/fed-mods.json'
         modules:
-          - id: 'lightwell-network-ui'
+          - id: 'lightwell-experience'
             module: './RootApp'
             routes:
               - pathname: /lightwell-next # temporary onboarding route

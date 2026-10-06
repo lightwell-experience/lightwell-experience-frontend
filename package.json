@@ -1,5 +1,5 @@
 {
-  "name": "lightwell-network-ui-frontend",
+  "name": "lightwell-experience-frontend",
   "version": "1.0.0",
   "private": false,
   "engines": {
@@ -75,6 +75,6 @@
     "typescript": "^5.9.3"
   },
   "insights": {
-    "appname": "lightwell-network-ui"
+    "appname": "lightwell-experience"
   }
 }

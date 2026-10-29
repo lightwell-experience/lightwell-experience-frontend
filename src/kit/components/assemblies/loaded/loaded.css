@@ -1,0 +1,8 @@
+/* LwLoaded — loading surface host (only mounted while !isLoaded).
+ * KitCssScopePlugin already wraps — do not re-scope the theme class.
+ * Host sizes to content (PF text Skeleton), not a full-bleed height slab.
+ */
+
+.lw-c-loaded.lw-m-loading {
+  min-block-size: var(--lw-space--loaded-min-block);
+}

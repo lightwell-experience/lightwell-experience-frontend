@@ -1,0 +1,50 @@
+/* LwMenu — kit composition, co-located CSS (plain .css; no layers yet).
+ * Host = PF Dropdown (pf-v6-c-menu) when unlabeled; labeled uses grouping root.
+ * KitCssScopePlugin already wraps — do not re-scope the theme class.
+ * Gaps / label type from components.config.css.
+ */
+
+.lw-c-menu-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--lw-space--menu-group-gap);
+  max-width: 20rem;
+}
+
+.lw-c-menu-group__label {
+  font-size: var(--lw-font-size--field-label);
+  font-weight: var(--lw-font-weight--field-label);
+  color: var(--lw-color--field-label);
+}
+
+/*
+ * Gap fill: MenuToggle `size="lg"` → `pf-m-display-lg` (Button-parity).
+ * PF ships MenuToggle size `default` | `sm` only. See patternfly-gaps.md.
+ * Mechanism mirrors Button: remap local padding vars + bold weight.
+ * Accent color remaps from Button display-lg are intentionally omitted (size only).
+ */
+.pf-v6-c-menu-toggle.pf-m-display-lg {
+  --pf-v6-c-menu-toggle--PaddingBlockStart: var(
+    --pf-t--global--spacer--control--vertical--spacious
+  );
+  --pf-v6-c-menu-toggle--PaddingBlockEnd: var(--pf-t--global--spacer--control--vertical--spacious);
+  --pf-v6-c-menu-toggle--PaddingInlineStart: var(
+    --pf-t--global--spacer--control--horizontal--spacious
+  );
+  --pf-v6-c-menu-toggle--PaddingInlineEnd: var(
+    --pf-t--global--spacer--control--horizontal--spacious
+  );
+  font-weight: var(--pf-t--global--font--weight--body--bold);
+}
+
+/* Primary / secondary use action spacers (same pattern as MenuToggle `m-small`). */
+.pf-v6-c-menu-toggle.pf-m-primary.pf-m-display-lg,
+.pf-v6-c-menu-toggle.pf-m-secondary.pf-m-display-lg {
+  --pf-v6-c-menu-toggle--PaddingInlineStart: var(
+    --pf-t--global--spacer--action--horizontal--spacious
+  );
+  --pf-v6-c-menu-toggle--PaddingInlineEnd: var(
+    --pf-t--global--spacer--action--horizontal--spacious
+  );
+}

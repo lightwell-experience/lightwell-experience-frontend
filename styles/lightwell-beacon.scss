@@ -1,0 +1,75 @@
+/* Beacon — pipeline, filters, and table */
+
+/* UNUSED — Flex sidebar layout → LwDrawer responsive. Dissolution sweep.
+ * See kit/examples/dissolution-map.md */
+.lightwell-beacon-layout {
+  width: 100%;
+}
+
+.lightwell-status-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.lightwell-status-cell-reason {
+  white-space: normal;
+}
+
+/* UNUSED — FilterSidePanel sidebar → LwDrawer panel. Dissolution sweep.
+ * See kit/examples/dissolution-map.md */
+.lightwell-filter-panel {
+  position: sticky;
+  top: var(--pf-t--global--spacer--md);
+  align-self: flex-start;
+  min-width: 200px;
+  max-width: 220px;
+  max-height: calc(100vh - 100px);
+  padding-right: var(--pf-t--global--spacer--md);
+  overflow-y: auto;
+  border-right: 1px solid var(--pf-t--global--border--color--default);
+}
+
+/* UNUSED — see .lightwell-filter-panel above */
+.lightwell-filter-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: var(--pf-t--global--spacer--md);
+}
+
+.lightwell-filter-count {
+  color: var(--pf-t--global--text--color--link--default);
+}
+
+/* UNUSED — card + flex sizing → LwDataView (no card wrapper). Dissolution sweep.
+ * See kit/examples/dissolution-map.md */
+.lightwell-beacon-table-area {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.lightwell-beacon-table-area > .pf-v6-c-stack {
+  width: 100%;
+}
+
+.lightwell-beacon-table-area .pf-v6-c-card {
+  width: 100%;
+}
+
+.lightwell-cvss-vector {
+  font-family: var(--pf-t--global--font--family--mono);
+  font-size: var(--pf-t--global--font--size--body--sm);
+  max-width: 160px;
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.lightwell-flag-label {
+  margin-right: var(--pf-t--global--spacer--xs);
+}

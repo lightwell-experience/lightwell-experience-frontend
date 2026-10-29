@@ -9,7 +9,7 @@ yarn build         # Only required when setting up for the first time
 yarn start         # or: yarn local (with backend on :8000)
 ```
 
-Open the URL listed in the terminal output (`https://stage.foo.redhat.com:1337/lightwell-next` for example)
+Open the URL listed in the terminal output (`https://stage.foo.redhat.com:1337/lightwell` for example)
 
 ## Lint
 

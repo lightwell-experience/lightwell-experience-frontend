@@ -1,0 +1,4 @@
+/* LwIcon — kit primitive, co-located CSS.
+ * Root host is PatternFly `Icon` — lw-c-icon merges onto that node.
+ * No paint overrides yet. Size defaults are prop-config / call-site.
+ */

@@ -1,0 +1,47 @@
+# Tenant UI namespace — content-sources-frontend / Lightwell
+# Consumed by the kit skill (perspective + Rule 0; replaces visible-scaffolding + outline-first-ui).
+# Canonical home: docs/skills/ — symlinked into .cursor/skills/ and .claude/skills/, see docs/skills/README.md.
+
+tenantName: Lightwell
+
+exportPrefix: lw
+cssPrefix: lightwell
+
+shell:
+  type: external
+  name: insights-chrome
+
+# Kit lives in src/kit/ — inside src/, covered by tsconfig + jest with no extra config.
+# Dissolution: when migration is complete, contents git mv into src/ and kit/ is removed.
+kitRoot: src/kit
+tenantConfig: src/kit/lightwell.config.ts
+tenantPresentationalConfig: src/kit/lightwell.config.css
+
+# Components domain: primitives (base units) + assemblies (slot contracts; use primitives)
+componentsRoot: src/kit/components
+primitivesPath: src/kit/components/primitives
+assembliesPath: src/kit/components/assemblies
+pageFamilyPath: src/kit/components/assemblies/page
+configController: src/kit/components/components.config.ts
+# Presentational track (CSS — not YAML):
+#   lightwell.config.css → components.config.css → assemblies/page/page.config.css → unit *.css
+presentationalConfig: src/kit/components/components.config.css
+pagePresentationalConfig: src/kit/components/assemblies/page/page.config.css
+
+# Barrel imports (with src/ as module root):
+#   import { LwPageHeader } from 'kit/components/assemblies'
+#   import { LwLabel }      from 'kit/components/primitives'
+
+# Config cascade:
+#   Prop: lightwell.config.ts → components.config.ts → Lw* roots
+#   Presentational: lightwell.config.css → components.config.css → page.config.css → unit CSS
+# Anti-God: LwPageHeader is the only page-header assembly — hero is surface pre-config
+# (`hero` prop → PF Hero host + two classes), not a sibling assembly or second layout API.
+
+architecture:
+  file: src/kit/README.md
+
+referenceTenant:
+  name: Hummingbird
+  exportPrefix: Hb
+  cssPrefix: hb

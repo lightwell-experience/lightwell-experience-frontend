@@ -1,0 +1,4 @@
+/* LwContent — kit primitive, co-located CSS.
+ * Root host is PF Content — lw-c-content merges onto that node.
+ * KitCssScopePlugin wraps this in html.lightwell-v1-theme { ... } — do not re-state.
+ */

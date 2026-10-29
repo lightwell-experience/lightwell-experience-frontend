@@ -1,0 +1,82 @@
+/* Shared page-family chrome slots (title stack + N-slot rows).
+ * KitCssScopePlugin already wraps — do not re-scope the theme class.
+ * Tokens from lightwell.config.css / page.config.css — units consume only.
+ *
+ * Composition: PageChromeSlots → N × PageChromeSlot → optional PageChromeSlotFooter.
+ * Hosts may stack multiple `.lw-c-page-header-chrome-slots` rows.
+ */
+
+.lw-c-page-header-chrome-slots {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  gap: var(--lw-space--page-chrome-gap);
+  flex-direction: column;
+  row-gap: calc(var(--lw-space--page-chrome-gap-mobile) * 4);
+  justify-content: stretch;
+  flex-wrap: wrap;
+
+  @media (min-width: 62rem) {
+    justify-content: start;
+    flex-direction: row;
+  }
+
+  .lw-c-menu .lw-c-menu-group {
+    gap: 1lh;
+  }
+
+  .pf-v6-c-empty-state {
+    --pf-v6-c-empty-state--PaddingBlockStart: 0;
+    --pf-v6-c-empty-state--PaddingBlockEnd: 0;
+  }
+}
+
+.lw-c-page-header.pf-v6-c-hero {
+  .lw-c-page-header-chrome-slot:first-child {
+    flex: 1;
+  }
+
+  .lw-c-page-header-chrome-slot + .lw-c-page-header-chrome-slot {
+    @media (min-width: 62rem) {
+      flex: none;
+      flex-shrink: 1;
+    }
+  }
+}
+
+.lw-c-page-header-chrome-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: var(--lw-space--page-chrome-gap);
+  row-gap: var(--lw-space--page-chrome-gap);
+
+  @media (min-width: 62rem) {
+    min-width: var(--lw-base-min-width);
+  }
+}
+
+.lw-c-page-header-chrome-slot + .lw-c-page-header-chrome-slot {
+  min-width: 0;
+  align-items: center;
+  justify-content: start;
+
+  @media (min-width: 62rem) {
+    flex-grow: 1;
+    min-width: 0;
+  }
+}
+
+.lw-c-page-header-chrome-slot__footer {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  align-self: stretch;
+  gap: var(--pf-t--global--spacer--lg);
+  margin-block-start: auto;
+  justify-content: end;
+
+  button {
+    align-self: start;
+  }
+}

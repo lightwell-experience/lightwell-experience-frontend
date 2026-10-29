@@ -1,0 +1,94 @@
+/*
+ * LwDataView — layout baseline.
+ * KitCssScopePlugin wraps this in html.lightwell-v1-theme at build time.
+ *
+ * Drawer integration: when `panel` is provided, LwDrawer wraps the table and
+ * the empty state together (toolbar and footer are siblings above/below the
+ * drawer). The DrawerContentBody holds both, stacked via flex column below,
+ * and must forward horizontal overflow so sticky-column scroll wrappers work
+ * correctly.
+ *
+ * Selectors scoped under `.lw-c-data-view` so rules only apply to the
+ * drawer inside this assembly, not other drawers in the page.
+ */
+
+.lw-c-data-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lw-base-padding);
+}
+
+.lw-c-data-view .pf-v6-c-drawer {
+  overflow-x: clip;
+}
+
+.lw-c-data-view .pf-v6-c-drawer__main {
+  overflow: clip;
+}
+
+.lw-c-data-view .pf-v6-c-drawer__splitter.pf-m-vertical {
+  inset-block-start: 0;
+  inset-block-end: 0;
+}
+
+.lw-c-data-view .pf-v6-c-drawer__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lw-base-padding);
+
+  .pf-v6-c-scroll-outer-wrapper,
+  .lw-c-empty-state {
+    flex: 1;
+  }
+}
+
+.lw-c-data-view .pf-v6-c-drawer__panel {
+  max-height: 80dvh;
+  position: sticky;
+  inset-block-start: 1rem;
+  align-items: center;
+  align-self: start;
+}
+
+.lw-c-data-view .pf-v6-c-scroll-outer-wrapper,
+.lw-c-data-view .pf-v6-c-scroll-inner-wrapper {
+  overflow: auto;
+}
+
+/*
+ * PF's own `.pf-v6-c-table` sets `width: 100%` unconditionally
+ * (table-scrollable.css), which shrinks columns to fit the viewport instead
+ * of letting the table overflow its scroll wrapper. Only matters once a
+ * table is actually inside the scroll wrappers above (isSticky) — scoping to
+ * the wrapper, not `.lw-c-data-view` generally, keeps this off tables that
+ * don't opt into sticky/scrollable columns. `min-width: 100%` keeps it
+ * filling the available width when content is narrower than the container.
+ */
+.lw-c-data-view .pf-v6-c-scroll-inner-wrapper .pf-v6-c-table {
+  width: max-content;
+  min-width: 100%;
+}
+
+/*
+ * Card wrapper (D19) — CardHeader hosts the built-in toolbar, CardBody hosts
+ * the table. PF's Toolbar carries its own bottom padding (for when a toolbar
+ * is a page-level standalone element) — CardHeader already provides the
+ * right boundary to CardBody below it, so the toolbar's own padding just
+ * adds unwanted extra space. Every carded consumer hits this, so it's fixed
+ * here rather than per-page.
+ */
+.lw-c-data-view-card .pf-v6-c-card__header .pf-v6-c-toolbar {
+  --pf-v6-c-toolbar--PaddingBlockEnd: 0;
+}
+
+/*
+ * PF's own `.pf-v6-c-card` base rule sets `overflow: auto` unconditionally
+ * (card.css) — a scrolling context on the Card breaks the drawer panel's
+ * `position: sticky` above (sticky resolves against the nearest scrolling
+ * ancestor, which becomes the Card instead of the page). Diagnosed, not
+ * guessed: confirmed against PF's source before overriding. `initial` (not
+ * `visible`) restores the actual default rather than asserting a new one.
+ */
+.lw-c-data-view-card {
+  overflow: initial;
+}

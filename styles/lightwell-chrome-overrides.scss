@@ -1,0 +1,23 @@
+// Lightwell chrome overrides — atmosphere + plain Page shell.
+// Requires `html.lightwell-v1-theme` (LightwellApp) and `.pf-v6-c-page.pf-m-plain`
+// (Chrome Page isPlain on stage/prod-after-promote, or LightwellApp bridge locally).
+
+// Keep Chrome-owned nav hidden while it lives in the pf-v6-c-page grid root
+// (its default Chrome home). LightwellLayout.tsx useEffect moves it into
+// pf-v6-c-page__main; once it is no longer a direct child of the grid root
+// this rule stops matching and the element becomes visible.
+.pf-v6-c-page > .chr-c-page-subnav {
+  display: none;
+}
+
+// LightwellLayout moves the Chrome subnav into page__main. Hide the empty
+// wrapper while navigation is unavailable so it does not add a flex gap. Use
+// the Lightwell page class instead of pf-m-plain because local/dev Chrome may
+// add that modifier only after LightwellLayout has already moved the subnav.
+.pf-v6-c-page.chr-c-page--lightwell .pf-v6-c-page__main > .chr-c-page-subnav:empty {
+  display: none;
+}
+
+.chr-c-link-service-toggle {
+  margin-right: 0;
+}

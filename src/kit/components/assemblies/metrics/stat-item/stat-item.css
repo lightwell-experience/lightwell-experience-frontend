@@ -1,0 +1,35 @@
+/* LwStatItem — metrics family assembly, co-located CSS.
+ * No PF host: emits a two-element block (value + label).
+ * Parent is responsible for Flex / alignment context.
+ */
+
+.lw-c-stat-item {
+  text-align: center;
+}
+
+.lw-c-stat-item__value {
+  display: block;
+  font-size: 2rem;
+  font-weight: var(--pf-t--global--font--weight--heading--bold);
+  line-height: 1.2;
+}
+
+.lw-c-stat-item__label {
+  display: block;
+  font-size: var(--pf-t--global--font--size--body--sm);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+/* Semantic variant map — value color only; label stays subtle */
+.lw-c-stat-item--danger .lw-c-stat-item__value {
+  color: var(--pf-t--global--color--status--danger--default);
+}
+.lw-c-stat-item--warning .lw-c-stat-item__value {
+  color: var(--pf-t--global--color--status--warning--default);
+}
+.lw-c-stat-item--success .lw-c-stat-item__value {
+  color: var(--pf-t--global--color--status--success--default);
+}
+.lw-c-stat-item--info .lw-c-stat-item__value {
+  color: var(--pf-t--global--color--status--info--default);
+}

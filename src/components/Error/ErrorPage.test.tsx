@@ -1,41 +1,43 @@
-import { render, screen } from '@testing-library/react';
-
+import { render } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { ErrorPage } from './ErrorPage';
 
-const errorText = 'error';
-const ThrowsError = () => {
+const errorText = 'Oh no!';
+const WillError = () => {
   throw new Error(errorText);
 };
 
-const successText = 'success';
-const RendersSuccess = () => <p>{successText}</p>;
+const WontErrorText = 'Oh Yeah!';
+const WontError = () => <h1>{WontErrorText}</h1>;
 
-it('catch any error in children and show it on the dom', () => {
+it('Catch any error in children and show it on the dom', () => {
+  // See reference: https://til.hashrocket.com/posts/hrhejhqg2n-turn-off-console-error-messages-in-a-test
   const originalError = console.error;
   console.error = jest.fn();
-
-  render(
-    <ErrorPage>
-      <ThrowsError />
-    </ErrorPage>,
+  const { queryByText } = render(
+    <div>
+      <ErrorPage>
+        <WillError />
+      </ErrorPage>
+    </div>,
+    { wrapper: BrowserRouter },
   );
 
-  expect(
-    screen.getByText('There was a problem trying to process your request'),
-  ).toBeInTheDocument();
-  expect(screen.queryByText(errorText)).not.toBeInTheDocument();
+  expect(queryByText('There was a problem trying to process your request')).toBeInTheDocument();
+  expect(queryByText(errorText)).not.toBeInTheDocument();
   console.error = originalError;
 });
 
-it('renders children when there is no error', () => {
-  render(
-    <ErrorPage>
-      <RendersSuccess />
-    </ErrorPage>,
+it('Render without an error page shown', () => {
+  const { queryByText } = render(
+    <div>
+      <ErrorPage>
+        <WontError />
+      </ErrorPage>
+    </div>,
+    { wrapper: BrowserRouter },
   );
 
-  expect(screen.getByText(successText)).toBeInTheDocument();
-  expect(
-    screen.queryByText('There was a problem trying to process your request'),
-  ).not.toBeInTheDocument();
+  expect(queryByText(WontErrorText)).toBeInTheDocument();
+  expect(queryByText('There was a problem trying to process your request')).not.toBeInTheDocument();
 });

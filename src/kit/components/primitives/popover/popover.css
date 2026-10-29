@@ -1,0 +1,4 @@
+/* LwPopover — kit primitive, co-located CSS (plain .css; no layers yet).
+ * Root host is PatternFly `Popover` — lw-c-popover merges onto that node (logic harness, not a wrap).
+ * No Lightwell overrides yet. Add token-mapped styles here as the baseline is decided.
+ */

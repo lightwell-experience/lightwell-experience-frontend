@@ -1,0 +1,36 @@
+/* KitCssScopePlugin wraps this file in `html.lightwell-v1-theme { … }`.
+ * Use `& { }` so props land on that root (bare props at file root are invalid CSS,
+ * and a brace-free sheet is skipped by the plugin entirely). */
+
+& {
+  /* Responsive base padding — mobile-first.
+   * Shared at mobile by page-header (plain and hero surfaces).
+   * Above mobile each component picks up its own value while
+   * still referencing these as floor/anchor values. */
+  --lw-base-padding: var(--pf-t--global--spacer--md);
+  --lw-base-padding--tablet: var(--pf-t--global--spacer--lg);
+  --lw-base-padding--desktop: var(--pf-t--global--spacer--xl);
+
+  /* Floor for textual content width so flex items can wrap before crushing copy. */
+  --lw-base-min-width: 38ch;
+  --lw-base-max-width: 52ch;
+
+  /*
+   * Match-status chromatic scale — Lens donut / MatchSummaryStats.
+   * Also aliased under stepIcon (exact / partial / none) for metrics stepper.
+   */
+  --lw-color--match-status--exact: var(--pf-t--global--border--color--nonstatus--green--default);
+  --lw-color--match-status--partial: var(--pf-t--global--border--color--nonstatus--yellow--default);
+  --lw-color--match-status--none: var(--pf-t--global--border--color--nonstatus--gray--default);
+
+  /* Step-icon stubs — distinct fills for call-site overrides (e.g. Beacon pipeline). */
+  --lw-color--step-icon--blue: var(--pf-t--global--border--color--nonstatus--blue--default);
+  --lw-color--step-icon--orange: var(--pf-t--global--border--color--nonstatus--orange--default);
+  --lw-color--step-icon--red: var(--pf-t--global--color--status--danger--default);
+  --lw-color--step-icon--purple: var(--pf-t--global--border--color--nonstatus--purple--default);
+  --lw-color--step-icon--teal: var(--pf-t--global--border--color--nonstatus--teal--default);
+
+  /* Unknown-ecosystem bar fallbacks (absorbed from Lens chartTheme purple tokens). */
+  --lw-color--match-status-fallback--exact: var(--pf-v6-chart-color-purple-300);
+  --lw-color--match-status-fallback--partial: var(--pf-v6-chart-color-purple-100);
+}

@@ -1,0 +1,152 @@
+/* KitCssScopePlugin wraps this file in `html.lightwell-v1-theme { … }`.
+ * Write rules for that root / its descendants — do not re-scope to `.lightwell-v1-theme`. */
+
+.pf-v6-c-page.pf-m-plain {
+  .pf-v6-c-page__main-container {
+    display: flex;
+    flex: 1;
+    align-items: stretch;
+    margin: 0;
+    padding-inline: var(--lw-base--page--inline-padding);
+    padding-block: var(--lw-base--page--block-padding);
+    background-color: transparent;
+    backdrop-filter: none;
+    box-shadow: none;
+    border-radius: 0;
+    border: none;
+  }
+
+  .pf-v6-c-page__drawer {
+    flex: 1;
+    max-width: 138rem; /* 2208px */
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .pf-v6-c-page__main,
+  .pf-v6-c-page__main-container,
+  .pf-v6-c-page__drawer {
+    outline: none; /* Removes focus outline */
+  }
+
+  .pf-v6-c-page__main,
+  .pf-v6-c-page__main-container {
+    overflow-x: unset;
+    overflow-y: unset;
+  }
+
+  .pf-v6-c-page__main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pf-t--global--spacer--lg);
+  }
+
+  .pf-v6-c-page__main-section {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+.pf-v6-c-multiple-file-upload__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--lg);
+}
+
+.pf-v6-c-page__drawer .pf-v6-c-drawer__content {
+  /* overflow: visible;; */
+}
+
+.pf-v6-c-page__main-breadcrumb.chr-c-breadcrumbs > .pf-v6-u-display-flex,
+.pf-v6-c-page__main-breadcrumb.chr-c-breadcrumbs .pf-v6-c-breadcrumb {
+  padding-block: 0 !important;
+}
+
+.pf-v6-c-breadcrumb__item {
+  padding-block: 0 !important;
+}
+
+.pf-v6-c-page__main-breadcrumb.chr-c-breadcrumbs > .pf-v6-u-display-flex {
+  padding-inline: var(--pf-t--global--spacer--md);
+  align-items: center;
+}
+
+.chr-c-page-subnav {
+  padding-inline: var(--pf-t--global--spacer--sm);
+}
+
+/* ─── Sticky-column table support ──────────────────────────────────────────
+ * Any sticky-column PF table needs these — not scoped to one assembly or
+ * page. PF's defaults don't give sticky cells / scroll wrappers rounded
+ * corners matching the surrounding surface. Moved here from a page-local
+ * stylesheet (Beacon) — it was never Beacon-specific; it's what "isSticky"
+ * on any table requires, tenant-wide, every time. */
+
+/* min-width alone doesn't effectively clamp the width of the sticky cell, so we need to override it. */
+.pf-v6-c-table {
+  --pf-v6-c-table__sticky-cell--BorderRadius: var(--pf-t--global--border--radius--medium);
+}
+
+.pf-v6-c-table .pf-v6-c-table__sticky-cell {
+  width: var(--pf-v6-c-table__sticky-cell--MinWidth);
+}
+
+/* the scroll inner wrapper should have a border radius to match rounded border styles */
+.pf-v6-c-table__thead .pf-v6-c-table__tr:first-child {
+  .pf-v6-c-table__sticky-cell.pf-m-border-right,
+  .pf-v6-c-table__sticky-cell.pf-m-border-right::before {
+    border-start-end-radius: var(--pf-v6-c-table__sticky-cell--BorderRadius);
+  }
+}
+
+.pf-v6-c-table__tbody .pf-v6-c-table__tr:last-child {
+  .pf-v6-c-table__sticky-cell.pf-m-border-right,
+  .pf-v6-c-table__sticky-cell.pf-m-border-right::before {
+    border-end-end-radius: var(--pf-v6-c-table__sticky-cell--BorderRadius);
+  }
+}
+
+/* the scroll outer wrapper should have a border radius to match rounded border styles */
+.pf-v6-c-scroll-outer-wrapper {
+  border-radius: var(--pf-t--global--border--radius--medium);
+}
+
+/* Responsive grid vs table: `gridBreakPoint="grid-lg"` keeps `.pf-m-grid-lg` on
+ * the element at every width. PF only applies grid layout inside this
+ * container query (see table-grid.css — `:root` is named
+ * `pf-v6-contain-table`, lg = 62rem). Mirror that query so sticky chrome
+ * (opaque fill, stickiness, divider) drops while grid-lg layout is active.
+ *
+ * KNOWN (LWLP-1806): Only grid-lg @ 62rem is covered. Container queries
+ * cannot use --pf-t--global--breakpoint--*, so rem thresholds stay
+ * duplicated with PF. Other pf-m-grid-* breakpoints are not patched; a
+ * global 62rem-only rule would clear sticky chrome incorrectly for grid-md
+ * (etc.). When a kit assembly owns gridBreakPoint generically, pair each PF
+ * grid modifier with its table-grid.css rem, or detect active grid layout
+ * once for all breakpoints. */
+@container pf-v6-contain-table (max-width: calc(62rem - 1px)) {
+  .pf-v6-c-table.pf-m-grid-lg .pf-v6-c-table__sticky-cell {
+    --pf-v6-c-table__sticky-cell--BackgroundColor: transparent;
+    position: static;
+    inset-inline-start: auto;
+    inset-inline-end: auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  .pf-v6-c-table.pf-m-grid-lg .pf-v6-c-table__sticky-cell.pf-m-border-right::before {
+    --pf-v6-c-table--cell--m-border-right--before--BorderInlineEndWidth: 0;
+  }
+}
+
+/* Currently dormant (data-view/ROADMAP.md D26): `LwDataView`'s `isSticky`
+ * deliberately does NOT set `isStickyHeader` on the table anymore — sticky
+ * header needs a height-bounded scroll context to mean anything, and table
+ * height isn't bounded yet, so `.pf-m-sticky-header` never gets applied
+ * today. Kept, not deleted, for when that refactor re-enables sticky
+ * header: the solid header background PF defaults to is a separate,
+ * deferred visual change this override already accounts for. Tenant-wide:
+ * any sticky-header table would hit the same PF default. */
+.pf-v6-c-table.pf-m-sticky-header {
+  --pf-v6-c-table--m-sticky-header--BackgroundColor: transparent;
+}

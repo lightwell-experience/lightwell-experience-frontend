@@ -1,0 +1,36 @@
+/**
+ * Page family — presentational config (CSS, not YAML).
+ *
+ * Cascade: components.config.css → this file → page-header / page-chrome-slots.
+ *
+ * Padding contract:
+ *   - LwPageHeader hero surface → PF Hero defaults (do not override Padding* tokens)
+ *   - LwPageHeader plain → mirrors those defaults via --lw-space--page-* so titles
+ *     do not jump plain ↔ hero routes
+ *
+ * When PF changes Hero padding defaults, update --lw-space--page-* here;
+ * plain header consumes these tokens (do not re-declare in unit CSS).
+ *
+ * KitCssScopePlugin wraps — use `& { }` for host-level tokens.
+ */
+
+& {
+  /* Mirror PF Hero --Padding* defaults (spacer--3xl). */
+  --lw-space--page-inline: var(--pf-t--global--spacer--3xl);
+  --lw-space--page-block: var(--pf-t--global--spacer--3xl);
+
+  /* Gap between primary | secondary chrome slots (and title-stack rhythm).
+   * Mobile-first: *-mobile is the floor; default is the roomier page chrome gap. */
+  --lw-space--page-chrome-gap-mobile: var(--lw-base-padding);
+  --lw-space--page-chrome-gap: var(--pf-t--global--spacer--xl);
+
+  /*
+   * Floor when hero composes ≥2 chrome-slot rows (title|card above, metrics below).
+   * Gives the open mid-column air from the after-state composition.
+   */
+  --lw-space--page-hero-min-block: 22rem;
+
+  /* Page title = configured title h1 (domain tokens from components.config.css). */
+  --lw-font-size--page-title: var(--lw-font-size--title--h1);
+  --lw-font-weight--page-title: var(--lw-font-weight--title--h1);
+}

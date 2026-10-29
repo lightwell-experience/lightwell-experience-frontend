@@ -1,0 +1,4 @@
+/* LwPagination — kit primitive, co-located CSS.
+ * Root host is PF Pagination — lw-c-pagination merges onto that node.
+ * KitCssScopePlugin wraps this in html.lightwell-v1-theme { ... } — do not re-state.
+ */

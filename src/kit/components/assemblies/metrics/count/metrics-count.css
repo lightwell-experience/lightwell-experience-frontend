@@ -1,0 +1,50 @@
+/* LwMetricsCount — plain div host; layout owned here, not in PF Flex props.
+ * KitCssScopePlugin already wraps — do not re-scope the theme class.
+ */
+
+.lw-c-metrics-count {
+  --lw-metrics-count-bar-color: transparent;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+  text-align: center;
+}
+
+.lw-c-metrics-count.lw-m-row {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--pf-t--global--spacer--md);
+  text-align: start;
+}
+
+.lw-c-metrics-count__value {
+  color: var(--pf-t--global--text--color--regular);
+}
+
+.lw-c-metrics-count__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--xs);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.lw-c-metrics-count__bar {
+  display: block;
+  width: 2.5rem;
+  height: 0.25rem;
+  border-radius: var(--pf-t--global--border--radius--pill);
+  background-color: var(--lw-metrics-count-bar-color);
+}
+
+.lw-c-metrics-count.lw-m-row .lw-c-metrics-count__bar {
+  width: 1.5rem;
+}
+
+.lw-c-metrics-count__help {
+  display: inline-flex;
+  line-height: 0;
+  color: var(--pf-t--global--text--color--subtle);
+  cursor: help;
+}

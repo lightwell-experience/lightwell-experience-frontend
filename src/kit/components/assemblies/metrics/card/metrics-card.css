@@ -1,0 +1,36 @@
+/* LwMetricsCard — LwCard host.
+ * KitCssScopePlugin already wraps — do not re-scope the theme class.
+ *
+ * Floor is metrics-scale (not prose --lw-base-min-width / 38ch). Second chrome
+ * slot allows min-width: 0; without a floor the card collapses while loading.
+ *
+ * Count row layout is owned here — call sites pass LwMetricsCount via items /
+ * children; do not wrap counts in a Flex at the call site.
+ */
+
+.lw-c-metrics-card {
+  --lw-space--metrics-card-min-inline: 20rem;
+
+  /* Column so header + body stack. Row flex + overflow:auto clipped the
+   * body beside the header (Status Summary looked empty). */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--pf-t--global--spacer--lg);
+}
+
+/* Apply floor only when the viewport can accommodate it.
+ * Below this breakpoint the card shrinks with the layout — no forced minimum. */
+@media (min-width: 36rem) {
+  .lw-c-metrics-card {
+    min-width: var(--lw-space--metrics-card-min-inline);
+  }
+}
+
+.lw-c-metrics-card > .pf-v6-c-card__body {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  align-items: start;
+  gap: var(--pf-t--global--spacer--lg);
+}

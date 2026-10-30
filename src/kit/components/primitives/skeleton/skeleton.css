@@ -1,0 +1,4 @@
+/* LwSkeleton — kit primitive, co-located CSS (plain .css; no layers yet).
+ * Root host is PatternFly `Skeleton` — lw-c-skeleton merges onto that node (logic harness, not a wrap).
+ * No Lightwell overrides yet. Add token-mapped styles here as the baseline is decided.
+ */

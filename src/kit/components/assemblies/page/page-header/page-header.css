@@ -1,0 +1,50 @@
+/* LwPageHeader — one page header; hero is surface pre-config.
+ *
+ * Plain:  .lw-c-page-header on Flex (padding from page.config.css).
+ * Hero:   .lw-c-page-header.lw-c-page-hero on PF Hero — do not override Hero padding.
+ *
+ * Base support only — declare padding / flex / gap. Do not encode
+ * multi-row chrome policy in :has / :nth-child combinators.
+ */
+
+.lw-c-page-title-stack {
+  --pf-v6-c-content--FontSize: var(--lw-font-size--title--copy);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--lg);
+  row-gap: var(--pf-t--global--spacer--lg);
+  text-wrap: balance;
+
+  @media (min-width: 48rem) {
+    min-width: var(--lw-base-min-width);
+    max-width: var(--lw-base-max-width);
+  }
+
+  .lw-c-icon {
+    width: auto;
+    height: 1rem;
+  }
+}
+
+.lw-c-page-title-stack__title {
+  display: flex;
+  align-items: start;
+  gap: var(--pf-t--global--spacer--lg);
+}
+
+.lw-c-page-header {
+  padding-inline: var(--lw-base--page-header--inline-padding);
+  padding-block: var(--lw-base--page-header--block-padding);
+}
+
+.lw-c-page-header {
+  .pf-v6-c-hero__body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: var(--lw-space--page-chrome-gap);
+    flex-wrap: wrap;
+  }
+}

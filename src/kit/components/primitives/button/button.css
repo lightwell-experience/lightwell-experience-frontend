@@ -1,0 +1,4 @@
+/* LwButton — kit primitive, co-located CSS (plain .css; no layers yet).
+ * Root host is PatternFly `Button` — lw-c-button merges onto that node (logic harness, not a wrap).
+ * No Lightwell overrides yet. Add token-mapped styles here as the baseline is decided.
+ */

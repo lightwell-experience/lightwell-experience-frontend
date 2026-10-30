@@ -1,0 +1,8 @@
+/* LwAlert — kit primitive, co-located CSS.
+ * Root host is PatternFly `Alert` — lw-c-alert merges onto that node.
+ * Edit presentation here (tokens / layout); prop defaults stay in components.config.ts.
+ */
+
+.lw-c-alert {
+  /* Presentational baseline — extend as the sensitive-data / alert look is decided. */
+}

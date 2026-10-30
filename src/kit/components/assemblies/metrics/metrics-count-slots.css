@@ -1,0 +1,15 @@
+/* LwMetricsCountSlots — equal-column auto-grid for LwMetricsCount cells.
+ * Parallel to PageChromeSlots at the page layer.
+ * KitCssScopePlugin already wraps — do not re-scope the theme class.
+ *
+ * auto-fit: collapses empty tracks so N items always share width in N equal
+ * columns. 5rem min keeps columns usable at any realistic card width.
+ */
+
+.lw-c-metrics-count-slots {
+  display: flex;
+  gap: var(--pf-t--global--spacer--lg);
+  align-items: start;
+  flex: 1;
+  justify-content: space-evenly;
+}

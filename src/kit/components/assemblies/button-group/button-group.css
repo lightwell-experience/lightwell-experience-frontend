@@ -1,0 +1,53 @@
+/* LwButtonGroup — layout row for button-like controls (LwButton, LwMenu, …).
+ * KitCssScopePlugin already wraps — do not re-scope the theme class.
+ * Gap from components.config.css.
+ *
+ * Labels and inline clipboard copies in this row share default button
+ * padding + body font so Connect / version / URL controls read as one set.
+ */
+
+.lw-c-button-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--lw-space--button-group-gap);
+}
+
+.lw-c-button-group .pf-v6-c-label {
+  --pf-v6-c-label--FontSize: var(--pf-t--global--font--size--body--default);
+  --pf-v6-c-label--PaddingBlockStart: var(--pf-t--global--spacer--control--vertical--default);
+  --pf-v6-c-label--PaddingBlockEnd: var(--pf-t--global--spacer--control--vertical--default);
+  --pf-v6-c-label--PaddingInlineStart: var(--pf-t--global--spacer--action--horizontal--default);
+  --pf-v6-c-label--PaddingInlineEnd: var(--pf-t--global--spacer--action--horizontal--default);
+  --pf-v6-c-label--m-compact--FontSize: var(--pf-t--global--font--size--body--default);
+  --pf-v6-c-label--m-compact--PaddingBlockStart: var(
+    --pf-t--global--spacer--control--vertical--default
+  );
+  --pf-v6-c-label--m-compact--PaddingBlockEnd: var(
+    --pf-t--global--spacer--control--vertical--default
+  );
+  --pf-v6-c-label--m-compact--PaddingInlineStart: var(
+    --pf-t--global--spacer--action--horizontal--default
+  );
+  --pf-v6-c-label--m-compact--PaddingInlineEnd: var(
+    --pf-t--global--spacer--action--horizontal--default
+  );
+  --pf-v6-c-label__icon--FontSize: var(--pf-t--global--icon--size--font--body--default);
+}
+
+.lw-c-button-group .lw-c-clipboard-copy.pf-m-inline {
+  --pf-v6-c-clipboard-copy--m-inline--PaddingInlineStart: var(
+    --pf-t--global--spacer--action--horizontal--default
+  );
+  --pf-v6-c-clipboard-copy--m-inline--PaddingInlineEnd: var(
+    --pf-t--global--spacer--action--horizontal--default
+  );
+  --pf-v6-c-clipboard-copy__text--m-code--FontSize: var(--pf-t--global--font--size--body--default);
+  display: inline-flex;
+  align-items: center;
+  padding-block-start: var(--pf-t--global--spacer--control--vertical--default);
+  padding-block-end: var(--pf-t--global--spacer--control--vertical--default);
+  padding-inline-start: var(--pf-v6-c-clipboard-copy--m-inline--PaddingInlineStart);
+  padding-inline-end: var(--pf-v6-c-clipboard-copy--m-inline--PaddingInlineEnd);
+  font-size: var(--pf-t--global--font--size--body--default);
+}

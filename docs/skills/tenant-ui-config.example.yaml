@@ -1,0 +1,36 @@
+# Copy to tenant-ui-config.yaml and fill in. Agents: if exportPrefix is null/unset, STOP and ask.
+
+tenantName: null # e.g. Lightwell
+exportPrefix: null # e.g. lw — STOP if unset before shared kit work
+cssPrefix: null # e.g. lightwell
+
+shell:
+  type: null # external | app-owned
+  name: null # e.g. insights-chrome
+
+# Kit root — recommended: src/kit/ (inside src/, no extra tsconfig/jest config needed).
+# Dissolution: git mv contents into src/ when migration completes; remove kit/.
+kitRoot: null # e.g. src/kit
+tenantConfig: null # e.g. src/kit/lightwell.config.ts — cascade top
+
+# Components domain
+componentsRoot: null # e.g. src/kit/components
+primitivesPath: null # e.g. src/kit/components/primitives — base units (one PF host)
+assembliesPath: null # e.g. src/kit/components/assemblies — slot contracts; use primitives
+pageFamilyPath: null # e.g. src/kit/components/assemblies/page
+configController: null # e.g. src/kit/components/components.config.ts
+presentationalConfig: null # e.g. src/kit/components/components.config.css
+pagePresentationalConfig: null # e.g. src/kit/components/assemblies/page/page.config.css
+
+# Config cascade:
+#   Prop: tenantConfig → configController → Lw* roots
+#   Presentational: presentationalConfig → pagePresentationalConfig → unit CSS (no YAML)
+
+architecture:
+  file: null # e.g. ARCHITECTURE.md
+  section: null # e.g. lightwell-components
+
+referenceTenant:
+  name: null
+  exportPrefix: null
+  cssPrefix: null

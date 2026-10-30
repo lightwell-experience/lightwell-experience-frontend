@@ -1,0 +1,76 @@
+/**
+ * Lightwell components domain — presentational baseline.
+ *
+ * Cascade: lightwell.config.css → this file → assemblies/page/page.config.css → unit *.css
+ *
+ * KitCssScopePlugin wraps this file in `html.lightwell-v1-theme { … }`.
+ * Use `& { }` for host-level tokens — never `:root`, bare props, or
+ * re-stating `html.lightwell-v1-theme` (that double-nests and matches nothing).
+ *
+ * Units consume these via `var(--lw-*)` — do not hardcode PF spacer/type tokens
+ * in co-located CSS when a domain token already exists.
+ *
+ * PatternFly v6 breakpoints — SCSS only (`$pf-v6-global--breakpoint--*`).
+ * `@media` cannot use those vars or `--pf-t--global--breakpoint--*`; copy the rem.
+ *
+ *   width:
+ *     xs:  0
+ *     sm:  36rem      576px
+ *     md:  48rem      768px
+ *     lg:  62rem      992px
+ *     xl:  75rem      1200px
+ *     2xl: 90.625rem  1450px
+ *
+ *   height (`$pf-v6-global--height-breakpoint--*`):
+ *     sm:  0
+ *     md:  40rem      640px
+ *     lg:  48rem      768px
+ *     xl:  60rem      960px
+ *     2xl: 80rem      1280px
+ */
+
+& {
+  /* Viewport breakpoints — mirrors lwBreakpoints in components.config.ts (TS track).
+   * @media queries must use the raw rem values (cannot use CSS vars).
+   * These custom properties document the contract and are available for
+   * calc() or future @container queries on themed elements. */
+  --lw-breakpoint--sm: 36rem;
+  --lw-breakpoint--md: 48rem;
+  --lw-breakpoint--lg: 62rem;
+  --lw-breakpoint--xl: 75rem;
+  --lw-breakpoint--2xl: 90.625rem;
+
+  /* LwTitle — h1 size/weight; call-site headingLevel selects the matching token. */
+  --lw-font-size--title--h1: var(--pf-t--global--font--size--3xl);
+  --lw-font-weight--title--h1: var(--pf-t--global--font--weight--heading--bold);
+  --lw-font-size--title--copy: var(--pf-t--global--font--size--md);
+
+  /* LwMenu field label */
+  --lw-font-size--field-label: var(--pf-t--global--font--size--body--sm);
+  --lw-font-weight--field-label: var(--pf-t--global--font--weight--body--bold);
+  --lw-color--field-label: var(--pf-t--global--text--color--regular);
+
+  /* Base page gaps */
+  --lw-base--page--inline-padding: var(--pf-t--global--spacer--lg);
+  --lw-base--page--block-padding: var(--pf-t--global--spacer--lg);
+
+  --lw-base--page-header--inline-padding: var(--pf-t--global--spacer--2xl);
+  --lw-base--page-header--block-padding: var(--pf-t--global--spacer--2xl);
+
+  /* xl */
+  @media (min-width: 48rem) {
+    --lw-base--page--inline-padding: var(--pf-t--global--spacer--2xl);
+    --lw-base--page--block-padding: var(--pf-t--global--spacer--xl);
+
+    --lw-base--page-header--inline-padding: var(--pf-t--global--spacer--3xl);
+    --lw-base--page-header--block-padding: var(--pf-t--global--spacer--3xl);
+  }
+
+  /* Shared control gaps */
+  --lw-space--menu-group-gap: var(--pf-t--global--spacer--sm);
+  --lw-space--button-group-gap: var(--pf-t--global--spacer--sm);
+
+  /* LwLoaded — min-block-size while loading so the skeleton has a visible target.
+   * Sized to a count-cell skeleton stack (3xl value + sm label + gap), not a full slab. */
+  --lw-space--loaded-min-block: 5rem;
+}

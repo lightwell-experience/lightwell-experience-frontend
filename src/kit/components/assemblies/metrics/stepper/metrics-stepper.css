@@ -1,0 +1,133 @@
+/* LwMetricsStepper — PF ProgressStepper harness (logic wrap, not a DOM wrap).
+ * KitCssScopePlugin already wraps — do not re-scope the theme class.
+ *
+ * Structure (variant / connector / alignment) stays PatternFly. Compact is not used.
+ * Icon fills: call-site sets `steps[].color` → `--lw-metrics-step-icon-bg`
+ * from `lightwellConfig.colors.stepIcon` (`.lw-m-color`).
+ * Hydrate motion: whole band reveals left → right (clip-path). No opacity fades.
+ * Tooltips target the icon via `__icon-trigger` / `__icon-hit`.
+ *
+ * Step title (base support): hydrated = column stack (count above label).
+ * Count: larger/bold type. Label: icon-colored border-block-end; hidden below xl
+ * (`75rem`) so narrow columns do not shatter labels — show count-only until then.
+ * Count hosts PF Truncate (container / resize) — min-width: 0 so it can shrink.
+ * Do not force maxChars / pf-m-fixed here; that disables width-based Truncate.
+ */
+
+.lw-c-metrics-stepper {
+  --lw-metrics-stepper-hydrate-duration: 420ms;
+  --lw-metrics-stepper-hydrate-ease: ease-out;
+  --pf-v6-c-progress-stepper__step-main--MarginInlineEnd: 2rem;
+}
+
+/* Fills the PF step-icon circle so empty/pending steps still have a hover target. */
+.lw-c-metrics-stepper__icon-hit {
+  display: block;
+  width: 1em;
+  height: 1em;
+}
+
+.lw-c-metrics-stepper__icon-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  cursor: help;
+}
+
+/*
+ * Config-driven icon fill — background from `--lw-metrics-step-icon-bg`
+ * (inline style set from `lightwellConfig.colors.stepIcon[color]`).
+ * Applied only when hydrated + steps[].color.
+ */
+.lw-c-metrics-stepper
+  .pf-v6-c-progress-stepper__step.lw-m-color
+  .pf-v6-c-progress-stepper__step-icon {
+  border-color: transparent;
+  background-color: var(--lw-metrics-step-icon-bg);
+  color: var(--pf-t--global--text--color--inverse);
+}
+
+.lw-c-metrics-stepper
+  .pf-v6-c-progress-stepper__step.lw-m-color-muted-fg
+  .pf-v6-c-progress-stepper__step-icon {
+  color: var(--pf-t--global--text--color--regular);
+}
+
+/* Unhydrated: titles stay out of layout (icons + connectors only). */
+.lw-c-metrics-stepper.lw-m-unhydrated .pf-v6-c-progress-stepper__step-title {
+  display: none;
+}
+
+/*
+ * Hydrated title — one column per step:
+ *   count (Truncate host)
+ *   label + icon-colored rule (xl+ only)
+ * Gap replaces former &nbsp; between count and label.
+ */
+.lw-c-metrics-stepper.lw-m-hydrated .pf-v6-c-progress-stepper__step-title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--pf-t--global--spacer--xs);
+  min-width: 0;
+}
+
+.lw-c-metrics-stepper.lw-m-hydrated .lw-c-metrics-stepper__count {
+  font-size: var(--pf-t--global--font--size--3xl);
+  font-weight: var(--pf-t--global--font--weight--heading--bold);
+  line-height: 1;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.lw-c-metrics-stepper__count:empty {
+  display: none;
+}
+
+/* Let PF Truncate (inline-grid) measure against the step column. */
+.lw-c-metrics-stepper__count .pf-v6-c-truncate {
+  max-width: 100%;
+}
+
+/* Labels hidden until xl — narrow step columns crush multi-word titles. */
+.lw-c-metrics-stepper .lw-c-metrics-stepper__text {
+  display: none;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* xl */
+@media (min-width: 75rem) {
+  .lw-c-metrics-stepper.lw-m-hydrated .lw-c-metrics-stepper__text {
+    display: block;
+    /* Rule under the label — same paint as the step icon fill when colored. */
+    padding-block-end: var(--pf-t--global--spacer--xs);
+    border-block-end: var(--pf-t--global--border--width--400) solid
+      var(--lw-metrics-step-icon-bg, var(--pf-t--global--border--color--default));
+  }
+}
+
+/* Hydrate: grow / reveal left → right across the stepper band. */
+.lw-c-metrics-stepper.lw-m-hydrated {
+  animation-name: lw-metrics-stepper-hydrate-ltr;
+  animation-duration: var(--lw-metrics-stepper-hydrate-duration);
+  animation-timing-function: var(--lw-metrics-stepper-hydrate-ease);
+  animation-fill-mode: both;
+}
+
+@keyframes lw-metrics-stepper-hydrate-ltr {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lw-c-metrics-stepper.lw-m-hydrated {
+    animation: none;
+  }
+}

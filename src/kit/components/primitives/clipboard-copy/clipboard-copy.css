@@ -1,0 +1,11 @@
+/* LwClipboardCopy — kit primitive, co-located CSS.
+ * Root host is PatternFly `ClipboardCopy` — lw-c-clipboard-copy merges onto that node.
+ */
+
+.lw-c-clipboard-copy.pf-m-inline {
+  border-radius: var(--pf-t--global--border--radius--pill);
+}
+
+.lw-c-clipboard-copy {
+  --pf-v6-c-clipboard-copy--m-expanded__toggle-icon--Rotate: -180deg;
+}

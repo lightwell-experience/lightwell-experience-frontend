@@ -30,7 +30,7 @@ objects:
           - id: 'lightwell-experience'
             module: './RootApp'
             routes:
-              - pathname: /lightwell-next # temporary onboarding route
+              - pathname: /lightwell
 parameters:
   - name: ENV_NAME
     required: true

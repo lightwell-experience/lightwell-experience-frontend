@@ -1,0 +1,4 @@
+/* LwEmptyState — kit primitive, co-located CSS (plain .css; no layers yet).
+ * Root host is PatternFly `EmptyState` — lw-c-empty-state merges onto that node (logic harness, not a wrap).
+ * Footer / Actions / Body are call-site children — not kit hosts until ≥2 surfaces need a real kit job.
+ */

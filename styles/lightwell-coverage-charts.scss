@@ -1,0 +1,52 @@
+// Brand hexes live here. JS LIGHTWELL_ECOSYSTEMS in Lens/utils/ecosystem.ts must match these keys.
+//
+// Light mode: Exact (brand) and partial (follows PatternFly chart-300 → 100).
+//
+// Dark mode: PF remaps chart-100…500 to different palette steps per family
+// (green/blue/orange invert 300↔100 around palette-40; purple is shifted;
+// yellow and gray use their own tables). That only stays accessible if the
+// brand is about as light as a PF palette-50. Our hexes are not: swapping
+// exact/partial puts Python (and similar dark logos) below 3:1 on a dark
+// canvas. Dark exact/partial are custom lightened mixes instead.
+
+$lw-ecosystem-colors: (
+        java: #ed8b00,
+        python: #306998,
+);
+
+$lw-partial-light-mode-percent: 45%; // PF chart-300 → 100
+$lw-exact-dark-mode-percent: 30%;
+$lw-partial-dark-mode-percent: 77%;
+
+@function lw-mix-with-white($color, $percent) {
+  @return color-mix(in srgb, #{$color} $percent, var(--pf-t--color--white));
+}
+
+// Use :where(:root) so specificity matches :where(.pf-v6-theme-dark)
+:where(:root) {
+  @each $name, $hex in $lw-ecosystem-colors {
+    --lw-color-#{$name}: #{$hex};
+    --lw-color-#{$name}-exact-light-mode: var(--lw-color-#{$name});
+    --lw-color-#{$name}-partial-light-mode: #{lw-mix-with-white(
+        var(--lw-color-#{$name}),
+        $lw-partial-light-mode-percent
+      )};
+    --lw-color-#{$name}-exact-dark-mode: #{lw-mix-with-white(
+        var(--lw-color-#{$name}),
+        $lw-exact-dark-mode-percent
+      )};
+    --lw-color-#{$name}-partial-dark-mode: #{lw-mix-with-white(
+        var(--lw-color-#{$name}),
+        $lw-partial-dark-mode-percent
+      )};
+    --lw-color-#{$name}-exact: var(--lw-color-#{$name}-exact-light-mode);
+    --lw-color-#{$name}-partial: var(--lw-color-#{$name}-partial-light-mode);
+  }
+}
+
+:where(.pf-v6-theme-dark) {
+  @each $name, $_hex in $lw-ecosystem-colors {
+    --lw-color-#{$name}-exact: var(--lw-color-#{$name}-exact-dark-mode);
+    --lw-color-#{$name}-partial: var(--lw-color-#{$name}-partial-dark-mode);
+  }
+}

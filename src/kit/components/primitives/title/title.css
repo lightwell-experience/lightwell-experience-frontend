@@ -1,0 +1,12 @@
+/* Title primitive — h1 paint from domain title tokens (components.config.css).
+ * KitCssScopePlugin already wraps — do not re-scope the theme class.
+ */
+
+h1.lw-c-title {
+  font-size: var(--lw-font-size--title--h1);
+  font-weight: var(--lw-font-weight--title--h1);
+
+  @media (min-width: 48rem) {
+    overflow-wrap: break-word;
+  }
+}

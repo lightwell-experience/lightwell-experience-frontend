@@ -1,0 +1,5 @@
+/* LwCard — kit primitive, co-located CSS (plain .css; no layers yet).
+ * Root host is PatternFly `Card` — lw-c-card merges onto that node (logic harness, not a wrap).
+ * isGlass default comes from componentsConfig.card.
+ * Modifier classes (e.g. lw-c-card--summary) are applied by boolean props at the call site.
+ */

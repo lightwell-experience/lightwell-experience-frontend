@@ -23,10 +23,12 @@ import LightwellNotFound from 'Pages/Lightwell/components/LightwellNotFound';
 import { LightwellDemoLayout } from 'Pages/Lightwell/LightwellDemoContext';
 import LightwellLayout from 'Pages/Lightwell/LightwellLayout';
 import { lightwellConfig } from 'kit/lightwell.config';
+import { isFeatureOn } from 'services/Features/FeatureApi';
 import { useAppContext } from './middleware/AppContext';
 import CoverageReport from 'Pages/Lightwell/Lens/CoverageReport';
 import ManifestUpload from 'Pages/Lightwell/Lens/ManifestUpload';
 import TermsGuard from 'Pages/Lightwell/components/TermsGuard';
+import Submissions from 'Pages/Lightwell/Submissions/Submissions';
 
 export default function LightwellApp() {
   const pageSafe = usePageSafe();
@@ -141,6 +143,10 @@ export default function LightwellApp() {
         <Route index element={<RepositoriesTable />} />
         {features?.lightwellbeacon?.enabled && features?.lightwellbeacon?.accessible ? (
           <Route path='beacon' element={<Beacon />} />
+        ) : null}
+        {isFeatureOn(features?.lightwellclearinghouse) ||
+        isFeatureOn(features?.lightwellclearinghouseread) ? (
+          <Route path='submissions' element={<Submissions />} />
         ) : null}
         {features?.lightwelllens?.enabled && features?.lightwelllens?.accessible ? (
           <>

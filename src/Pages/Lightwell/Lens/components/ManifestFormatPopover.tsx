@@ -10,7 +10,12 @@ const ManifestFormatPopover = ({ label }: { label?: string }) => (
       <Content>
         <Content component='h6'>What should my manifest contain?</Content>
         <Content component={ContentVariants.p}>
-          Each format must include a Package URL (PURL) so that packages can be identified.
+          CSV, CycloneDX, and SPDX must include a Package URL (PURL) so that packages can be
+          identified.
+        </Content>
+        <Content component={ContentVariants.p}>
+          The PURL format is <code>pkg:ecosystem/group/name@version</code>, for example{' '}
+          <code>pkg:maven/org.springframework/spring-core@5.3.20</code>.
         </Content>
         <List>
           <ListItem>
@@ -38,11 +43,17 @@ const ManifestFormatPopover = ({ label }: { label?: string }) => (
               </ListItem>
             </List>
           </ListItem>
+          <ListItem>
+            A <strong>pom.xml</strong> or <strong>.pom</strong> file requires <code>groupId</code>{' '}
+            and <code>artifactId</code> on each dependency or <code>dependencyManagement</code>{' '}
+            entry. <code>version</code> can be set on that entry, or come from a parent POM or
+            imported BOM. Dependencies listed only on the parent are ignored.
+          </ListItem>
+          <ListItem>
+            A <strong>requirements.txt</strong> file requires one Python package name per line and a
+            pinned version with <code>==</code> or <code>===</code>.
+          </ListItem>
         </List>
-        <Content component={ContentVariants.p}>
-          The PURL format is <code>pkg:ecosystem/group/name@version</code>, for example{' '}
-          <code>pkg:maven/org.springframework/spring-core@5.3.20</code>.
-        </Content>
         <Content component='h6'>What is the maximum manifest size?</Content>
         <Content component={ContentVariants.p}>
           Maximum upload size is 15 MB per file. For <code>.pom</code> and <code>.xml</code> files,

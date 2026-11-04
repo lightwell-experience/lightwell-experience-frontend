@@ -73,3 +73,17 @@
 .lightwell-flag-label {
   margin-right: var(--pf-t--global--spacer--xs);
 }
+
+// Title is a frozen (sticky) column in the vulnerability table. Without a ceiling a
+// long title grows the cell unbounded (the table is width: max-content when sticky) and
+// pushes the scrollable columns off-screen. Cap the width and clamp to two lines; the
+// full title + vulnerability ID remain available in the cell's tooltip. The column still
+// has a 260px sticky floor (STICKY_TITLE_MIN_WIDTH), so max-width is the ceiling.
+.lightwell-vuln-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 360px;
+  min-width: 0;
+}

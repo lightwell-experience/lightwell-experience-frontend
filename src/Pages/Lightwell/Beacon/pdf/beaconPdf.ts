@@ -44,7 +44,7 @@ const COLUMN_PDF_WIDTH: Record<string, number> = {
 };
 
 const DEFAULT_COLUMN_PDF_WIDTH = 12;
-/** A4 portrait comfortably fits the default 4 columns (~68) plus a couple of compact extras. */
+/** A4 portrait fits the default 5 columns (Package, Title, Vulnerability ID, Last Updated, Status ≈ 96). */
 export const PORTRAIT_MAX_PDF_WIDTH = 96;
 export const LANDSCAPE_MIN_COLUMN_COUNT = 7;
 

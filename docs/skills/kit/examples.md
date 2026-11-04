@@ -10,6 +10,29 @@ Companion to [perspective.md](perspective.md) (why) and [SKILL.md](SKILL.md) (ho
 
 ## Perspective
 
+### Anti-pattern — wrong PF sibling (List vs Description list)
+
+**Smell:** User asks for a PatternFly [List](https://www.patternfly.org/components/list/)
+(or links those docs); agent ships `DescriptionList` because the copy is “term + body.”
+
+**Fix:** Host = PF `List` / `ListItem`. Put labels in item `children` (e.g.
+`<strong>Submit:</strong> …`). Description list is a different primitive with a
+different job.
+
+**Smell:** New `LwList` sets `isPlain: true` (or `isCompact`) in `components.config.ts`
+on day one.
+
+**Fix:** Empty config entry — PF **basic** list default. Call site passes variants
+when a surface needs them; promote to config only when ≥2 call sites share that baseline.
+
+**Smell:** SLA (or other product) copy hard-coded inside the kit primitive, or JSX
+item arrays in `constants.ts`.
+
+**Fix:** Domain `slaPolicyItems.tsx` (or hydrate above the page return) →
+`<LwList items={SLA_POLICY_ITEMS} />` inside `LwPopover` at the call site.
+
+---
+
 **Operating question:** "Am I configuring a harness, or re-building PF?"
 
 If the latter, you are outside the perspective — see

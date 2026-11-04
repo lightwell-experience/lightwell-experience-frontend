@@ -171,18 +171,16 @@ describe('buildBeaconPdfPayload', () => {
       ]),
     ).toBe(false);
 
-    const wideColumns = [
-      ...visibleColumns,
-      { key: 'title', title: 'Title' },
-      { key: 'cvssVector', title: 'CVSS Vector' },
-    ];
+    // Wide path: fewer than the count threshold, but a wide extra pushes total width over.
+    const wideColumns = [...visibleColumns, { key: 'cvssVector', title: 'CVSS Vector' }];
+    expect(wideColumns.length).toBeLessThan(7);
     expect(shouldUseLandscapePdf(wideColumns)).toBe(true);
 
+    // Count path: reaching the column-count threshold forces landscape regardless of width.
     const manyColumns = [
       ...visibleColumns,
       { key: 'severity', title: 'Severity' },
       { key: 'cvss', title: 'CVSS' },
-      { key: 'repository', title: 'Ecosystem' },
     ];
     expect(manyColumns).toHaveLength(7);
     expect(shouldUseLandscapePdf(manyColumns)).toBe(true);

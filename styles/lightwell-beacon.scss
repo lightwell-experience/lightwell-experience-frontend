@@ -87,3 +87,72 @@
   max-width: 360px;
   min-width: 0;
 }
+
+.beacon-package-counts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+  flex-wrap: wrap;
+}
+
+.beacon-package-counts__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--xs);
+}
+
+.beacon-package-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--md);
+}
+
+/*
+ * Package tables have no sticky columns, so they never get the `width: max-content`
+ * the sticky view needs — `table-layout: fixed` divides the table's own width
+ * between the columns instead, keeping expanded content inside it. PF's
+ * `.pf-v6-c-table` already sets `width: 100%`; no need to restate it.
+ */
+.beacon-package-table {
+  table-layout: fixed;
+  --pf-v6-c-table--cell--PaddingInlineStart: var(--pf-t--global--spacer--sm);
+  --pf-v6-c-table--cell--PaddingInlineEnd: var(--pf-t--global--spacer--sm);
+  --pf-v6-c-table__expandable-row-content--PaddingBlockStart: var(--pf-t--global--spacer--sm);
+  --pf-v6-c-table__expandable-row-content--PaddingBlockEnd: var(--pf-t--global--spacer--sm);
+  --pf-v6-c-table__expandable-row-content--PaddingInlineStart: var(--pf-t--global--spacer--sm);
+  --pf-v6-c-table__expandable-row-content--PaddingInlineEnd: var(--pf-t--global--spacer--sm);
+}
+
+.beacon-package-details-table {
+  table-layout: fixed;
+}
+
+.beacon-package-details p {
+  margin-block: var(--pf-t--global--spacer--xs) 0;
+}
+
+.beacon-package-table > tbody > tr > td {
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Multi-line truncation, same four declarations PatternFly uses for
+ * `.pf-v6-c-alert__title.pf-m-truncate` and `.pf-v6-c-expandable-section.pf-m-truncate`
+ * — the `-webkit-box` prefixes are the only cross-browser clamp today, which is
+ * why PF ships them too. The cell's own `pf-m-break-word` modifier already
+ * handles wrapping, so only the clamp lives here. Full title stays in the tooltip.
+ */
+.beacon-package-vulnerability-title {
+  --beacon-package-vulnerability-title--max-lines: 2;
+
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--beacon-package-vulnerability-title--max-lines);
+}
+
+.beacon-package-status-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+}

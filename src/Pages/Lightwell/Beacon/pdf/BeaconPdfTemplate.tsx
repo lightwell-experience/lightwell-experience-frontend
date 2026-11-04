@@ -264,14 +264,13 @@ const BeaconPdfTemplate = ({ asyncData, additionalData }: BeaconPdfTemplateProps
           <div className='beacon-pdf-pipeline' role='list' aria-label='Submission pipeline metrics'>
             {STATUSES.map((status, index) => {
               const presentation = getPipelineStepPresentation(status);
-              const fill =
-                (presentation && PDF_STEP_FILL[presentation.color]) || DEFAULT_COUNT_FILL;
+              const fill = PDF_STEP_FILL[presentation.color] || DEFAULT_COUNT_FILL;
 
               return (
                 <div key={status} className='beacon-pdf-step' role='listitem'>
                   <div className='beacon-pdf-step-track'>
                     <span className='beacon-pdf-step-icon' style={{ backgroundColor: fill }}>
-                      {presentation?.icon}
+                      {presentation.icon}
                     </span>
                     {index < STATUSES.length - 1 ? (
                       <span className='beacon-pdf-step-connector' aria-hidden='true' />

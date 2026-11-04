@@ -70,6 +70,16 @@
 }
 
 /*
+ * Header cell paired with the row-expansion toggle PF adds to the body only
+ * (see `isExpandable` in data-view.tsx). Sized to the toggle button so the
+ * header and the toggle column stay aligned; the header itself is empty, its
+ * name comes from `screenReaderText`.
+ */
+.lw-c-data-view__expand-header {
+  width: 3rem;
+}
+
+/*
  * Card wrapper (D19) — CardHeader hosts the built-in toolbar, CardBody hosts
  * the table. PF's Toolbar carries its own bottom padding (for when a toolbar
  * is a page-level standalone element) — CardHeader already provides the

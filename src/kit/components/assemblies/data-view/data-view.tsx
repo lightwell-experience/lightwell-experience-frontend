@@ -810,7 +810,18 @@ export function LwDataView({
   const tableProps = mergeComponentProps(pfDefaults, {
     ...rest,
     variant: compact ? ('compact' as const) : undefined,
-    columns: processedColumns,
+    // PF adds the row toggle to the body only; supply its matching header.
+    columns:
+      rest.isExpandable &&
+      !(rest.expandedRows?.length && rest.expandedRows.every((row) => row.columnId !== undefined))
+        ? [
+            {
+              cell: '',
+              props: { screenReaderText: 'Expand row', className: 'lw-c-data-view__expand-header' },
+            },
+            ...processedColumns,
+          ]
+        : processedColumns,
     rows: sortedRows,
     bodyStates: mergedBodyStates,
     headStates,

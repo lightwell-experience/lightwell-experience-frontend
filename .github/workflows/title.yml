@@ -1,0 +1,40 @@
+name: PR Validation
+on:
+  pull_request:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  rename-konflux-pr:
+    name: Rename Konflux PR Title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add "Build:" to PR title
+        if: github.event.pull_request.user.login == 'app/red-hat-konflux-kflux-prd-rh02' && !startsWith(github.event.pull_request.title, 'Build:')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          gh pr edit "$PR_NUMBER" --title "$(printf 'Build: %s' "$PR_TITLE")"
+
+  title-validate:
+    name: Title
+    needs: rename-konflux-pr
+    runs-on: ubuntu-latest
+    steps:
+      # Pinned past v1.0.2 so a failed title includes verbal_description. Do not use @master.
+      - uses: deepakputhraya/action-pr-title@077bddd7bdabd0d2b1b25ed0754c7e62e184d7ee
+        with:
+          # Build and Test cover Konflux and manual non-ticket PRs.
+          # Ticket form: LWLP-1234: summary, or several ids separated by commas.
+          regex: '^(Build|Test)|^(\w+-\d+(,\w+-\d+)*): .+'
+          disallowed_prefixes: ''
+          prefix_case_sensitive: false
+          min_length: 5
+          max_length: 70
+          verbal_description: 'Start with a ticket id (LWLP-1234: summary), Build, or Test. Length 5-70.'
+          github_token: ${{ github.token }}

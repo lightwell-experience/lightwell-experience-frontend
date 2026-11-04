@@ -1305,3 +1305,83 @@ describe('focus when the toolbar unmounts into true empty', () => {
     expect(screen.getByRole('button', { name: 'Elsewhere' })).toHaveFocus();
   });
 });
+
+it('aligns the expansion header with the row toggle and keeps data-column sorting aligned', async () => {
+  const user = userEvent.setup();
+  render(
+    <LwDataView
+      aria-label='Expandable table'
+      columns={columns}
+      rows={[
+        { id: 'b', row: ['Beta', 'OK'] },
+        { id: 'a', row: ['Alpha', 'OK'] },
+      ]}
+      isExpandable
+      indexBy='id'
+      expandedRows={[
+        { rowId: 'a', content: 'Alpha details' },
+        { rowId: 'b', content: 'Beta details' },
+      ]}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Expandable table' });
+  const headers = within(table).getAllByRole('columnheader');
+  expect(headers).toHaveLength(3);
+  expect(headers[0]).toHaveAccessibleName('Expand row');
+  expect(headers[0]).toHaveClass('lw-c-data-view__expand-header');
+  expect(headers[1]).toHaveTextContent('Name');
+  const dataRows = () => within(table).getAllByRole('row').slice(1);
+  expect(within(dataRows()[0]).getAllByRole('cell')).toHaveLength(3);
+  await user.click(within(headers[1]).getByRole('button'));
+  expect(within(dataRows()[0]).getByText('Alpha')).toBeInTheDocument();
+  await user.click(within(dataRows()[0]).getByRole('button', { name: 'Details' }));
+  expect(within(table).getByText('Alpha details')).toBeVisible();
+  expect(within(table).queryByText('Beta details')).not.toBeVisible();
+});
+
+// Compound expansion is the branch that can break: PF puts the toggle inside a
+// data cell rather than a leading one, so adding the toggle header there would
+// leave the headers one ahead of every body row.
+it('adds no toggle header when every expansion is compound', async () => {
+  const user = userEvent.setup();
+  render(
+    <LwDataView
+      aria-label='Compound expansions'
+      columns={columns}
+      rows={[{ id: 'a', row: ['Alpha', 'OK'] }]}
+      isExpandable
+      indexBy='id'
+      expandedRows={[{ rowId: 'a', columnId: 1, content: 'Status detail' }]}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Compound expansions' });
+  const headers = within(table).getAllByRole('columnheader');
+
+  expect(headers).toHaveLength(2);
+  expect(headers[0]).toHaveTextContent('Name');
+  expect(within(table).queryByRole('columnheader', { name: 'Expand row' })).not.toBeInTheDocument();
+
+  const controlRow = within(table).getAllByRole('row')[1];
+  expect(within(controlRow).getAllByRole('cell')).toHaveLength(2);
+
+  await user.click(within(controlRow).getByRole('button'));
+  expect(within(table).getByText('Status detail')).toBeVisible();
+});
+
+it('reserves the toggle header when expandable content is empty', () => {
+  render(
+    <LwDataView
+      aria-label='Empty expansions'
+      columns={columns}
+      rows={rows}
+      isExpandable
+      expandedRows={[]}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Empty expansions' });
+
+  // PF still renders a leading placeholder cell per row, so the header count
+  // has to match it even with nothing to expand.
+  expect(within(table).getAllByRole('columnheader')).toHaveLength(3);
+  expect(within(within(table).getAllByRole('row')[1]).getAllByRole('cell')).toHaveLength(3);
+});

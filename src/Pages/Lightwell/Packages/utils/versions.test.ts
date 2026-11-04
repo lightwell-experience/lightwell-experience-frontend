@@ -40,6 +40,24 @@ describe('sortVersionsDesc', () => {
   it('sorts dotted versions in descending numeric order', () => {
     expect(sortVersionsDesc(['1.10.2', '1.9.2', '1.11.1'])).toEqual(['1.11.1', '1.10.2', '1.9.2']);
   });
+
+  it('orders release suffixes numerically, not lexically', () => {
+    expect(
+      sortVersionsDesc(['1.10.0.rhlw-00002', '1.9.9.rhlw-00099', '1.10.0.rhlw-00012']),
+    ).toEqual(['1.10.0.rhlw-00012', '1.10.0.rhlw-00002', '1.9.9.rhlw-00099']);
+    expect(sortVersionsDesc(['1.10.0+rhlw.2', '1.9.0+rhlw.10', '1.10.0+rhlw.12'])).toEqual([
+      '1.10.0+rhlw.12',
+      '1.10.0+rhlw.2',
+      '1.9.0+rhlw.10',
+    ]);
+  });
+
+  it('leaves the caller array untouched', () => {
+    const versions = ['1.9.0', '1.11.0'];
+
+    expect(sortVersionsDesc(versions)).toEqual(['1.11.0', '1.9.0']);
+    expect(versions).toEqual(['1.9.0', '1.11.0']);
+  });
 });
 
 describe('compareVersionsDesc', () => {

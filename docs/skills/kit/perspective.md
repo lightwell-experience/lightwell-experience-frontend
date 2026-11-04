@@ -67,8 +67,22 @@ own fetch, copy, and item builders — not product-named chrome shells (`SlaInfo
 **untouched** until a [dissolution sweep](examples/dissolution-map.md) — do not edit or
 mass-delete them in the migrate PR. Icon-help is centralized: `LwTooltip` defaults its
 trigger to `LwButton` + PF `isCircle`; richer help stays `LwPopover` + circle `LwButton`
-at the call site. `EmptyState` / `Skeleton` are **root-only** kit hosts — subregions stay
-call-site composition until a second surface earns a kit job.
+(+ body such as `LwList` when the content is a list) at the call site.
+`EmptyState` / `Skeleton` are **root-only** kit hosts — subregions stay call-site
+composition until a second surface earns a kit job.
+
+**PF host by name:** When the request or PatternFly docs name a component, that is the
+host. [List](https://www.patternfly.org/components/list/) and
+[Description list](https://www.patternfly.org/components/description-list/) are different
+primitives — do not substitute a “close enough” sibling.
+
+**New primitive defaults:** Ship with an empty `componentsConfig` entry (PF default
+pattern only). Presentation variants (`isPlain`, `isCompact`, `inline`, …) are call-site
+opts until ≥2 surfaces share a Lightwell baseline that earns a config default.
+
+**Domain copy hydration:** Product strings and JSX rows live in domain (`.tsx` when
+JSX is required — not `constants.ts`). Pass them into kit as `items` / slot props;
+kit stays product-agnostic.
 
 Stack:
 
@@ -96,8 +110,9 @@ them into one format.
 
 Add to `lightwell.config.ts` when a value must be shared across domains (brand tokens, palette).
 Add to `components.config.ts` when a value is component/assembly-specific **prop** default
-(`isGlass`, variant). Do not put presentational spacing in TS via utility class strings.
-Do not put tenant identity in `components.config.ts`.
+(`isGlass`, variant) **and** a shared Lightwell baseline exists. New units start with
+`{}` — PF default pattern only. Do not put presentational spacing in TS via utility
+class strings. Do not put tenant identity in `components.config.ts`.
 
 **No YAML.** Prop defaults already live in TS; a YAML file would need a build step and
 would fork the cascade.

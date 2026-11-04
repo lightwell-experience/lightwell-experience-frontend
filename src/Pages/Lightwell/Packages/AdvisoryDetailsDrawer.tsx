@@ -16,7 +16,7 @@ import LightwellEmptyState from '../components/LightwellEmptyState';
 import type { AdvisoryDetails, PreferredAdvisoryRecord } from './types';
 import { useAdvisoryDetails } from './hooks/useAdvisoryDetails';
 
-import { useDrawerOverlay } from './hooks/useDrawerOverlay';
+import { useDrawerOverlay } from '../hooks/useDrawerOverlay';
 import AdvisoryDetailsSkeleton from './components/AdvisoryDetailsSkeleton';
 import AdvisoryDetailsPanel from './components/AdvisoryDetailsPanel';
 import AdvisoryOSVTab from './tabs/AdvisoryOSVTab';

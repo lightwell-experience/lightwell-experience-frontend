@@ -93,6 +93,7 @@ describe('CoverageReport', () => {
     expect(
       screen.getByRole('heading', { name: 'Match analysis for test-sbom.json' }),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/not accurate by itself/)).not.toBeInTheDocument();
   });
 
   it('displays coverage summary with in-network percentage and match counts', () => {

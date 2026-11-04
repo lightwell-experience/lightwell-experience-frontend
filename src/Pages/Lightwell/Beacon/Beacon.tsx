@@ -35,9 +35,9 @@ import {
 import {
   LwButton,
   LwCheckbox,
-  LwContent,
   LwEmptyState,
   LwForm,
+  LwList,
   LwMenu,
   LwPopover,
   LwTitle,
@@ -55,6 +55,7 @@ import {
   UNREMEDIATED_STATUS,
 } from './constants';
 import { buildPipelineMetricSteps } from './pipeline';
+import { SLA_POLICY_ITEMS } from './slaPolicyItems';
 import type { Severity, Status, Vulnerability } from './types';
 import { useBeaconExport } from './hooks/useBeaconExport';
 import { getVulnerabilityTableCellProps } from './components/vulnerabilityTableStickyColumns';
@@ -368,6 +369,7 @@ const Beacon = () => {
   );
 
   const showCustomerEmpty = !selectedCustomerId && !isLoadingCustomers;
+  const slaPolicyBody = <LwList items={SLA_POLICY_ITEMS} />;
 
   return (
     <>
@@ -432,25 +434,7 @@ const Beacon = () => {
                 hasAction={
                   <LwPopover
                     hasHeader={SLA_POLICY_HEADER}
-                    hasBody={
-                      <LwContent>
-                        <p>
-                          <strong>Submit:</strong> Submit findings at any time.
-                        </p>
-                        <p>
-                          <strong>Response time:</strong> Triaged within <strong>48 hours</strong>{' '}
-                          (up to 25 findings per member per week).
-                        </p>
-                        <p>
-                          <strong>Prioritize:</strong> Your severity sets the default order. Adjust
-                          at any time.
-                        </p>
-                        <p>
-                          <strong>Fix completion:</strong> Applied after a patched artifact is
-                          published to the repository or Lightwell Network.
-                        </p>
-                      </LwContent>
-                    }
+                    hasBody={slaPolicyBody}
                     hasTrigger={
                       <LwButton isCircle variant='plain' aria-label='SLA help'>
                         <HelpIcon />

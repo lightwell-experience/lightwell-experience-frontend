@@ -161,7 +161,7 @@ it('preselects the customer when only one is available', async () => {
   });
 
   expect(screen.getByRole('button', { name: 'CID-01' })).toBeInTheDocument();
-  expect(screen.getByText('LWL-2026-4401')).toBeInTheDocument();
+  expect(screen.getByText('JNDI injection via crafted log message')).toBeInTheDocument();
 });
 
 it('renders the beacon page with status summary and vulnerability table', async () => {
@@ -201,22 +201,22 @@ it('renders the beacon page with status summary and vulnerability table', async 
   ).toBeTruthy();
 
   expect(screen.getByLabelText('Submission pipeline metrics')).not.toHaveTextContent('On Hold');
-  expect(screen.getByText('LWL-2026-4401')).toBeInTheDocument();
+  expect(screen.getByText('JNDI injection via crafted log message')).toBeInTheDocument();
   expect(screen.getByRole('form', { name: 'Filter categories' })).toBeInTheDocument();
   expect(screen.getByText('Customer ID')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'CID-01' })).toBeInTheDocument();
 });
 
-it('renders PF scroll-container wrappers required by the sticky Package/Vulnerability ID columns', async () => {
+it('renders PF scroll-container wrappers required by the sticky Package/Title columns', async () => {
   const { container } = renderBeacon();
   await selectCustomer('CID-01');
 
   await waitFor(() => {
-    expect(screen.getByText('LWL-2026-4401')).toBeInTheDocument();
+    expect(screen.getByText('JNDI injection via crafted log message')).toBeInTheDocument();
   });
   // isSticky must be set on LwDataView for these to render at all — without
   // it, DataViewTableBasic renders a bare <Table> and isStickyColumn on the
-  // Package/Vulnerability ID columns has nothing to attach sticky behavior to.
+  // Package/Title columns has nothing to attach sticky behavior to.
   expect(container.querySelector('.pf-v6-c-scroll-outer-wrapper')).toBeInTheDocument();
   expect(container.querySelector('.pf-v6-c-scroll-inner-wrapper')).toBeInTheDocument();
 });

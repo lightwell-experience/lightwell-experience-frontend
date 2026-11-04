@@ -76,6 +76,27 @@ describe('BeaconPdfTemplate', () => {
     expect(vulnRow?.querySelectorAll('td')).toHaveLength(2);
   });
 
+  it('renders the title cell as plain text without the vulnerability ID (PDF mirrors the UI)', () => {
+    render(
+      <BeaconPdfTemplate
+        asyncData={{
+          data: { vulnerabilities: mockVulnerabilities.slice(0, 1), meta },
+        }}
+        additionalData={{
+          customerId: 'CID-01',
+          generatedAt: '25 Aug 2026',
+          includeSummary: false,
+          visibleColumns: [{ key: 'title', title: 'Title' }],
+          landscape: false,
+        }}
+      />,
+    );
+
+    const titleCell = screen.getByText('JNDI injection via crafted log message').closest('td');
+    expect(titleCell).toHaveTextContent('JNDI injection via crafted log message');
+    expect(titleCell).not.toHaveTextContent('LWL-2026-4401');
+  });
+
   it('prints a resolution reason under the status', () => {
     const reason = 'The vulnerable code is not present in this package at this version.';
 

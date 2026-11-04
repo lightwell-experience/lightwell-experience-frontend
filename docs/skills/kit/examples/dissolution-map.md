@@ -40,7 +40,7 @@ checklist for the dissolve sweep.
 | Leftover (untouched on disk) | Successor | Notes |
 | -------- | --------- | ----- |
 | `src/Pages/Lightwell/RemediatedDataWarning.tsx` | `LwAlert` | Usages → kit; file left as-is until dissolve |
-| `src/Pages/Lightwell/Beacon/components/SlaInfoPopover.tsx` | Beacon: `LwPopover` + `LwButton isCircle` | Usages replaced; file untouched |
+| `src/Pages/Lightwell/Beacon/components/SlaInfoPopover.tsx` | Beacon: `LwPopover` + `LwButton isCircle` + `LwList` (`items` from domain) | Usages replaced; file untouched |
 | `src/Pages/Lightwell/Beacon/components/PipelineView.tsx` | `LwMetricsStepper` on Beacon | No remaining page imports |
 | `src/Pages/Lightwell/Beacon/components/StatusCard.tsx` | `LwMetricsStepper` step cells | Only referenced by unused `PipelineView` |
 | `src/Pages/Lightwell/Beacon/components/CustomerIdSelect.tsx` | Beacon page: `LwMenu` + `LwSkeleton` + fetch | No special behavior; page owns composition |

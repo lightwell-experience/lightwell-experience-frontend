@@ -10,6 +10,7 @@ import {
   type FlexProps,
   type HeroProps,
   type IconComponentProps,
+  type ListProps,
   type PopoverProps,
   type ProgressStepperProps,
   type SkeletonProps,
@@ -128,6 +129,14 @@ export type LwTooltipPassthroughProps = Omit<TooltipProps, 'children' | 'content
 
 /** Defaults for `LwTooltip` — call-site wins via merge. */
 export type LwTooltipConfig = Partial<LwTooltipPassthroughProps>;
+
+// ─── Primitive: LwList (PF List) ──────────────────────────────────────────────
+
+/** PF `List` props forwarded by `LwList` (excluding children — kit may own those). */
+export type LwListPassthroughProps = Omit<ListProps, 'children'>;
+
+/** Defaults for `LwList` — List host; call-site wins via merge. */
+export type LwListConfig = Partial<LwListPassthroughProps>;
 
 // ─── Primitive: LwEmptyState (root only) ─────────────────────────────────────
 
@@ -325,6 +334,7 @@ export interface LwComponentsConfig {
   menu: LwMenuConfig;
   popover: LwPopoverConfig;
   tooltip: LwTooltipConfig;
+  list: LwListConfig;
   emptyState: LwEmptyStateConfig;
   skeleton: LwSkeletonConfig;
   title: LwTitleConfig;
@@ -378,6 +388,9 @@ export const componentsConfig: LwComponentsConfig = {
   },
   tooltip: {
     // Default trigger (circle plain LwButton) is composed in LwTooltip when children omitted.
+  },
+  list: {
+    // No Lightwell-specific List defaults yet — PF basic list pattern only.
   },
   emptyState: {
     // Root-only harness — no Lightwell-specific EmptyState defaults yet.
@@ -486,6 +499,10 @@ export function getLwPopoverDefaults(): LwPopoverConfig {
 
 export function getLwTooltipDefaults(): LwTooltipConfig {
   return { ...componentsConfig.tooltip };
+}
+
+export function getLwListDefaults(): LwListConfig {
+  return { ...componentsConfig.list };
 }
 
 export function getLwEmptyStateDefaults(): LwEmptyStateConfig {

@@ -106,17 +106,24 @@ hydrate it, or it has failed. Full treatment:
 
 1. Does this **node** earn its place? (Rule 0)
 2. Does **PF** already own this? (subtract)
-3. **Primitive or assembly?** (A/B/C single PF unit vs multi-region / composing `Lw*`)
-4. Does a **harness** exist? (configure `Lw*`; do not copy the PF tree)
-5. **Domain name or PF token?** (map once in harness)
-6. Is this a **second job** on an existing assembly? (split — anti-God)
-7. **Prop default or presentational?** (TS config vs CSS config)
-8. Is the **return** still the spec? (no hidden sections)
-9. **Layout intent known?** (justify / align / gap / direction) — **ask** if the
-   user did not state it. Do not assume `spaceAround` / `spaceBetween` / `center`.
-10. **Base support or exotic?** Unit CSS states the contract — refuse situational
+3. **Which PF host, by name?** Match the PatternFly component the user or docs
+   named — e.g. [List](https://www.patternfly.org/components/list/) ≠
+   [Description list](https://www.patternfly.org/components/description-list/).
+   Similar jobs are not interchangeable hosts.
+4. **Primitive or assembly?** (A/B/C single PF unit vs multi-region / composing `Lw*`)
+5. Does a **harness** exist? (configure `Lw*`; do not copy the PF tree)
+6. **Domain name or PF token?** (map once in harness)
+7. Is this a **second job** on an existing assembly? (split — anti-God)
+8. **Prop default or presentational?** (TS config vs CSS config)
+9. **New kit unit — defaults?** Start with **PF default pattern only** (empty
+   `componentsConfig` entry). Do not preset variants (`isPlain`, `isCompact`,
+   `inline`, …) until ≥2 call sites share a Lightwell baseline.
+10. Is the **return** still the spec? (no hidden sections)
+11. **Layout intent known?** (justify / align / gap / direction) — **ask** if the
+    user did not state it. Do not assume `spaceAround` / `spaceBetween` / `center`.
+12. **Base support or exotic?** Unit CSS states the contract — refuse situational
     `:has` / `:nth-child` policy stacks; prefer an explicit class/prop.
-11. **PF layout scope?** Is `Flex` / `FlexItem` / `Grid` being used inside the assembly
+13. **PF layout scope?** Is `Flex` / `FlexItem` / `Grid` being used inside the assembly
     for its own internal arrangement? → plain HTML host + co-located CSS. PF layout
     components are for landmark sections, not internal component structure.
 
@@ -280,7 +287,11 @@ Before a new file, wrapper, hook, or DTO:
 | Body loading collapses chrome / jumps header | Keep shell mounted; `LwLoaded` in the body (default `LwSkeleton`) |
 | Assembly growing a second visual job | split into sibling assemblies (anti-God) |
 | Metric / count that could grow large | PF `Truncate` — stacked metrics count **and `LwMetricsStepper` values**: container Truncate + `min-width: 0` on the host (never `maxCharsDisplayed` — it disables width-based truncation); inline title runs only: `maxCharsDisplayed` (`pf-m-fixed`). Never assume digit length |
-| Product-named chrome shell (`SlaInfoPopover`, …) | Compose kit roots at call site; replace **usages** — do not promote the wrapper into kit; dissolve later ([dissolution-map](examples/dissolution-map.md)) |
+| Product-named chrome shell (`SlaInfoPopover`, …) | Compose kit roots at call site; replace **usages** — do not promote the wrapper into kit; dissolve later ([dissolution-map](examples/dissolution-map.md)). **Do not** edit unused shells in the migrate PR. |
+| User asked for “List” / linked PF List docs | Host = PF `List` / `ListItem` — **not** `DescriptionList` |
+| New `Lw*` with `isPlain` / `isCompact` / variant baked into config | Empty config first — PF default pattern only; call site opts into variants |
+| Product copy / labeled rows for a kit list or menu | Domain hydration (`.tsx` if JSX); pass `items` into kit — kit stays product-agnostic |
+| Put JSX item arrays in `constants.ts` | Use `.tsx` (e.g. `slaPolicyItems.tsx`) or hydrate above the page return |
 | Short icon-help / circle help dialect | `LwTooltip` (default trigger = `LwButton isCircle`); richer = `LwPopover` + circle `LwButton` |
 | Raw PF `EmptyState` / `Skeleton` in Lightwell chrome | Root-only `LwEmptyState` / `LwSkeleton`; Footer/Actions/Body stay call-site children |
 | ≥2 independent consumers hand-roll the same workaround for the same assembly | Not page-specific need — convergence is proof; promote the capability into the assembly |
@@ -385,8 +396,10 @@ product wiring **replaces** call sites later; scaffolding does not delete domain
 | Rule | Detail |
 | ---- | ------ |
 | Typing | `OwnedProps & Omit<UpstreamHostProps, 'children'>` (or Partial where optional) |
-| Prop defaults | `components.config.ts` → `mergeComponentProps` |
+| Prop defaults | `components.config.ts` → `mergeComponentProps` — **new units: empty / PF default until a shared baseline earns entries** |
 | Presentational defaults | `components.config.css` → `page.config.css` → unit `.css` |
+| PF host identity | `Lw{Name}` wraps the PF component of that **name** (List → `List`, not DescriptionList) |
+| Domain copy | Stays in product; hydrates kit slots (`items`, `hasBody`, …). JSX → `.tsx` |
 | Kit CSS scope | See **Hidden theme namespace** below — already inside `html.lightwell-v1-theme` |
 | Spread | Lw-owned props destructured; `...rest` on host |
 | className / style | Merge onto the **host root** — never onto a wrapping element |
@@ -499,6 +512,8 @@ Example — one page header, plain or hero surface:
 | `page.config.yaml` for spacers | Use `page.config.css` — presentational track |
 | Second page-chrome assembly for Hero | One `LwPageHeader`; `hero` surface pre-config |
 | PF tokens in pages | Domain name + harness map |
+| Wrong PF sibling for the named component (List → DescriptionList) | Remap host to the documented PF component; keep domain copy in `items` |
+| Kit config presets variants on day one | Empty `componentsConfig` entry; call site passes `isPlain` / etc. when needed |
 | Demo inlines PF chrome | Use same stack as prod |
 | Kit styles in global SCSS / layers early | Co-located `.css` on the `Lw*`; layers later |
 | Flex + custom bg when PF Hero fits | `LwPageHeader hero` + `backgroundSrcLight` / `Dark` |
@@ -531,7 +546,9 @@ Structure review without smoke is incomplete.
 - [ ] propose → dry-run → review → consensus → change → validate
 - [ ] `git mv` for rehomes
 - [ ] Correct tier: primitive vs assembly vs page/domain
-- [ ] Config cascade: tenant → `lightwell.config.ts`; prop default → `components.config.ts`; presentational → `components.config.css` / `page.config.css`
+- [ ] Config cascade: tenant → `lightwell.config.ts`; prop default → `components.config.ts` (new units: empty / PF default first); presentational → `components.config.css` / `page.config.css`
+- [ ] PF host matches the named PatternFly component (List ≠ DescriptionList)
+- [ ] Domain owns product copy / JSX hydration; kit stays agnostic
 - [ ] No casual PF utility classes — co-located CSS + tokens first
 - [ ] Kit CSS is base support — no exotic situational selector stacks
 - [ ] Kit `@media` uses PF rem from `components.config.css` map — not `px`, not CSS vars

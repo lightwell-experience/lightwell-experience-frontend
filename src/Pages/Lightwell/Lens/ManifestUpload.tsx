@@ -1,15 +1,7 @@
 import { useMemo } from 'react';
 import { useRemoteHook } from '@scalprum/react-core';
 import { useFlag } from '@unleash/proxy-client-react';
-import {
-  CardBody,
-  Content,
-  HelperText,
-  HelperTextItem,
-  MultipleFileUpload,
-  MultipleFileUploadMain,
-} from '@patternfly/react-core';
-import { UploadIcon } from '@patternfly/react-icons';
+import { CardBody, Content } from '@patternfly/react-core';
 import {
   LwPageHeader,
   PageChromeSlot,
@@ -20,6 +12,8 @@ import { LwCard } from 'kit/components/primitives';
 import { useManifestUpload } from './hooks/useManifestUpload';
 import AnalysisProgress from './components/AnalysisProgress';
 import ManifestFormatPopover from './components/ManifestFormatPopover';
+import GeneratePomSbomPopover from './components/PomAnalysisWarning';
+import FileUploadCard from '../components/FileUploadCard';
 import { useLightwellRootPath } from '../../../Hooks/Lightwell/navigation/useLightwellRootPath';
 
 const DROP_LAST_CHROME_SEGMENT_OPTIONS = { dropLastChromeSegment: true };
@@ -65,30 +59,13 @@ const ManifestUpload = () => {
               </CardBody>
             </LwCard>
           ) : (
-            <LwCard
-              isGlass={false}
-              hasHeader='Upload SBOM or package manifest'
-              hasAction={<ManifestFormatPopover />}
-            >
-              <MultipleFileUpload
-                isHorizontal
-                dropzoneProps={{ multiple: false, maxFiles: 1, onDropAccepted }}
-              >
-                <MultipleFileUploadMain
-                  titleIcon={<UploadIcon />}
-                  titleText='Drag and drop a file here'
-                  titleTextSeparator='or'
-                  browseButtonText='Select file'
-                />
-              </MultipleFileUpload>
-              {fileError ? (
-                <HelperText>
-                  <HelperTextItem variant='error'>
-                    {file?.name ? `${file.name}: ${fileError}` : fileError}
-                  </HelperTextItem>
-                </HelperText>
-              ) : null}
-            </LwCard>
+            <FileUploadCard
+              title='Select your manifest file'
+              action={<ManifestFormatPopover />}
+              file={file}
+              fileError={fileError}
+              onDropAccepted={onDropAccepted}
+            />
           )}
         </PageChromeSlot>
       </PageChromeSlots>
@@ -96,6 +73,11 @@ const ManifestUpload = () => {
         <PageChromeSlot>
           <Content>
             Supported formats: CSV, CycloneDX, SPDX, POM, requirements.txt
+            <br />
+            Analysis of a pom.xml is not accurate by itself, because it does not include all
+            dependencies.
+            <br />
+            Upload an SBOM for a more accurate analysis. <GeneratePomSbomPopover />
             <br />
             File size limit: Up to 10MB for POM files. Up to 15MB for all other supported formats.
           </Content>

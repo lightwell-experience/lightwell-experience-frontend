@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import ManifestUpload from './ManifestUpload';
 import { useManifestUpload } from './hooks/useManifestUpload';
 import { ReactQueryTestWrapper } from 'testingHelpers';
@@ -131,7 +132,7 @@ describe('ManifestUpload', () => {
     expect(screen.getByRole('button', { name: 'Reupload file' })).toBeInTheDocument();
   });
 
-  it('shows upload instructions and supported formats when no report exists', () => {
+  it('shows upload instructions and supported formats when no report exists', async () => {
     renderManifestUpload();
     expect(screen.getByText('Lens')).toBeInTheDocument();
     expect(
@@ -141,6 +142,15 @@ describe('ManifestUpload', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(/Supported formats: CSV, CycloneDX, SPDX, POM, requirements.txt/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/not accurate by itself/)).toBeInTheDocument();
+    expect(screen.getByText(/Upload an SBOM for a more accurate analysis/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Generate an SBOM from pom.xml' }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'How to generate an SBOM' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Generate an SBOM from pom.xml' }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(

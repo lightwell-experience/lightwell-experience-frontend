@@ -98,6 +98,11 @@ module.exports = {
       '/api/content-sources/': {
         host: `http://127.0.0.1:${process.env.BACKEND_PORT}`,
       },
+      // The lightwell clearinghouse API is served under its own base path
+      // (lightwell.RegisterRoutes), not under /api/content-sources.
+      '/api/lightwell/': {
+        host: `http://127.0.0.1:${process.env.BACKEND_PORT}`,
+      },
     }),
     ...(process.env.PDF_GENERATOR_PORT && {
       '/api/crc-pdf-generator': {

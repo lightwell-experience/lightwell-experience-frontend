@@ -2,6 +2,7 @@ module.exports = {
   roots: ['<rootDir>/src/'],
   preset: 'ts-jest',
   maxWorkers: '50%',
+  reporters: ['default', 'jest-junit'],
   testEnvironment: 'jsdom',
   transform: {
     '^.+\\.(ts|tsx)$': 'ts-jest',

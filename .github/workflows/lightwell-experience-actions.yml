@@ -31,8 +31,31 @@ jobs:
           chmod +x workflowScripts/malware-pr-check.py
           python3 workflowScripts/malware-pr-check.py
 
+  vulnerability-review:
+    runs-on: ubuntu-latest
+    name: vulnerability-review
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Known vulnerability review
+        uses: actions/dependency-review-action@v5
+        with:
+          comment-summary-in-pr: on-failure
+          vulnerability-check: true
+          license-check: false
+          # No 6.x patch exists; fixed only in react-router 7.18.0+.
+          # Chrome still provides react-router-dom 6.x as a Module Federation
+          # singleton (import: false), so this remote cannot move to v7.
+          # GHSA-337j-9hxr-rhxg applies to SSR/Framework Mode; this app uses Declarative Mode.
+          # GHSA-wrjc-x8rr-h8h6 is a client-side open redirect with no 6.x fix.
+          # Revisit when chrome publishes a patched shared router.
+          allow-ghsas: GHSA-wrjc-x8rr-h8h6, GHSA-337j-9hxr-rhxg
+
   lint:
-    needs: [malware-scan]
+    needs: [malware-scan, vulnerability-review]
     runs-on: ubuntu-latest
     name: lint
     steps:
@@ -62,7 +85,7 @@ jobs:
         run: yarn lint
 
   format:
-    needs: [malware-scan]
+    needs: [malware-scan, vulnerability-review]
     runs-on: ubuntu-latest
     name: format
     steps:
@@ -92,7 +115,7 @@ jobs:
         run: yarn format:check
 
   build-check:
-    needs: [malware-scan]
+    needs: [malware-scan, vulnerability-review]
     runs-on: ubuntu-latest
     name: build-check
     steps:
@@ -122,7 +145,7 @@ jobs:
         run: yarn build
 
   unit-test:
-    needs: [malware-scan]
+    needs: [malware-scan, vulnerability-review]
     name: unit-test
     runs-on: ubuntu-latest
     steps:
@@ -150,3 +173,13 @@ jobs:
 
       - name: Tests
         run: yarn test
+
+      - name: Convert JUnit report to CTRF format
+        if: always()
+        run: npx junit-to-ctrf test-results/jest-junit.xml -o test-results/ctrf-report.json
+
+      - name: Report test results
+        if: always()
+        uses: ctrf-io/github-test-reporter@v1
+        with:
+          report-path: ./test-results/ctrf-report.json

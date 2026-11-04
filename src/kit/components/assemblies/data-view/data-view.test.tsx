@@ -1311,7 +1311,7 @@ it('aligns the expansion header with the row toggle and keeps data-column sortin
   render(
     <LwDataView
       aria-label='Expandable table'
-      columns={columns}
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
       rows={[
         { id: 'b', row: ['Beta', 'OK'] },
         { id: 'a', row: ['Alpha', 'OK'] },
@@ -1347,7 +1347,7 @@ it('adds no toggle header when every expansion is compound', async () => {
   render(
     <LwDataView
       aria-label='Compound expansions'
-      columns={columns}
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
       rows={[{ id: 'a', row: ['Alpha', 'OK'] }]}
       isExpandable
       indexBy='id'
@@ -1372,7 +1372,7 @@ it('reserves the toggle header when expandable content is empty', () => {
   render(
     <LwDataView
       aria-label='Empty expansions'
-      columns={columns}
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
       rows={rows}
       isExpandable
       expandedRows={[]}
@@ -1398,7 +1398,7 @@ it('sorts across every resident row before slicing the requested page', async ()
   render(
     <LwDataView
       aria-label='Resident table'
-      columns={columns}
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
       rows={residentRows}
       isResident
       pagination={{ perPage: 2 }}
@@ -1424,7 +1424,7 @@ it('derives pagination itemCount from the full resident set', () => {
   render(
     <LwDataView
       aria-label='Resident count'
-      columns={columns}
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
       rows={residentRows}
       isResident
       pagination={{ perPage: 2 }}
@@ -1465,7 +1465,7 @@ it('leaves rows untouched when they are a single server page', () => {
   render(
     <LwDataView
       aria-label='Server paged'
-      columns={columns}
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
       rows={residentRows}
       pagination={{ itemCount: 97, perPage: 2 }}
     />,

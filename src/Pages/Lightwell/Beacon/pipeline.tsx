@@ -1,5 +1,9 @@
 import type { ReactNode } from 'react';
 
+import BanIcon from '@patternfly/react-icons/dist/esm/icons/ban-icon';
+import CheckDoubleIcon from '@patternfly/react-icons/dist/esm/icons/check-double-icon';
+import PauseCircleIcon from '@patternfly/react-icons/dist/esm/icons/pause-circle-icon';
+import UploadIcon from '@patternfly/react-icons/dist/esm/icons/upload-icon';
 import BundleIcon from '@patternfly/react-icons/dist/esm/icons/bundle-icon';
 import CheckCircleIcon from '@patternfly/react-icons/dist/esm/icons/check-circle-icon';
 import OutlinedHourglassIcon from '@patternfly/react-icons/dist/esm/icons/outlined-hourglass-icon';
@@ -12,24 +16,27 @@ import type { LwStepIconColorKey } from 'kit/lightwell.config';
 import { STATUSES, STATUS_DESCRIPTIONS, statusLabel } from './constants';
 import type { Status } from './types';
 
-type PipelineStatus = Exclude<Status, 'Upstreaming' | 'Published' | 'Unremediated' | 'On Hold'>;
-
 type PipelineStepPresentation = {
   color: LwStepIconColorKey;
   icon: ReactNode;
 };
 
 /** Same icon and step color the Beacon page passes to `LwMetricsStepper`. */
-export const PIPELINE_STEP_PRESENTATION: Record<PipelineStatus, PipelineStepPresentation> = {
+export const PIPELINE_STEP_PRESENTATION: Record<Status, PipelineStepPresentation> = {
   Submitted: { color: 'blue', icon: <RhUiPendingIcon /> },
   Classified: { color: 'exact', icon: <CheckCircleIcon /> },
   'Fix in Progress': { color: 'orange', icon: <RhUiInProgressIcon /> },
   Validation: { color: 'purple', icon: <OutlinedHourglassIcon /> },
   'Lightwell Network': { color: 'teal', icon: <BundleIcon /> },
+  Upstreaming: { color: 'blue', icon: <UploadIcon /> },
+  Published: { color: 'exact', icon: <CheckDoubleIcon /> },
+  'On Hold': { color: 'partial', icon: <PauseCircleIcon /> },
+  Unremediated: { color: 'none', icon: <BanIcon /> },
 };
 
-export function getPipelineStepPresentation(status: Status): PipelineStepPresentation | undefined {
-  return PIPELINE_STEP_PRESENTATION[status as PipelineStatus];
+/** Total over `Status` — every status has a presentation, so callers never branch on absence. */
+export function getPipelineStepPresentation(status: Status): PipelineStepPresentation {
+  return PIPELINE_STEP_PRESENTATION[status];
 }
 
 export function buildPipelineMetricSteps(
@@ -38,7 +45,7 @@ export function buildPipelineMetricSteps(
 ): LwMetricsStep[] {
   return STATUSES.map((status) => {
     const count = statusCounts?.[status] ?? 0;
-    const presentation = PIPELINE_STEP_PRESENTATION[status as PipelineStatus];
+    const presentation = PIPELINE_STEP_PRESENTATION[status];
 
     return {
       id: status,

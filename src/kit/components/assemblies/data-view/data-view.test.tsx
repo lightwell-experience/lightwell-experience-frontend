@@ -1385,3 +1385,94 @@ it('reserves the toggle header when expandable content is empty', () => {
   expect(within(table).getAllByRole('columnheader')).toHaveLength(3);
   expect(within(within(table).getAllByRole('row')[1]).getAllByRole('cell')).toHaveLength(3);
 });
+
+// ─── Resident paging ───────────────────────────────────────────────────────────
+
+const residentRows = ['delta', 'bravo', 'charlie', 'alpha'].map((name) => [
+  { cell: name },
+  { cell: 'OK' },
+]);
+
+it('sorts across every resident row before slicing the requested page', async () => {
+  const user = userEvent.setup();
+  render(
+    <LwDataView
+      aria-label='Resident table'
+      columns={columns}
+      rows={residentRows}
+      isResident
+      pagination={{ perPage: 2 }}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Resident table' });
+  const names = () =>
+    within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => within(row).getAllByRole('cell')[0].textContent);
+
+  expect(names()).toEqual(['delta', 'bravo']);
+
+  await user.click(within(within(table).getAllByRole('columnheader')[0]).getByRole('button'));
+
+  // Sorting a pre-sliced page would leave 'bravo'/'delta' here; sorting the
+  // whole set first puts the globally smallest two on page one.
+  expect(names()).toEqual(['alpha', 'bravo']);
+});
+
+it('derives pagination itemCount from the full resident set', () => {
+  render(
+    <LwDataView
+      aria-label='Resident count'
+      columns={columns}
+      rows={residentRows}
+      isResident
+      pagination={{ perPage: 2 }}
+    />,
+  );
+
+  // 4 resident rows at perPage 2 — two pages, with no itemCount from the caller.
+  expect(screen.getAllByLabelText('Current page')[0]).toHaveAttribute('max', '2');
+});
+
+it.each([false, true])(
+  'keeps resident rows and pagination aligned when results shrink (controlled: %s)',
+  async (controlled) => {
+    const user = userEvent.setup();
+    const props = {
+      'aria-label': 'Shrinking resident table',
+      columns,
+      isResident: true,
+      pagination: { perPage: 2, ...(controlled ? { page: 2 } : {}) },
+    };
+    const { rerender } = render(<LwDataView {...props} rows={residentRows} />);
+    if (!controlled) {
+      await user.click(screen.getAllByLabelText('Go to next page')[0]);
+    }
+    const table = screen.getByRole('grid', { name: 'Shrinking resident table' });
+    expect(within(table).getByText('charlie')).toBeInTheDocument();
+
+    rerender(<LwDataView {...props} rows={residentRows.slice(0, 1)} />);
+
+    expect(within(table).getByText('delta')).toBeInTheDocument();
+    for (const input of screen.getAllByLabelText('Current page')) {
+      expect(input).toHaveValue(1);
+    }
+  },
+);
+
+it('leaves rows untouched when they are a single server page', () => {
+  render(
+    <LwDataView
+      aria-label='Server paged'
+      columns={columns}
+      rows={residentRows}
+      pagination={{ itemCount: 97, perPage: 2 }}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Server paged' });
+
+  expect(within(table).getAllByRole('row').slice(1)).toHaveLength(4);
+  // The caller's itemCount stands — 97 items at perPage 2 is 49 pages.
+  expect(screen.getAllByLabelText('Current page')[0]).toHaveAttribute('max', '49');
+});

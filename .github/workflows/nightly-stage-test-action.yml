@@ -1,0 +1,114 @@
+name: 'E2E tests: Stage'
+on:
+  pull_request:
+    types: [ opened, reopened, synchronize ]
+
+  schedule:
+    - cron: '0 0 * * *' # Daily at 00:00 UTC (midnight)
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  playwright-integration-test:
+    if: ${{ ! contains(github.event.pull_request.labels.*.name, 'skip-integration-tests') }}
+    runs-on:
+      - codebuild-lightwell-experience-integration-${{ github.run_id }}-${{ github.run_attempt }}
+      - instance-size:large
+      - buildspec-override:true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Cache node_modules
+        uses: actions/cache@v6
+        with:
+          path: |
+            node_modules
+            dist
+          key: ${{ runner.os }}-frontend-node-modules-${{ hashFiles('yarn.lock') }}
+          restore-keys: ${{ runner.os }}-frontend-node-modules-
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Set up Playwright
+        run: yarn playwright install chromium --only-shell
+
+      - name: Create .env file
+        run: |
+          {
+            echo "CI=true"
+            echo "INTEGRATION=true"
+          } >> .env 2>/dev/null
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "BASE_URL=https://stage.foo.redhat.com:1337" >> .env
+          else
+            echo "BASE_URL=$STAGE_BASE_URL" >> .env
+            echo "PROXY=$RH_PROXY_URL" >> .env
+          fi
+
+          if [ -z "$STAGE_CREDS" ]; then
+            echo "::warning::STAGE_CREDS secret is not set."
+          else
+            printf '%s' "$STAGE_CREDS" > creds.json
+          fi
+
+          echo "✅ Environment file created successfully"
+
+      ### Pull request specific steps ###
+
+      # This prevents an error related to minimum watchers when running the front-end and playwright
+      - name: Increase file watchers limit
+        if: ${{ github.event_name == 'pull_request' }}
+        run: echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
+
+      - name: Update /etc/hosts
+        if: ${{ github.event_name == 'pull_request' }}
+        run: sudo npm run patch:hosts
+
+      - name: Build frontend
+        if: ${{ github.event_name == 'pull_request' }}
+        run: yarn build
+
+      - name: Frontend run (static)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: yarn fec static --port 8003 &
+
+      - name: Wait for frontend to be ready
+        if: ${{ github.event_name == 'pull_request' }}
+        timeout-minutes: 3
+        run: npx wait-on http://localhost:8003/apps/lightwell-experience/
+
+      - name: Run testing proxy
+        if: ${{ github.event_name == 'pull_request' }}
+        run: docker run -d --network=host -e HTTPS_PROXY=$RH_PROXY_URL -e ROUTES_JSON_PATH=/config/routes-ci-integration.json -v "$(pwd)/config:/config:ro,Z" --name frontend-development-proxy quay.io/redhat-user-workloads/hcc-platex-services-tenant/frontend-development-proxy:latest
+      
+      ### End of pull request specific steps ###
+
+      - name: Run Playwright tests
+        run: yarn playwright test
+
+      - name: Publish test report
+        uses: ctrf-io/github-test-reporter@v1
+        with:
+          report-path: './playwright-ctrf/playwright-ctrf.json'
+        if: ${{ !cancelled() }}
+
+      - name: Store report
+        uses: actions/upload-artifact@v6
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: ./playwright-ctrf
+          retention-days: 10

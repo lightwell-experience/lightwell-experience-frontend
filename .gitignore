@@ -23,3 +23,14 @@ test-results/
 
 # cache folder
 .cache
+
+# playwright
+test-results/
+playwright-report/
+playwright-ctrf/
+blob-report/
+playwright/.cache/
+.env
+.auth
+creds*
+!creds.example.json

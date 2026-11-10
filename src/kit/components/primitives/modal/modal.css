@@ -1,0 +1,8 @@
+/* LwModal — kit primitive, co-located CSS.
+ * Root host is PatternFly `Modal` — lw-c-modal merges onto that node.
+ * Edit presentation here (tokens / layout); prop defaults stay in components.config.ts.
+ */
+
+.lw-c-modal {
+  /* Presentational baseline — PF dialog chrome only until Lightwell earns overrides. */
+}

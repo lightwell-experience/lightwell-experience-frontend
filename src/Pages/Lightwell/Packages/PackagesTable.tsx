@@ -448,7 +448,7 @@ const PackagesTable = () => {
         </PageChromeSlots>
       </LwPageHeader>
 
-      <Grid className={`${spacing.pxLg} ${spacing.pbLg}`}>
+      <Grid className={spacing.pxLg}>
         <Toolbar ouiaId='lightwell-packages-toolbar'>
           <ToolbarContent>
             <ToolbarItem className={classes.filterToolbarItem}>

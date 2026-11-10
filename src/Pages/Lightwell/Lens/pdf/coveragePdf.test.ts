@@ -1,7 +1,9 @@
-import { EXPORT_PAGE_SIZE } from '../../utils/exportUtils';
+import type { AxiosRequestConfig } from 'axios';
+
 import {
   buildCoveragePackagesQueryParams,
   buildCoveragePdfPayload,
+  COVERAGE_PDF_PAGE_SIZE,
   fetchData,
   formatCoveragePdfGeneratedAt,
 } from './coveragePdf';
@@ -20,6 +22,42 @@ const packagesCollection = {
   links: { first: '', last: '' },
   meta: { count: 1, limit: 50, offset: 0 },
 };
+
+const REPORT_URL = '/api/content-sources/v1/coverage_reports/report-uuid';
+const PACKAGES_URL = `${REPORT_URL}/packages`;
+
+const packageRow = (name: string) => ({
+  name,
+  version: '1',
+  ecosystem: 'npm',
+  covered: false,
+  match_status: 'none' as const,
+});
+
+const packagesPage = (
+  offset: number,
+  length: number,
+  count: number,
+  limit: number = COVERAGE_PDF_PAGE_SIZE,
+) => ({
+  data: Array.from({ length }, (_, index) => packageRow(`pkg-${offset + index}`)),
+  links: { first: '', last: '' },
+  meta: { count, limit, offset },
+});
+
+// Routes by URL and offset rather than call order, since pages and the report
+// are requested concurrently.
+const mockBackend = ({
+  pages,
+  report = defaultCoverageReportItem,
+}: {
+  pages: Record<number, unknown>;
+  report?: unknown;
+}) =>
+  jest.fn((_service: string, config: AxiosRequestConfig) => {
+    const response = config.url === REPORT_URL ? report : pages[Number(config.params?.offset ?? 0)];
+    return response instanceof Error ? Promise.reject(response) : Promise.resolve(response);
+  });
 
 describe('buildCoveragePackagesQueryParams', () => {
   it('serializes pagination and active filters', () => {
@@ -47,10 +85,7 @@ describe('buildCoveragePackagesQueryParams', () => {
 
 describe('fetchData', () => {
   it('requests packages with pagination and filters, and the report only for the summary page', async () => {
-    const createAsyncRequest = jest
-      .fn()
-      .mockResolvedValueOnce(packagesCollection)
-      .mockResolvedValueOnce(defaultCoverageReportItem);
+    const createAsyncRequest = mockBackend({ pages: { 50: packagesCollection } });
 
     const result = await fetchData(createAsyncRequest, {
       uuid: 'report-uuid',
@@ -59,14 +94,15 @@ describe('fetchData', () => {
       includeSummary: true,
     });
 
-    expect(createAsyncRequest).toHaveBeenNthCalledWith(1, 'content-sources-backend', {
+    expect(createAsyncRequest).toHaveBeenCalledTimes(2);
+    expect(createAsyncRequest).toHaveBeenCalledWith('content-sources-backend', {
       method: 'GET',
-      url: '/api/content-sources/v1/coverage_reports/report-uuid/packages',
-      params: { limit: String(EXPORT_PAGE_SIZE), offset: '50', match_status: 'exact' },
+      url: PACKAGES_URL,
+      params: { limit: String(COVERAGE_PDF_PAGE_SIZE), offset: '50', match_status: 'exact' },
     });
-    expect(createAsyncRequest).toHaveBeenNthCalledWith(2, 'content-sources-backend', {
+    expect(createAsyncRequest).toHaveBeenCalledWith('content-sources-backend', {
       method: 'GET',
-      url: '/api/content-sources/v1/coverage_reports/report-uuid',
+      url: REPORT_URL,
     });
     expect(result.packages[0].name).toBe('spring-web');
     expect(result.meta.count).toBe(1);
@@ -109,42 +145,140 @@ describe('fetchData', () => {
   });
 
   it('follows package pages until the report is complete', async () => {
-    const packageRow = (name: string) => ({
-      name,
-      version: '1',
-      ecosystem: 'npm',
-      covered: false,
-      match_status: 'none' as const,
+    const count = COVERAGE_PDF_PAGE_SIZE + 1;
+    const createAsyncRequest = mockBackend({
+      pages: {
+        0: packagesPage(0, COVERAGE_PDF_PAGE_SIZE, count),
+        [COVERAGE_PDF_PAGE_SIZE]: packagesPage(COVERAGE_PDF_PAGE_SIZE, 1, count),
+      },
     });
-    const fullPage = {
-      data: Array.from({ length: EXPORT_PAGE_SIZE }, (_, index) => packageRow(`pkg-${index}`)),
-      links: { first: '', last: '' },
-      meta: { count: EXPORT_PAGE_SIZE + 1, limit: EXPORT_PAGE_SIZE, offset: 0 },
-    };
-    const lastPage = {
-      data: [packageRow('pkg-last')],
-      links: { first: '', last: '' },
-      meta: { count: EXPORT_PAGE_SIZE + 1, limit: EXPORT_PAGE_SIZE, offset: EXPORT_PAGE_SIZE },
-    };
-    const createAsyncRequest = jest
-      .fn()
-      .mockResolvedValueOnce(fullPage)
-      .mockResolvedValueOnce(lastPage)
-      .mockResolvedValueOnce(defaultCoverageReportItem);
 
     const result = await fetchData(createAsyncRequest, {
       uuid: 'report-uuid',
       includeSummary: true,
     });
 
-    expect(createAsyncRequest).toHaveBeenNthCalledWith(2, 'content-sources-backend', {
+    expect(createAsyncRequest).toHaveBeenCalledWith('content-sources-backend', {
       method: 'GET',
-      url: '/api/content-sources/v1/coverage_reports/report-uuid/packages',
-      params: { limit: String(EXPORT_PAGE_SIZE), offset: String(EXPORT_PAGE_SIZE) },
+      url: PACKAGES_URL,
+      params: { limit: String(COVERAGE_PDF_PAGE_SIZE), offset: String(COVERAGE_PDF_PAGE_SIZE) },
     });
-    expect(result.packages).toHaveLength(EXPORT_PAGE_SIZE + 1);
-    expect(result.packages.at(-1)?.name).toBe('pkg-last');
+    expect(result.packages).toHaveLength(count);
+    expect(result.packages.at(-1)?.name).toBe(`pkg-${COVERAGE_PDF_PAGE_SIZE}`);
     expect(result.report).toEqual(defaultCoverageReportItem);
+  });
+
+  it('keeps offset order when later pages resolve out of order', async () => {
+    const count = COVERAGE_PDF_PAGE_SIZE * 3 + 5;
+    const pages: Record<number, ReturnType<typeof packagesPage>> = {
+      0: packagesPage(0, COVERAGE_PDF_PAGE_SIZE, count),
+      [COVERAGE_PDF_PAGE_SIZE]: packagesPage(COVERAGE_PDF_PAGE_SIZE, COVERAGE_PDF_PAGE_SIZE, count),
+      [COVERAGE_PDF_PAGE_SIZE * 2]: packagesPage(
+        COVERAGE_PDF_PAGE_SIZE * 2,
+        COVERAGE_PDF_PAGE_SIZE,
+        count,
+      ),
+      [COVERAGE_PDF_PAGE_SIZE * 3]: packagesPage(COVERAGE_PDF_PAGE_SIZE * 3, 5, count),
+    };
+    // Earlier offsets settle later, so arrival order is the reverse of offset order.
+    const createAsyncRequest = jest.fn((_service: string, config: AxiosRequestConfig) => {
+      const offset = Number(config.params?.offset ?? 0);
+      const delay = offset === 0 ? 0 : (count - offset) / COVERAGE_PDF_PAGE_SIZE;
+      return new Promise((resolve) => setTimeout(() => resolve(pages[offset]), delay));
+    });
+
+    const result = await fetchData(createAsyncRequest, { uuid: 'report-uuid' });
+
+    expect(createAsyncRequest).toHaveBeenCalledTimes(4);
+    expect(result.packages).toHaveLength(count);
+    expect(result.packages.map(({ name }) => name)).toEqual(
+      Array.from({ length: count }, (_, index) => `pkg-${index}`),
+    );
+  });
+
+  it('counts remaining pages from the start offset, not from zero', async () => {
+    const start = COVERAGE_PDF_PAGE_SIZE * 2;
+    const count = COVERAGE_PDF_PAGE_SIZE * 3 + 1;
+    const createAsyncRequest = mockBackend({
+      pages: {
+        [start]: packagesPage(start, COVERAGE_PDF_PAGE_SIZE, count),
+        [start + COVERAGE_PDF_PAGE_SIZE]: packagesPage(start + COVERAGE_PDF_PAGE_SIZE, 1, count),
+      },
+    });
+
+    const result = await fetchData(createAsyncRequest, { uuid: 'report-uuid', offset: start });
+
+    expect(createAsyncRequest).toHaveBeenCalledTimes(2);
+    expect(result.packages).toHaveLength(COVERAGE_PDF_PAGE_SIZE + 1);
+  });
+
+  it('pages by the served limit when the backend clamps the requested size', async () => {
+    const servedLimit = 200;
+    const count = servedLimit * 2 + 50;
+    const createAsyncRequest = mockBackend({
+      pages: {
+        0: packagesPage(0, servedLimit, count, servedLimit),
+        [servedLimit]: packagesPage(servedLimit, servedLimit, count, servedLimit),
+        [servedLimit * 2]: packagesPage(servedLimit * 2, 50, count, servedLimit),
+      },
+    });
+
+    const result = await fetchData(createAsyncRequest, { uuid: 'report-uuid' });
+
+    expect(createAsyncRequest).toHaveBeenCalledTimes(3);
+    expect(createAsyncRequest).toHaveBeenCalledWith('content-sources-backend', {
+      method: 'GET',
+      url: PACKAGES_URL,
+      params: { limit: String(COVERAGE_PDF_PAGE_SIZE), offset: String(servedLimit * 2) },
+    });
+    expect(result.packages.map(({ name }) => name)).toEqual(
+      Array.from({ length: count }, (_, index) => `pkg-${index}`),
+    );
+  });
+
+  it('does not leak a rejection when a later page and the report both fail', async () => {
+    const unhandled = jest.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const count = COVERAGE_PDF_PAGE_SIZE + 1;
+      const createAsyncRequest = mockBackend({
+        pages: {
+          0: packagesPage(0, COVERAGE_PDF_PAGE_SIZE, count),
+          [COVERAGE_PDF_PAGE_SIZE]: new Error('page failed'),
+        },
+        report: new Error('report failed'),
+      });
+
+      await expect(
+        fetchData(createAsyncRequest, { uuid: 'report-uuid', includeSummary: true }),
+      ).rejects.toThrow(/page failed|report failed/);
+
+      // Let Node report any rejection that was left unobserved.
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
+  });
+
+  it('does not leak the report rejection when the first page fails', async () => {
+    const unhandled = jest.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const createAsyncRequest = mockBackend({
+        pages: { 0: new Error('first page failed') },
+        report: new Error('report failed'),
+      });
+
+      await expect(
+        fetchData(createAsyncRequest, { uuid: 'report-uuid', includeSummary: true }),
+      ).rejects.toThrow('first page failed');
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
   });
 });
 

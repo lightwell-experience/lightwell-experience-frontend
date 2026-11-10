@@ -11,7 +11,6 @@ const PAGE_SIZE = 200;
 
 export type LightwellAdvisoryResponse = {
   advisory_id: string;
-  advisory_name: string;
   severity: string;
   severity_score: number;
   summary: string;
@@ -24,9 +23,10 @@ export type LightwellAdvisoryResponse = {
   repository: string;
   published: string | null;
   modified: string | null;
+  // CVE and GHSA ids. aliases and upstream carry the same list.
   aliases: string[];
+  upstream: string[];
   schema_version: string;
-  source: string;
   created_at: string;
   updated_at: string;
 };
@@ -35,7 +35,7 @@ export type LightwellAdvisoryFilters = {
   repository?: string;
   package_name?: string;
   package_version?: string;
-  name?: string;
+  cve_id?: string;
   severity_min?: string;
   latest_release?: boolean;
 };
@@ -53,8 +53,7 @@ const buildAdvisoryQueryParams = (
   repository: encodeURIComponent(filters.repository ?? ''),
   package_name: encodeURIComponent(filters.package_name ?? ''),
   package_version: encodeURIComponent(filters.package_version ?? ''),
-  // The human-readable advisory name e.g., CVE-2026-0205
-  name: encodeURIComponent(filters.name ?? ''),
+  cve_id: encodeURIComponent(filters.cve_id ?? ''),
   severity_min: encodeURIComponent(filters.severity_min ?? ''),
   latest_release: filters.latest_release,
   limit: String(pagination.limit),

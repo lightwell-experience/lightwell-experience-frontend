@@ -52,13 +52,6 @@ const AdvisoryOverviewTab = ({ advisoryName, overview }: AdvisoryOverviewTabProp
         </DescriptionListGroup>
 
         <DescriptionListGroup>
-          <DescriptionListTerm>Aliases</DescriptionListTerm>
-          <DescriptionListDescription>
-            {overview.aliases.join(', ') || '—'}
-          </DescriptionListDescription>
-        </DescriptionListGroup>
-
-        <DescriptionListGroup>
           <DescriptionListTerm>Released</DescriptionListTerm>
           <DescriptionListDescription>{overview.released}</DescriptionListDescription>
         </DescriptionListGroup>

@@ -14,6 +14,9 @@ export type ClearinghouseSubmissionFile = {
   created_at: string;
   // True for the main report file; the rest are reproducers.
   submission?: boolean;
+  // Caller permissions for this file, computed by the backend.
+  can_delete: boolean;
+  can_download: boolean;
 };
 
 export type ClearinghouseSubmission = {
@@ -33,6 +36,15 @@ export type ClearinghouseSubmission = {
   submitted_by?: string;
   processed_at?: string;
   processed_by?: string;
+  // Caller permissions for this submission, computed by the backend. The UI
+  // shows controls from these flags instead of re-deriving the rules.
+  can_delete: boolean;
+  can_download: boolean;
+  can_add_reproducers: boolean;
+  can_submit: boolean;
+  can_process: boolean;
+  // Customer identifier. Populated on list and get only for clearinghouse read users.
+  cid?: string;
 };
 
 export type ClearinghouseSubmissionListResponse = {

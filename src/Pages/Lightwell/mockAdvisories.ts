@@ -3,28 +3,34 @@ import type { LightwellAdvisoryResponse } from 'services/Lightwell/AdvisoriesApi
 const JAVA_REPOSITORY = 'lightwell/java/remediated';
 const PYTHON_REPOSITORY = 'lightwell/python/remediated';
 
+const aliasIds = (cveId: string, ghsaId?: string): string[] => (ghsaId ? [cveId, ghsaId] : [cveId]);
+
 const advisory = (
   overrides: Partial<LightwellAdvisoryResponse> &
     Pick<
       LightwellAdvisoryResponse,
-      'advisory_id' | 'advisory_name' | 'package_name' | 'package_version' | 'fixed_versions'
+      'advisory_id' | 'package_name' | 'package_version' | 'fixed_versions'
     >,
-): LightwellAdvisoryResponse => ({
-  severity: '0.0',
-  severity_score: 0,
-  summary: '',
-  details: '',
-  reference_urls: [],
-  repository: JAVA_REPOSITORY,
-  published: '2026-06-01T00:00:00Z',
-  modified: '2026-07-01T00:00:00Z',
-  aliases: [],
-  schema_version: '1.6.0',
-  source: 'osv',
-  created_at: '2026-07-01T00:00:00Z',
-  updated_at: '2026-07-01T00:00:00Z',
-  ...overrides,
-});
+): LightwellAdvisoryResponse => {
+  const aliases = overrides.aliases ?? [];
+
+  return {
+    severity: '0.0',
+    severity_score: 0,
+    summary: '',
+    details: '',
+    reference_urls: [],
+    repository: JAVA_REPOSITORY,
+    published: '2026-06-01T00:00:00Z',
+    modified: '2026-07-01T00:00:00Z',
+    schema_version: '1.6.0',
+    created_at: '2026-07-01T00:00:00Z',
+    updated_at: '2026-07-01T00:00:00Z',
+    ...overrides,
+    aliases,
+    upstream: overrides.upstream ?? aliases,
+  };
+};
 
 // Synthetic CVE shared by Java and Python packages for the drawer's ecosystem grouping.
 const SHARED_CVE = 'CVE-2026-1234';
@@ -34,9 +40,8 @@ const sharedCveMetadata = {
   summary: 'Malformed Protocol Buffers input can trigger a parsing failure',
   details:
     'A malformed Protocol Buffers message can cause incorrect bounds handling while untrusted data is decoded. The issue affects multiple Java and Python runtime packages. Lightwell publishes fixed builds for the affected upstream versions. Applications that process externally supplied messages should use the remediated release for their package and version.',
-  aliases: ['GHSA-example-1234'],
+  aliases: aliasIds(SHARED_CVE, 'GHSA-example-1234'),
   schema_version: '1.6.8',
-  source: 'pnc-build',
   published: '2026-08-10T00:00:00Z',
   modified: '2026-08-10T00:00:00Z',
   created_at: '2026-08-17T00:00:00Z',
@@ -116,7 +121,6 @@ const sharedCveAdvisories = sharedCvePackages.flatMap(({ repository, packageName
     advisory({
       ...sharedCveMetadata,
       advisory_id: `x_RHLW-${SHARED_CVE}-${repository === JAVA_REPOSITORY ? 'java' : 'python'}-${packageName.replace(/[^a-zA-Z0-9]+/g, '-')}-${upstreamVersion}`,
-      advisory_name: SHARED_CVE,
       repository,
       package_name: packageName,
       package_version: upstreamVersion,
@@ -134,63 +138,59 @@ type MockAdvisoryPackageFilter = Pick<
 const mockAdvisories: LightwellAdvisoryResponse[] = [
   advisory({
     advisory_id: 'x_RHLW-CVE-2022-42889-2.9.0',
-    advisory_name: 'CVE-2022-42889',
+    aliases: aliasIds('CVE-2022-42889', 'GHSA-599f-7c49-w659'),
     severity: '9.8',
     severity_score: 9.800000190734863,
     summary: 'Code injection through string interpolation',
     details:
       'Untrusted input passed to string substitution can be interpolated into a script or lookup that runs code.',
     reference_urls: ['https://nvd.nist.gov/vuln/detail/CVE-2022-42889'],
-    aliases: ['GHSA-599f-7c49-w659'],
     package_name: 'com.jayway.jsonpath:json-path',
     package_version: '2.9.0',
     fixed_versions: ['2.9.0.rhlw-00001'],
   }),
   advisory({
     advisory_id: 'x_RHLW-CVE-2023-24998-2.9.0',
-    advisory_name: 'CVE-2023-24998',
+    aliases: aliasIds('CVE-2023-24998', 'GHSA-h6q6-9hqw-rwfv'),
     severity: '5.3',
     severity_score: 5.300000190734863,
     summary: 'Denial of service via multipart requests',
     details:
       'A series of multipart requests can exhaust processing resources and make the service unavailable.',
     reference_urls: ['https://nvd.nist.gov/vuln/detail/CVE-2023-24998'],
-    aliases: ['GHSA-h6q6-9hqw-rwfv'],
     package_name: 'com.jayway.jsonpath:json-path',
     package_version: '2.9.0',
     fixed_versions: ['2.9.0.rhlw-00001'],
   }),
   advisory({
     advisory_id: 'x_RHLW-CVE-2024-0001-2.8.1',
-    advisory_name: 'CVE-2024-0001',
+    aliases: aliasIds('CVE-2024-0001', 'GHSA-lw01-4k2m-9abc'),
     severity: '3.1',
     severity_score: 3.0999999046325684,
     summary: 'Information leak in an error response',
     details:
       'An error response includes internal details that a caller should not be able to read.',
     reference_urls: ['https://nvd.nist.gov/vuln/detail/CVE-2024-0001'],
-    aliases: ['GHSA-lw01-4k2m-9abc'],
     package_name: 'com.jayway.jsonpath:json-path',
     package_version: '2.8.1',
     fixed_versions: ['2.8.1.rhlw-00001'],
   }),
   advisory({
     advisory_id: 'x_RHLW-CVE-2024-0002-2.8.1',
-    advisory_name: 'CVE-2024-0002',
+    aliases: aliasIds('CVE-2024-0002', 'GHSA-lw02-8n4p-1cde'),
     severity: '2.4',
     severity_score: 2.4000000953674316,
     summary: 'Verbose debug output leaks a request id',
     details:
       'Debug logging writes an internal request identifier into a response the caller can see.',
     reference_urls: ['https://nvd.nist.gov/vuln/detail/CVE-2024-0002'],
-    aliases: ['GHSA-lw02-8n4p-1cde'],
     package_name: 'com.jayway.jsonpath:json-path',
     package_version: '2.8.1',
     fixed_versions: ['2.8.1.rhlw-00001'],
   }),
   advisory({
     advisory_id: 'x_RHLW-CVE-2021-44228-2.24.1',
-    advisory_name: 'CVE-2021-44228',
+    aliases: aliasIds('CVE-2021-44228', 'GHSA-jfh8-c2jp-5v3q'),
     severity: '10.0',
     severity_score: 10.0,
     summary: 'Remote code execution via JNDI lookup',
@@ -199,14 +199,13 @@ const mockAdvisories: LightwellAdvisoryResponse[] = [
       'https://nvd.nist.gov/vuln/detail/CVE-2021-44228',
       'https://github.com/advisories/GHSA-jfh8-c2jp-5v3q',
     ],
-    aliases: ['GHSA-jfh8-c2jp-5v3q'],
     package_name: 'org.apache.logging.log4j:log4j-core',
     package_version: '2.24.1',
     fixed_versions: ['2.24.1.rhlw-00003', '2.24.1.rhlw-00002'],
   }),
   advisory({
     advisory_id: 'x_RHLW-CVE-2021-44228-2.24.1-dup',
-    advisory_name: 'CVE-2021-44228',
+    aliases: aliasIds('CVE-2021-44228', 'GHSA-jfh8-c2jp-5v3q'),
     severity: '10.0',
     severity_score: 10.0,
     summary: 'Remote code execution via JNDI lookup',
@@ -215,76 +214,70 @@ const mockAdvisories: LightwellAdvisoryResponse[] = [
       'https://nvd.nist.gov/vuln/detail/CVE-2021-44228',
       'https://github.com/advisories/GHSA-jfh8-c2jp-5v3q',
     ],
-    aliases: ['GHSA-jfh8-c2jp-5v3q'],
     package_name: 'org.apache.logging.log4j:log4j-core',
     package_version: '2.24.1',
     fixed_versions: ['2.24.1.rhlw-00003'],
   }),
   advisory({
     advisory_id: 'x_RHLW-CVE-2024-0001-1.12.1',
-    advisory_name: 'CVE-2024-0001',
+    aliases: aliasIds('CVE-2024-0001', 'GHSA-lw01-4k2m-9abc'),
     severity: '3.1',
     severity_score: 3.0999999046325684,
     summary: 'Information leak in an error response',
     details:
       'An error response includes internal details that a caller should not be able to read.',
     reference_urls: ['https://nvd.nist.gov/vuln/detail/CVE-2024-0001'],
-    aliases: ['GHSA-lw01-4k2m-9abc'],
     package_name: 'org.apache.commons:commons-text',
     package_version: '1.12.1',
     fixed_versions: ['1.12.1.rhlw-00001'],
   }),
   advisory({
     advisory_id: 'x_RHLW-CVE-2023-24998-6.2.1',
-    advisory_name: 'CVE-2023-24998',
+    aliases: aliasIds('CVE-2023-24998', 'GHSA-h6q6-9hqw-rwfv'),
     severity: '5.3',
     severity_score: 5.300000190734863,
     summary: 'Denial of service via multipart requests',
     details:
       'A series of multipart requests can exhaust processing resources and make the service unavailable.',
     reference_urls: ['https://nvd.nist.gov/vuln/detail/CVE-2023-24998'],
-    aliases: ['GHSA-h6q6-9hqw-rwfv'],
     package_name: 'org.springframework:spring-core',
     package_version: '6.2.1',
     fixed_versions: ['6.2.1.rhlw-00001'],
   }),
   advisory({
     advisory_id: 'x_RHLW-CVE-2023-1370-2.5.1',
-    advisory_name: 'CVE-2023-1370',
+    aliases: aliasIds('CVE-2023-1370', 'GHSA-493p-4f3p-h6q5'),
     severity: '7.5',
     severity_score: 7.5,
     summary: 'Stack overflow while parsing deeply nested JSON',
     details: 'A deeply nested JSON document can overflow the parser stack and crash the process.',
     reference_urls: ['https://nvd.nist.gov/vuln/detail/CVE-2023-1370'],
-    aliases: ['GHSA-493p-4f3p-h6q5'],
     package_name: 'net.minidev:json-smart',
     package_version: '2.5.1',
     fixed_versions: ['2.5.1.rhlw-00001'],
   }),
   advisory({
     advisory_id: 'x_RHLW-CVE-2024-0003-2.5.1',
-    advisory_name: 'CVE-2024-0003',
+    aliases: aliasIds('CVE-2024-0003', 'GHSA-js01-2k5m-8abc'),
     severity: '7.1',
     severity_score: 7.099999904632568,
     summary: 'Untrusted key lookup in a parsed object',
     details:
       'A parsed object accepts a key that resolves to an unexpected value from another document.',
     reference_urls: ['https://nvd.nist.gov/vuln/detail/CVE-2024-0003'],
-    aliases: ['GHSA-js01-2k5m-8abc'],
     package_name: 'net.minidev:json-smart',
     package_version: '2.5.1',
     fixed_versions: ['2.5.1.rhlw-00001'],
   }),
   advisory({
     advisory_id: 'x_RHLW-CVE-2021-39139-1.4.21',
-    advisory_name: 'CVE-2021-39139',
+    aliases: aliasIds('CVE-2021-39139', 'GHSA-hph2-7x8j-2w8q'),
     severity: '8.8',
     severity_score: 8.800000190734863,
     summary: 'Arbitrary code execution while unmarshalling XML',
     details:
       'Unmarshalling an untrusted XML document can load a type that runs code during construction.',
     reference_urls: ['https://nvd.nist.gov/vuln/detail/CVE-2021-39139'],
-    aliases: ['GHSA-hph2-7x8j-2w8q'],
     package_name: 'com.thoughtworks.xstream:xstream',
     package_version: '1.4.21',
     fixed_versions: ['1.4.21.rhlw-00001'],
@@ -292,7 +285,6 @@ const mockAdvisories: LightwellAdvisoryResponse[] = [
   advisory({
     ...sharedCveMetadata,
     advisory_id: 'x_RHLW-CVE-2026-1234-java-protobuf-java-4.25.7-older',
-    advisory_name: SHARED_CVE,
     package_name: 'com.google.protobuf:protobuf-java',
     package_version: '4.25.7',
     fixed_versions: ['4.25.7.rhlw-00001'],
@@ -301,7 +293,7 @@ const mockAdvisories: LightwellAdvisoryResponse[] = [
   ...sharedCveAdvisories,
   advisory({
     advisory_id: 'x_RHLW-CVE-2026-1235-protobuf-java-4.25.7',
-    advisory_name: 'CVE-2026-1235',
+    aliases: aliasIds('CVE-2026-1235'),
     severity: '7.5',
     severity_score: 7.5,
     summary: 'Message size validation can be bypassed',
@@ -312,7 +304,7 @@ const mockAdvisories: LightwellAdvisoryResponse[] = [
   }),
   advisory({
     advisory_id: 'x_RHLW-CVE-2026-1236-protobuf-java-4.25.7',
-    advisory_name: 'CVE-2026-1236',
+    aliases: aliasIds('CVE-2026-1236'),
     severity: '5.4',
     severity_score: 5.4,
     summary: 'Unexpected input can exhaust parser resources',
@@ -323,7 +315,7 @@ const mockAdvisories: LightwellAdvisoryResponse[] = [
   }),
   advisory({
     advisory_id: 'x_RHLW-CVE-2026-1237-protobuf-java-4.25.7',
-    advisory_name: 'CVE-2026-1237',
+    aliases: aliasIds('CVE-2026-1237'),
     severity: '2.8',
     severity_score: 2.8,
     summary: 'Parser error output includes internal context',
@@ -334,7 +326,7 @@ const mockAdvisories: LightwellAdvisoryResponse[] = [
   }),
   advisory({
     advisory_id: 'x_RHLW-CVE-2026-1235-protobuf-4.25.7',
-    advisory_name: 'CVE-2026-1235',
+    aliases: aliasIds('CVE-2026-1235'),
     severity: '7.5',
     severity_score: 7.5,
     summary: 'Message size validation can be bypassed',

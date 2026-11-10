@@ -29,12 +29,6 @@ const AdvisoryDetailsSkeleton = ({ advisoryName }: { advisoryName?: string }) =>
         </DescriptionListDescription>
       </DescriptionListGroup>
       <DescriptionListGroup>
-        <DescriptionListTerm>Aliases</DescriptionListTerm>
-        <DescriptionListDescription>
-          <Skeleton width='60%' />
-        </DescriptionListDescription>
-      </DescriptionListGroup>
-      <DescriptionListGroup>
         <DescriptionListTerm>Released</DescriptionListTerm>
         <DescriptionListDescription>
           <Skeleton width='40%' />

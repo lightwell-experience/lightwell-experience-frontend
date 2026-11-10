@@ -4,6 +4,7 @@ import { LIGHTWELL_USE_MOCK } from 'Pages/Lightwell/constants';
 import { getMockAdvisoriesForLatestRelease } from 'Pages/Lightwell/mockAdvisories';
 import type { LightwellAdvisoryResponse } from 'services/Lightwell/AdvisoriesApi';
 import { usePackageAdvisoriesQuery } from 'services/Lightwell/AdvisoriesQueries';
+import { cveIdsInAliases } from '../utils/advisories';
 import { normalizeAdvisorySeverity, type AdvisorySeverity } from '../utils/severity';
 
 export type AdvisorySeverityCounts = Record<AdvisorySeverity, number>;
@@ -14,11 +15,24 @@ export type LatestReleaseFixes = {
 };
 
 /**
- * Counts unique advisory_name values (e.g., CVE-2022-42889) by severity and
- * returns results from the API's already package/version-scoped response.
+ * Counts unique CVE ids for the newest rebuild of this package version.
+ * A row that lists two CVEs counts as two. The same CVE on two rows counts once,
+ * keeping the higher severity score. GHSA ids are ignored.
  */
-const toLatestReleaseFixes = (advisories: LightwellAdvisoryResponse[]): LatestReleaseFixes => {
-  const seen = new Set<string>();
+export const toLatestReleaseFixes = (
+  advisories: LightwellAdvisoryResponse[],
+): LatestReleaseFixes => {
+  const bestScoreByCve = new Map<string, number>();
+
+  for (const advisory of advisories) {
+    for (const cveId of cveIdsInAliases(advisory.aliases)) {
+      const current = bestScoreByCve.get(cveId);
+      if (current === undefined || advisory.severity_score > current) {
+        bestScoreByCve.set(cveId, advisory.severity_score);
+      }
+    }
+  }
+
   const counts: AdvisorySeverityCounts = {
     Critical: 0,
     Important: 0,
@@ -27,13 +41,11 @@ const toLatestReleaseFixes = (advisories: LightwellAdvisoryResponse[]): LatestRe
     None: 0,
   };
 
-  for (const advisory of advisories) {
-    if (seen.has(advisory.advisory_name)) continue;
-    seen.add(advisory.advisory_name);
-    counts[normalizeAdvisorySeverity(advisory.severity_score)] += 1;
+  for (const score of bestScoreByCve.values()) {
+    counts[normalizeAdvisorySeverity(score)] += 1;
   }
 
-  return { total: seen.size, counts };
+  return { total: bestScoreByCve.size, counts };
 };
 
 type UseLatestReleaseFixesParams = {

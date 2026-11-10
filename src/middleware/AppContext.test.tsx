@@ -88,4 +88,31 @@ describe('AppContext', () => {
       'false',
     );
   });
+
+  it('does not tell traditional RBAC that features have settled until the fetch resolves', async () => {
+    let resolveFetch: (value: object) => void = () => {};
+    const fetchPromise = new Promise<object>((resolve) => {
+      resolveFetch = resolve;
+    });
+    (useFetchFeaturesQuery as jest.Mock).mockReturnValue({
+      fetchFeatures: jest.fn().mockReturnValue(fetchPromise),
+      isLoading: false,
+    });
+
+    render(
+      <ContextProvider>
+        <Probe />
+      </ContextProvider>,
+    );
+
+    // isLoading reporting `false` before the fetch even starts must not be read as "settled" —
+    // otherwise RBAC v1 could fire before we know whether this tenant should use Kessel instead.
+    expect(useTraditionalRbac).toHaveBeenCalledWith(expect.anything(), false, true);
+
+    resolveFetch({ kessel: { enabled: true, accessible: true } });
+
+    await waitFor(() =>
+      expect(useTraditionalRbac).toHaveBeenLastCalledWith(expect.anything(), true, false),
+    );
+  });
 });

@@ -1,21 +1,28 @@
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-const ADVISORY_NAME_PARAM = 'name';
+const CVE_ID_PARAM = 'cve_id';
+const LEGACY_ADVISORY_NAME_PARAM = 'name';
+
+const readSearchParam = (searchParams: URLSearchParams, key: string): string =>
+  searchParams.get(key)?.trim() ?? '';
 
 const getAdvisoryName = (searchParams: URLSearchParams): string =>
-  searchParams.get(ADVISORY_NAME_PARAM)?.trim() ?? '';
+  readSearchParam(searchParams, CVE_ID_PARAM) ||
+  readSearchParam(searchParams, LEGACY_ADVISORY_NAME_PARAM);
 
-const addAdvisoryNameToSearch = (searchParams: URLSearchParams, name: string): string => {
+const addAdvisoryNameToSearch = (searchParams: URLSearchParams, cveId: string): string => {
   const next = new URLSearchParams(searchParams);
-  next.set(ADVISORY_NAME_PARAM, name);
+  next.delete(LEGACY_ADVISORY_NAME_PARAM);
+  next.set(CVE_ID_PARAM, cveId);
   const query = next.toString();
   return query ? `?${query}` : '';
 };
 
 const removeAdvisoryNameFromSearch = (searchParams: URLSearchParams): URLSearchParams => {
   const next = new URLSearchParams(searchParams);
-  next.delete(ADVISORY_NAME_PARAM);
+  next.delete(CVE_ID_PARAM);
+  next.delete(LEGACY_ADVISORY_NAME_PARAM);
   return next;
 };
 

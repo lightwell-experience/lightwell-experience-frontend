@@ -1,5 +1,6 @@
 import {
   Fragment,
+  useId,
   useState,
   useEffect,
   useRef,
@@ -69,12 +70,15 @@ import './data-view.css';
 
 /**
  * `LwDataView` column definition — extends PF `ThProps` with a
- * Lightwell-owned `isSortable` opt-out.
+ * Lightwell-owned `isSortable` opt-in.
  *
  * Preserves full PF `Th` prop type-safety (`sort`, `isStickyColumn`, `modifier`,
- * `width`, etc.) while adding one Lightwell-owned field. All columns receive
- * sort props automatically by default; set `props.isSortable: false` on any
- * column to opt that header out of sort injection.
+ * `width`, etc.) while adding one Lightwell-owned field. Columns are **not**
+ * sortable by default — a half-working sort (client-side only, against a
+ * server-paginated dataset) silently produces wrong cross-page ordering. Set
+ * `props.isSortable: true` on a column only once the call site can actually
+ * guarantee correct ordering — a fully resident dataset, or an `onSortChange`
+ * wired to re-fetch sorted data from the API.
  */
 export type LwDataViewTh = {
   cell: ReactNode;
@@ -86,8 +90,10 @@ export type LwDataViewTh = {
   key?: string;
   props?: ThProps & {
     /**
-     * `false` opts this column out of automatic sort injection.
-     * Omit (or set `true`) to get sort on this header by default.
+     * `true` opts this column in to automatic sort injection. Omit (or set
+     * `false`) to leave the header unsortable — the default, since sort is
+     * only correct when the call site owns full-dataset ordering (resident
+     * data, or API-driven sort via `onSortChange`).
      * Stripped from props before PF sees the column definition.
      */
     isSortable?: boolean;
@@ -134,13 +140,43 @@ export type LwDataViewTr =
  * directly (that path renders in-table and overrides this config entirely).
  */
 export type LwDataViewEmptyStateConfig = {
-  /** Title text. Defaults to `'No results found'`. */
+  /** Title text for the filtered-to-zero state. Defaults to `'No results found'`. */
   titleText?: string;
-  /** Description text rendered inside the empty state. Omit for no body. */
+  /** Description text for the filtered-to-zero state. Omit for no body. */
   bodyText?: string;
-  /** When provided, renders a "Reset filters" primary button. */
-  onClearFilters?: () => void;
-};
+  /**
+   * Copy for the true-empty state (no rows and nothing to clear). Never falls
+   * back to the filtered-to-zero `titleText` / `bodyText` (that copy tells the
+   * user to reset filters); an omitted `titleText` is `'No results found'` and
+   * an omitted `bodyText` renders no body.
+   */
+  noData?: {
+    titleText?: string;
+    bodyText?: string;
+  };
+} & (
+  | {
+      /**
+       * Renders a "Reset filters" primary button in the filtered-to-zero state.
+       * Never rendered in true empty (there is nothing to reset). Supplying it
+       * requires stating `hasActiveFilters` explicitly, so true empty can never
+       * be silently unreachable.
+       */
+      onClearFilters: () => void;
+      /**
+       * Whether any caller-owned filter is active (e.g. checkbox filters in the
+       * `panel`) — a fact about the page's filter state, not an empty-state
+       * decision. `LwDataView` combines it with a non-empty `search.value` and
+       * `pagination.itemCount` to classify true empty vs filtered-to-zero itself.
+       */
+      hasActiveFilters: boolean;
+    }
+  | {
+      onClearFilters?: undefined;
+      /** See above. Defaults to `false` (no filters to clear). */
+      hasActiveFilters?: boolean;
+    }
+);
 
 // Re-exported for callers that need PF's column-management shape directly.
 export type { ColumnManagementModalColumn };
@@ -174,6 +210,14 @@ type LwDataViewOwnedProps = {
    */
   isLoading?: boolean;
   /**
+   * `true` while `rows` are the previous query's result, shown until the next
+   * one lands (e.g. react-query placeholder data). Unlike `isLoading` it keeps
+   * the toolbar and `panel` mounted, but it is never classified as true empty:
+   * a stale 0-row result must not flash the "no data" state (or unmount the
+   * search box) while a refetch is in flight.
+   */
+  isPlaceholderData?: boolean;
+  /**
    * Explicit loading/error/empty state override. Prefer `isLoading` for the common
    * case — the assembly derives `loading` and `empty` states automatically from
    * `isLoading` and `rows`. Use this only when finer control is needed (e.g., error
@@ -182,7 +226,8 @@ type LwDataViewOwnedProps = {
   activeState?: DataViewState;
   /**
    * Column definitions. Accepts `LwDataViewTh` (Lightwell extension of PF `DataViewTh`).
-   * Add `props.isSortable: false` to opt a specific column out of automatic sort injection.
+   * Add `props.isSortable: true` to opt a specific column in to automatic sort
+   * injection — sort is off by default (see `LwDataViewTh`).
    */
   columns: LwDataViewTh[];
   /** Row definitions. Accepts `LwDataViewTr` (Lightwell extension of PF `DataViewTr`).
@@ -194,9 +239,25 @@ type LwDataViewOwnedProps = {
   bodyStates?: Partial<Record<DataViewState, ReactNode>>;
   headStates?: Partial<Record<DataViewState, ReactNode>>;
   /**
-   * Default empty-state rendered **below the table headers**, outside the
-   * horizontal scroll container, when `activeState` is `DataViewState.empty`.
-   * Falls back to a generic "No results found" when absent.
+   * Default empty state, rendered when `activeState` is `DataViewState.empty`
+   * (and no `bodyStates[DataViewState.empty]` override is given). Falls back to a
+   * generic "No results found" when absent. Two layouts:
+   *
+   * - **Filtered-to-zero** (`emptyState.hasActiveFilters` is true, or
+   *   `search.value` is non-empty, or
+   *   `pagination.itemCount > 0`): rendered **below the table headers**,
+   *   outside the horizontal scroll container, with the built-in toolbar and
+   *   `panel` kept so the user can recover. Uses `titleText` / `bodyText` and
+   *   the Reset button (when `onClearFilters` is supplied).
+   * - **True empty** (none of the above): rendered **alone** — no table
+   *   headers, built-in toolbar (including `toolbarSlot`) or `panel`, since
+   *   there is nothing to filter. Uses `noData` copy and no Reset button. A
+   *   caller that needs the toolbar or panel to stay visible while empty must
+   *   set `hasActiveFilters`, or use `bodyStates[DataViewState.empty]`.
+   *
+   * The caller passes facts (`hasActiveFilters`, copy for each case); the
+   * classification lives here so pages don't re-derive it.
+   *
    * Use `bodyStates[DataViewState.empty]` for a fully custom in-table override.
    */
   emptyState?: LwDataViewEmptyStateConfig;
@@ -204,8 +265,8 @@ type LwDataViewOwnedProps = {
    * Optional callback invoked when the user sorts a column. The assembly manages
    * sort UI state (active column indicator) internally — `onSortChange` is only
    * needed when the call site must react to sort changes (e.g., to re-fetch with
-   * API sort params). All column headers are sortable by default; opt out
-   * per-column via `LwDataViewTh.props.isSortable = false`.
+   * API sort params). Column headers are not sortable by default; opt in
+   * per-column via `LwDataViewTh.props.isSortable = true`.
    */
   onSortChange?: (columnIndex: number, direction: 'asc' | 'desc') => void;
   /**
@@ -390,9 +451,11 @@ function stripRowSortValues(row: LwDataViewTr): DataViewTr {
  * - **State** — pass `isLoading` and let the assembly derive `loading` / `empty`
  *   states automatically. Explicit `activeState` available for callers using
  *   `useTableActiveState` hooks or needing error state.
- * - **Sort** — always on by default; all headers sortable. Opt out per-column
- *   via `LwDataViewTh.props.isSortable = false`. Pass `onSortChange` to react
- *   to sort changes (e.g., for API-driven sort).
+ * - **Sort** — off by default (a half-working sort against server-paginated
+ *   data silently produces wrong cross-page ordering). Opt in per-column via
+ *   `LwDataViewTh.props.isSortable = true` once the call site owns correct
+ *   full-dataset ordering. Pass `onSortChange` to react to sort changes
+ *   (e.g., for API-driven sort).
  * - **Empty state** — built-in when `rows` is empty and not loading; configure
  *   copy and clear-filters via `emptyState`. Override in-table via `bodyStates`.
  * - **Loading skeleton** — built-in: `SkeletonTableBody` renders automatically
@@ -406,6 +469,7 @@ function stripRowSortValues(row: LwDataViewTr): DataViewTr {
  */
 export function LwDataView({
   isLoading,
+  isPlaceholderData,
   activeState,
   columns,
   rows,
@@ -459,10 +523,12 @@ export function LwDataView({
   const resolvedActiveState = activeState ?? derivedActiveState;
 
   // ─── Sort state (internal) ────────────────────────────────────────────────
-  // Sort is always on — all columns sortable by default; call sites opt out
-  // per-column via `LwDataViewTh.props.isSortable = false`. The assembly owns
-  // the sort indicator state; `onSortChange` is the optional escape hatch for
-  // call sites that need to react (e.g., API-driven sort).
+  // Sort is off by default — call sites opt in per-column via
+  // `LwDataViewTh.props.isSortable = true`, only once they own correct
+  // full-dataset ordering (resident data, or API-driven sort via
+  // `onSortChange`). The assembly owns the sort indicator state;
+  // `onSortChange` is the optional escape hatch for call sites that need to
+  // react (e.g., to re-fetch sorted data from an API).
   const [activeSort, setActiveSort] = useState<
     | {
         columnIndex: number;
@@ -480,7 +546,7 @@ export function LwDataView({
   );
 
   // ─── Sort injection ───────────────────────────────────────────────────────
-  // Injects PF sort props into every column that has `isSortable !== false`.
+  // Injects PF sort props only into columns with `isSortable === true`.
   // Strips `isSortable` before PF sees the column definitions.
   const processedColumns: DataViewTh[] = useMemo(
     () =>
@@ -489,8 +555,8 @@ export function LwDataView({
           return col as unknown as DataViewTh;
         }
         const { isSortable, ...colProps } = col.props ?? {};
-        if (isSortable === false) {
-          // Opt-out: strip `isSortable` flag, pass other props through.
+        if (isSortable !== true) {
+          // Default: not opted in — strip `isSortable` flag, pass other props through.
           return { cell: col.cell, props: colProps } as DataViewTh;
         }
         return {
@@ -605,6 +671,36 @@ export function LwDataView({
     ...otherBodyStates
   } = bodyStates ?? {};
   const useExternalEmptyState = resolvedActiveState === DataViewState.empty && !callerEmptyBody;
+  // True empty = nothing to show AND nothing the user could clear. Filtering
+  // chrome (toolbar + panel) is meaningless there, so it is not rendered. A
+  // caller signals "filters are active" via `emptyState.hasActiveFilters`
+  // or a non-empty `search.value`;
+  // otherwise the zero rows are the real data. A positive
+  // `pagination.itemCount` means results exist beyond this (empty) page, so
+  // the pagination controls must stay reachable. Placeholder rows are never
+  // the real data, so they are not true empty either.
+  const hasActiveFilters = emptyState?.hasActiveFilters ?? false;
+  const isTrueEmpty =
+    useExternalEmptyState &&
+    !isPlaceholderData &&
+    !hasActiveFilters &&
+    !search?.value &&
+    !((pagination?.itemCount ?? 0) > 0);
+  // Reset / search live in the toolbar that true empty unmounts. If one of them
+  // had focus, the browser drops it to <body>; hand it to the empty state so
+  // keyboard and screen-reader users land on the new content, not the page top.
+  // Only on the filtered → true-empty transition, and only when focus was lost.
+  const emptyStateId = useId();
+  const wasTrueEmptyRef = useRef(isTrueEmpty);
+  useEffect(() => {
+    const becameTrueEmpty = isTrueEmpty && !wasTrueEmptyRef.current;
+    wasTrueEmptyRef.current = isTrueEmpty;
+    if (!becameTrueEmpty) return;
+    const active = document.activeElement;
+    if (!active || active === document.body) {
+      document.getElementById(emptyStateId)?.focus();
+    }
+  }, [isTrueEmpty, emptyStateId]);
   // Pass activeState=undefined so PF renders an empty tbody (headers stay visible)
   // rather than activating the in-table body-state slot.
   const tableActiveState = useExternalEmptyState ? undefined : resolvedActiveState;
@@ -649,15 +745,21 @@ export function LwDataView({
     ...(callerEmptyBody ? { [DataViewState.empty]: callerEmptyBody } : {}),
   };
 
+  // True empty never borrows the filtered-to-zero copy ("Reset filters…").
+  const emptyTitleText =
+    (isTrueEmpty ? emptyState?.noData?.titleText : emptyState?.titleText) ?? 'No results found';
+  const emptyBodyText = isTrueEmpty ? emptyState?.noData?.bodyText : emptyState?.bodyText;
   const emptyStateNode = useExternalEmptyState ? (
     <LwEmptyState
       headingLevel='h2'
       icon={SearchIcon}
-      titleText={emptyState?.titleText ?? 'No results found'}
+      id={emptyStateId}
+      tabIndex={isTrueEmpty ? -1 : undefined}
+      titleText={emptyTitleText}
       variant={EmptyStateVariant.sm}
     >
-      {emptyState?.bodyText ? <EmptyStateBody>{emptyState.bodyText}</EmptyStateBody> : null}
-      {emptyState?.onClearFilters ? (
+      {emptyBodyText ? <EmptyStateBody>{emptyBodyText}</EmptyStateBody> : null}
+      {!isTrueEmpty && emptyState?.onClearFilters ? (
         <EmptyStateFooter>
           <EmptyStateActions>
             <LwButton variant='primary' onClick={emptyState.onClearFilters}>
@@ -677,7 +779,7 @@ export function LwDataView({
   const isLoadingState = resolvedActiveState === DataViewState.loading;
 
   const builtInToolbarNode =
-    hasBuiltInToolbar && !isLoadingState ? (
+    hasBuiltInToolbar && !isLoadingState && !isTrueEmpty ? (
       <LwDataViewToolbar
         search={search}
         pagination={resolvedPagination ? { isCompact: true, ...resolvedPagination } : undefined}
@@ -759,9 +861,13 @@ export function LwDataView({
   // (it doesn't need horizontal scroll), but still part of the same table
   // surface, so it stays coupled to the table's column width rather than
   // the full drawer+panel row's width once a `panel` is present.
-  const tableNode = <DataViewTable {...tableProps} />;
+  const tableNode = isTrueEmpty ? null : <DataViewTable {...tableProps} />;
 
-  const tableAndEmptyState = isSticky ? (
+  // True empty: no rows and nothing to clear — column headers would only label
+  // an empty grid, so render the empty state alone.
+  const tableAndEmptyState = isTrueEmpty ? (
+    emptyStateNode
+  ) : isSticky ? (
     <OuterScrollContainer>
       <InnerScrollContainer>{tableNode}</InnerScrollContainer>
       {emptyStateNode}
@@ -773,22 +879,23 @@ export function LwDataView({
     </>
   );
 
-  const tableSurface = panel ? (
-    <LwDrawer
-      isExpanded={resolvedIsPanelExpanded}
-      isInline={!resolvedResponsive}
-      position='start'
-      panelContent={panel}
-      panelHead={panelHead}
-      onPanelClose={resolvedOnPanelClose}
-      panelProps={panelProps}
-      responsive={resolvedResponsive}
-    >
-      {tableAndEmptyState}
-    </LwDrawer>
-  ) : (
-    tableAndEmptyState
-  );
+  const tableSurface =
+    panel && !isTrueEmpty ? (
+      <LwDrawer
+        isExpanded={resolvedIsPanelExpanded}
+        isInline={!resolvedResponsive}
+        position='start'
+        panelContent={panel}
+        panelHead={panelHead}
+        onPanelClose={resolvedOnPanelClose}
+        panelProps={panelProps}
+        responsive={resolvedResponsive}
+      >
+        {tableAndEmptyState}
+      </LwDrawer>
+    ) : (
+      tableAndEmptyState
+    );
 
   // PF's DataView wraps every top-level child in a StackItem via
   // Children.map, including falsy ones (`false`, `undefined`) — an absent

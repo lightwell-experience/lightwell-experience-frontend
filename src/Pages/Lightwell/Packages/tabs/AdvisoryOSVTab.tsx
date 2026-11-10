@@ -39,11 +39,6 @@ const AdvisoryOSVTab = ({ advisoryName, osv }: AdvisoryOSVTabProps) => {
         </DescriptionListGroup>
 
         <DescriptionListGroup>
-          <DescriptionListTerm>Source</DescriptionListTerm>
-          <DescriptionListDescription>{osv.source || '—'}</DescriptionListDescription>
-        </DescriptionListGroup>
-
-        <DescriptionListGroup>
           <DescriptionListTerm>Published</DescriptionListTerm>
           <DescriptionListDescription>{osv.published}</DescriptionListDescription>
         </DescriptionListGroup>

@@ -82,8 +82,10 @@ const useStyles = createUseStyles({
  * header block (filename — downloadable on its own — and status, plus a
  * "Download all" archive action), then a scrollable list of reproducer files with
  * an "Add more reproducers" control under the title, above a sticky footer. The
- * footer offers delete-all/submit while editable and "Mark as processed" while
- * submitted (read), and is hidden entirely when no action is available.
+ * footer offers delete-all / submit / download-all / "Mark as processed", each
+ * shown only when the backend's permission flag for it is set, and is hidden
+ * entirely when no action is available. Per-file controls follow each file's
+ * own `can_download` / `can_delete` flags.
  *
  * On mount it also consumes any reproducer files handed over from the Submissions hero
  * (via PendingReproducersContext) and uploads them, showing skeleton rows.
@@ -93,8 +95,9 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
     submission,
     isLoading,
     isError,
-    canEdit,
-    canManage,
+    canAddReproducers,
+    canDelete,
+    canSubmit,
     canProcess,
     canDownload,
     mainFile,
@@ -195,7 +198,7 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
         gap={{ default: 'gapSm' }}
         flexWrap={{ default: 'nowrap' }}
       >
-        {canEdit ? (
+        {canAddReproducers ? (
           <FlexItem>
             <Icon status='success'>
               <CheckCircleIcon />
@@ -214,7 +217,7 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
             </StackItem>
           </Stack>
         </FlexItem>
-        {canDownload ? (
+        {file.can_download ? (
           <FlexItem>
             <LwButton
               variant='plain'
@@ -226,7 +229,7 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
             </LwButton>
           </FlexItem>
         ) : null}
-        {canManage ? (
+        {file.can_delete ? (
           <FlexItem>
             <LwButton
               variant='plain'
@@ -243,7 +246,7 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
     );
   };
 
-  const showFooter = canManage || canProcess || canDownload;
+  const showFooter = canDelete || canSubmit || canProcess || canDownload;
 
   return (
     <div className={classes.root} data-ouia-component-id='submission-details'>
@@ -260,9 +263,9 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
               justifyContent={{ default: 'justifyContentSpaceBetween' }}
             >
               <FlexItem>
-                <code>{canDownload ? mainFile.filename : submission.name}</code>
+                <code>{mainFile.can_download ? mainFile.filename : submission.name}</code>
               </FlexItem>
-              {canDownload ? (
+              {mainFile.can_download ? (
                 <FlexItem>
                   <LwButton
                     variant='plain'
@@ -297,7 +300,7 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
             <Content component='h4'>Reproducers ({reproducerFiles.length})</Content>
           </StackItem>
 
-          {canEdit ? (
+          {canAddReproducers ? (
             <StackItem>
               <input
                 ref={fileInputRef}
@@ -349,7 +352,7 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
             alignItems={{ default: 'alignItemsCenter' }}
             spaceItems={{ default: 'spaceItemsSm' }}
           >
-            {canManage ? (
+            {canDelete ? (
               <FlexItem>
                 <LwButton
                   variant='danger'
@@ -361,7 +364,7 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
                 </LwButton>
               </FlexItem>
             ) : null}
-            {canManage ? (
+            {canSubmit ? (
               <FlexItem>
                 <LwButton
                   variant='primary'

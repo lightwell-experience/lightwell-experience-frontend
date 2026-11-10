@@ -24,6 +24,11 @@ const submission = {
   status: 'pending' as const,
   created_at: '2026-10-20T10:00:00Z',
   username: 'author@example.com',
+  can_delete: true,
+  can_download: false,
+  can_add_reproducers: true,
+  can_submit: true,
+  can_process: false,
 };
 
 const makeWrapper = () => {

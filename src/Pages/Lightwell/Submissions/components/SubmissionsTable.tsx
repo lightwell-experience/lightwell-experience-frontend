@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   Alert,
   AlertVariant,
@@ -40,7 +40,25 @@ import { useCurrentUsername } from '../hooks/useCurrentUsername';
 
 const SUBMISSION_MAIN_FILENAME = 'submission.json';
 
-const baseColumnHeaders = ['Name', 'Status', 'Created', 'Submitted', 'Processed'];
+type SubmissionColumnKey =
+  'name' | 'cid' | 'status' | 'created' | 'submitted' | 'processed' | 'actions';
+
+type SubmissionColumn = {
+  key: SubmissionColumnKey;
+  title: string;
+  requiresRead?: boolean;
+};
+
+// One catalog owns column order. `requiresRead` keeps CID off the table unless
+// the clearinghouse read feature is on — the same gate the backend uses to fill `cid`.
+const SUBMISSION_COLUMN_CATALOG: SubmissionColumn[] = [
+  { key: 'name', title: 'Name' },
+  { key: 'cid', title: 'CID', requiresRead: true },
+  { key: 'status', title: 'Status' },
+  { key: 'created', title: 'Created' },
+  { key: 'submitted', title: 'Submitted' },
+  { key: 'processed', title: 'Processed' },
+];
 
 const statusColor: Record<SubmissionStatus, 'blue' | 'green' | 'grey'> = {
   pending: 'blue',
@@ -110,8 +128,9 @@ const DateAuthorCell = ({
  * filename opens that submission in a SubmissionDrawer (an overlay drawer, like
  * the Packages advisory details drawer); the open submission is tracked in the
  * `?submission=<uuid>` URL param. Each row's action column offers downloading the
- * whole submission as a zip and (for the author, while pending) deleting it; the
- * column is hidden entirely when no visible row supports either action.
+ * whole submission as a zip and deleting it, each shown per the row's backend
+ * `can_download` / `can_delete` flag; the column is hidden entirely when no
+ * visible row supports either action.
  */
 const SubmissionsTable = () => {
   const [page, setPage] = useState(1);
@@ -135,19 +154,9 @@ const SubmissionsTable = () => {
   // have rows, and that must not read as "no submissions".
   const isEmpty = !isLoading && !isError && count === 0;
 
-  // Delete is author-only while pending; downloading the archive is restricted to
-  // clearinghouse read users, once the submission is submitted or processed.
-  // Mirrors `canManage` in SubmissionDetails: fails closed until the username
-  // resolves so a row is never deletable by a non-author.
-  const canDeleteRow = (submission: ClearinghouseSubmission) =>
-    hasWrite &&
-    submission.status === 'pending' &&
-    !!currentUsername &&
-    submission.username === currentUsername;
-  const canDownloadRow = (submission: ClearinghouseSubmission) =>
-    hasRead && (submission.status === 'submitted' || submission.status === 'processed');
+  // Row actions follow the backend's per-caller permission flags.
   const showActions = submissions.some(
-    (submission) => canDeleteRow(submission) || canDownloadRow(submission),
+    (submission) => submission.can_delete || submission.can_download,
   );
 
   const handleDownload = (submission: ClearinghouseSubmission) =>
@@ -173,6 +182,90 @@ const SubmissionsTable = () => {
           description: 'Please try again.',
         }),
     });
+
+  const columns: SubmissionColumn[] = [
+    ...SUBMISSION_COLUMN_CATALOG.filter((column) => !column.requiresRead || hasRead),
+    ...(showActions ? [{ key: 'actions' as const, title: 'Actions' }] : []),
+  ];
+
+  const renderCell = (key: SubmissionColumnKey, submission: ClearinghouseSubmission): ReactNode => {
+    switch (key) {
+      case 'name':
+        return (
+          <Button
+            variant='link'
+            isInline
+            component={(props) => (
+              <Link
+                {...props}
+                to={getSubmissionSearch(submission.uuid)}
+                replace={replaceSubmissionLink}
+              />
+            )}
+          >
+            <code>{getFilename(submission)}</code>
+          </Button>
+        );
+      case 'cid':
+        return submission.cid || '—';
+      case 'status':
+        return (
+          <Label isCompact color={statusColor[submission.status]}>
+            {capitalize(submission.status)}
+          </Label>
+        );
+      case 'created':
+        return (
+          <DateAuthorCell
+            date={submission.created_at}
+            author={submission.username}
+            currentUsername={currentUsername}
+          />
+        );
+      case 'submitted':
+        return (
+          <DateAuthorCell
+            date={submission.submitted_at}
+            author={submission.submitted_by}
+            currentUsername={currentUsername}
+          />
+        );
+      case 'processed':
+        return (
+          <DateAuthorCell
+            date={submission.processed_at}
+            author={submission.processed_by}
+            currentUsername={currentUsername}
+          />
+        );
+      case 'actions':
+        return (
+          <Flex spaceItems={{ default: 'spaceItemsNone' }} flexWrap={{ default: 'nowrap' }}>
+            {submission.can_download ? (
+              <FlexItem>
+                <Button
+                  variant='plain'
+                  aria-label={`Download ${getFilename(submission)}`}
+                  icon={<DownloadIcon />}
+                  onClick={() => handleDownload(submission)}
+                />
+              </FlexItem>
+            ) : null}
+            {submission.can_delete ? (
+              <FlexItem>
+                <Button
+                  variant='plain'
+                  aria-label={`Delete ${getFilename(submission)}`}
+                  icon={<TrashIcon />}
+                  isDisabled={deleteMutation.isPending}
+                  onClick={() => setConfirmDelete(submission)}
+                />
+              </FlexItem>
+            ) : null}
+          </Flex>
+        );
+    }
+  };
 
   const paginationProps = {
     isDisabled: isLoading,
@@ -207,7 +300,7 @@ const SubmissionsTable = () => {
           <div data-ouia-component-id='beacon-submissions-skeleton'>
             <SkeletonTable
               rows={perPage}
-              columnsCount={baseColumnHeaders.length}
+              columnsCount={columns.length}
               variant={TableVariant.compact}
             />
           </div>
@@ -222,86 +315,27 @@ const SubmissionsTable = () => {
           >
             <Thead>
               <Tr>
-                {baseColumnHeaders.map((title) => (
-                  <Th key={`${title}-column`}>{title}</Th>
-                ))}
-                {showActions ? <Th screenReaderText='Actions' /> : null}
+                {columns.map((column) =>
+                  column.key === 'actions' ? (
+                    <Th key={column.key} screenReaderText={column.title} />
+                  ) : (
+                    <Th key={column.key}>{column.title}</Th>
+                  ),
+                )}
               </Tr>
             </Thead>
             <Tbody>
               {submissions.map((submission) => (
                 <Tr key={submission.uuid}>
-                  <Td dataLabel={baseColumnHeaders[0]}>
-                    <Button
-                      variant='link'
-                      isInline
-                      component={(props) => (
-                        <Link
-                          {...props}
-                          to={getSubmissionSearch(submission.uuid)}
-                          replace={replaceSubmissionLink}
-                        />
-                      )}
+                  {columns.map((column) => (
+                    <Td
+                      key={column.key}
+                      dataLabel={column.title}
+                      isActionCell={column.key === 'actions'}
                     >
-                      <code>{getFilename(submission)}</code>
-                    </Button>
-                  </Td>
-                  <Td dataLabel={baseColumnHeaders[1]}>
-                    <Label isCompact color={statusColor[submission.status]}>
-                      {capitalize(submission.status)}
-                    </Label>
-                  </Td>
-                  <Td dataLabel={baseColumnHeaders[2]}>
-                    <DateAuthorCell
-                      date={submission.created_at}
-                      author={submission.username}
-                      currentUsername={currentUsername}
-                    />
-                  </Td>
-                  <Td dataLabel={baseColumnHeaders[3]}>
-                    <DateAuthorCell
-                      date={submission.submitted_at}
-                      author={submission.submitted_by}
-                      currentUsername={currentUsername}
-                    />
-                  </Td>
-                  <Td dataLabel={baseColumnHeaders[4]}>
-                    <DateAuthorCell
-                      date={submission.processed_at}
-                      author={submission.processed_by}
-                      currentUsername={currentUsername}
-                    />
-                  </Td>
-                  {showActions ? (
-                    <Td dataLabel='Actions' isActionCell>
-                      <Flex
-                        spaceItems={{ default: 'spaceItemsNone' }}
-                        flexWrap={{ default: 'nowrap' }}
-                      >
-                        {canDownloadRow(submission) ? (
-                          <FlexItem>
-                            <Button
-                              variant='plain'
-                              aria-label={`Download ${getFilename(submission)}`}
-                              icon={<DownloadIcon />}
-                              onClick={() => handleDownload(submission)}
-                            />
-                          </FlexItem>
-                        ) : null}
-                        {canDeleteRow(submission) ? (
-                          <FlexItem>
-                            <Button
-                              variant='plain'
-                              aria-label={`Delete ${getFilename(submission)}`}
-                              icon={<TrashIcon />}
-                              isDisabled={deleteMutation.isPending}
-                              onClick={() => setConfirmDelete(submission)}
-                            />
-                          </FlexItem>
-                        ) : null}
-                      </Flex>
+                      {renderCell(column.key, submission)}
                     </Td>
-                  ) : null}
+                  ))}
                 </Tr>
               ))}
             </Tbody>

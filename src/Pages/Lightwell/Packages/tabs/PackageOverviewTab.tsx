@@ -27,7 +27,7 @@ import LatestReleaseFixes from '../components/LatestReleaseFixes';
 import { fixesCardHeight, fixesCardWidth } from '../components/FixesCard';
 import { useLatestReleaseFixes } from '../hooks/useLatestReleaseFixes';
 import { getPackageCoordinate } from '../utils/format';
-import { getPackageByRepositoryDescription } from '../../helpers';
+import { getPackageByRepositoryDescription, toLightwellEcosystem } from '../../helpers';
 
 type PackageOverviewTabProps = {
   isMaven: boolean;
@@ -94,8 +94,7 @@ const PackageOverviewTab = ({
   const packageCoordinate = getPackageCoordinate({
     name,
     group,
-    isMaven,
-    isNpm: repository?.content_type === 'npm',
+    ecosystem: toLightwellEcosystem(repository?.content_type ?? (isMaven ? 'maven' : 'python')),
   });
   const showRenovate =
     isMaven &&

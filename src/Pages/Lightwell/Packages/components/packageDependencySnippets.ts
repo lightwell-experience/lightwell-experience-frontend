@@ -74,7 +74,7 @@ index-url = ${indexUrl}`,
 export const getMavenPackageUsageSnippetTabs = (
   pkg: MavenPackageSnippetInput,
 ): ConnectSnippetTab[] => {
-  const packageCoordinate = getPackageCoordinate({ ...pkg, isMaven: true });
+  const packageCoordinate = getPackageCoordinate({ ...pkg, ecosystem: 'maven' });
 
   return [
     {

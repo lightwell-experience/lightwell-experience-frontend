@@ -11,6 +11,7 @@ import {
   getRepositoryNameFromPathSlug,
   getRepositoryPathSlug,
   hasBackportedFixes,
+  toLightwellEcosystem,
 } from './helpers';
 import {
   compareReleasesDesc,
@@ -34,6 +35,17 @@ describe('getEcosystemFromContentType', () => {
   it('returns undefined for missing or unknown content type', () => {
     expect(getEcosystemFromContentType()).toBeUndefined();
     expect(getEcosystemFromContentType('unknown')).toBeUndefined();
+  });
+});
+
+describe('toLightwellEcosystem', () => {
+  it('narrows known content types and defaults unknown ones to Maven', () => {
+    expect(toLightwellEcosystem('npm')).toBe('npm');
+    expect(toLightwellEcosystem('NPM')).toBe('npm');
+    expect(toLightwellEcosystem('python')).toBe('python');
+    expect(toLightwellEcosystem('maven')).toBe('maven');
+    expect(toLightwellEcosystem('rust')).toBe('maven');
+    expect(toLightwellEcosystem()).toBe('maven');
   });
 });
 

@@ -41,6 +41,7 @@ import {
   formatRepositoryName,
   getEcosystemIcon,
   getRepositoryNameFromPathSlug,
+  toLightwellEcosystem,
   hasBackportedFixes,
 } from '../helpers';
 import {
@@ -129,12 +130,12 @@ const PackageDetails = () => {
   const isMaven = repository?.content_type === 'maven';
   const isPython = repository?.content_type === 'python';
   const isNpm = repository?.content_type === 'npm';
+  const ecosystem = toLightwellEcosystem(repository?.content_type);
 
   const packageCoordinate = getPackageCoordinate({
     name: packageName,
     group: packageGroup,
-    isMaven,
-    isNpm,
+    ecosystem,
   });
 
   const hasValidPackagePath =
@@ -393,7 +394,7 @@ const PackageDetails = () => {
     version: activeVersion,
     repository: repositoryMatchesRoute ? (repository?.name ?? '') : '',
     group: packageGroup,
-    isPython,
+    ecosystem,
     latestPackageRelease: latestRelease,
   };
 
@@ -705,7 +706,7 @@ const PackageDetails = () => {
                               packageCoordinate={{
                                 name: packageName,
                                 group: packageGroup,
-                                isPython,
+                                ecosystem,
                               }}
                             />
                           </TabContentBody>
@@ -756,7 +757,7 @@ const PackageDetails = () => {
                               isPlaceholderData={isPlaceholderRemediations}
                               formatCopyText={(version) =>
                                 formatReleaseCopyText(
-                                  { name: packageName, group: packageGroup, isPython },
+                                  { name: packageName, group: packageGroup, ecosystem },
                                   version,
                                 )
                               }

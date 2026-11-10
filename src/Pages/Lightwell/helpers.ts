@@ -1,4 +1,5 @@
 import type { ContentItem } from 'services/Content/ContentApi';
+import type { LightwellEcosystem } from './Packages/types';
 import { createElement, type ReactElement } from 'react';
 import { CodeIcon, JavaIcon, PythonIcon, JsIcon } from '@patternfly/react-icons';
 import { capitalize } from 'lodash';
@@ -17,6 +18,16 @@ const getContentTypeParameters = (contentType?: string) => {
 
 export const getEcosystemFromContentType = (contentType?: string): string | undefined =>
   getContentTypeParameters(contentType)?.ecosystem;
+
+/**
+ * Narrows an API content_type (optional, untyped) to the ecosystem discriminator used by
+ * PackageCoordinate. Unknown or missing types fall back to Maven, matching the previous
+ * `isMaven ?? !isPython` default. This is the single place that default lives.
+ */
+export const toLightwellEcosystem = (contentType?: string): LightwellEcosystem => {
+  const normalized = contentType?.toLowerCase();
+  return normalized === 'npm' || normalized === 'python' ? normalized : 'maven';
+};
 
 export const getEcosystemIcon = (ecosystemOrContentType?: string): ReactElement => {
   switch (ecosystemOrContentType?.toLowerCase()) {

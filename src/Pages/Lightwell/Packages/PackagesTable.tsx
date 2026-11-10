@@ -47,6 +47,7 @@ import {
   getEcosystemIcon,
   getRepositoryDescription,
   hasBackportedFixes,
+  toLightwellEcosystem,
 } from '../helpers';
 import Hide from 'components/Hide/Hide';
 import { LIGHTWELL_USE_MOCK, lightwellPkgsPerPageKey } from '../constants';
@@ -384,8 +385,8 @@ const PackagesTable = () => {
   const isPredisclosure = repository.security_level === 'predisclosure';
   const showReleaseColumn = isRemediated || isPredisclosure;
   const isMaven = repository.content_type === 'maven';
-  const isPython = repository.content_type === 'python';
   const isNpm = repository.content_type === 'npm';
+  const ecosystem = toLightwellEcosystem(repository.content_type);
 
   const columnHeaders: PackageColumnHeader[] = [
     { title: 'Package', width: 25, sortBy: 'name' },
@@ -546,13 +547,12 @@ const PackagesTable = () => {
                         const packageCoordinate = getPackageCoordinate({
                           name,
                           group: group_id,
-                          isMaven,
-                          isNpm,
+                          ecosystem,
                         });
 
                         const renderCopyLabel = (version: string) => (
                           <PackageCopyLabel
-                            packageCoordinate={{ name, group: group_id, isPython, isNpm }}
+                            packageCoordinate={{ name, group: group_id, ecosystem }}
                             version={version}
                           />
                         );

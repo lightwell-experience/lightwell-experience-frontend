@@ -111,7 +111,7 @@ const Submissions = () => {
               <UploadSuccessStep
                 uuid={createdUuid}
                 onSubmitted={handleCloseDetail}
-                onReproducersUploaded={handleCloseDetail}
+                onOpenedInDrawer={handleCloseDetail}
               />
             ) : null}
             {showForm ? (

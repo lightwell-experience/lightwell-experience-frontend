@@ -27,19 +27,19 @@ jest.mock('./components/UploadSuccessStep', () => ({
   default: ({
     uuid,
     onSubmitted,
-    onReproducersUploaded,
+    onOpenedInDrawer,
   }: {
     uuid: string;
     onSubmitted?: () => void;
-    onReproducersUploaded?: () => void;
+    onOpenedInDrawer?: () => void;
   }) => (
     <div>
       Detail for {uuid}
       <button type='button' onClick={onSubmitted}>
         submit done
       </button>
-      <button type='button' onClick={onReproducersUploaded}>
-        reproducers done
+      <button type='button' onClick={onOpenedInDrawer}>
+        opened in drawer
       </button>
     </div>
   ),
@@ -169,7 +169,7 @@ describe('Submissions', () => {
     const user = userEvent.setup();
     const { invalidate } = renderSubmissions();
 
-    await user.click(screen.getByRole('button', { name: 'reproducers done' }));
+    await user.click(screen.getByRole('button', { name: 'opened in drawer' }));
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: [CLEARINGHOUSE_SUBMISSIONS_KEY] });
     expect(reset).toHaveBeenCalledTimes(1);

@@ -88,3 +88,33 @@ export const getVersionSeries = (version: string): string => {
   const match = stripLightwellVersionSuffix(version).match(/^(\d+)\.(\d+)(?:\.|$)/);
   return match ? `${match[1]}.${match[2]}.X` : version;
 };
+
+// npm SemVer precedence: build metadata does not affect ordering; stable releases
+// outrank prereleases, whose numeric identifiers sort before text identifiers.
+export const sortNpmVersionsDesc = (versions: string[]) => {
+  const parse = (version: string) =>
+    version.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/);
+  return [...versions].sort((a, b) => {
+    const left = parse(a);
+    const right = parse(b);
+    if (!left || !right) return b.localeCompare(a, undefined, { numeric: true });
+    for (let i = 1; i <= 3; i++) {
+      const diff = BigInt(right[i]) - BigInt(left[i]);
+      if (diff) return diff > 0n ? 1 : -1;
+    }
+    if (!left[4] || !right[4]) return left[4] ? 1 : right[4] ? -1 : 0;
+    const l = left[4].split('.');
+    const r = right[4].split('.');
+    for (let i = 0; i < Math.max(l.length, r.length); i++) {
+      if (l[i] === undefined) return 1;
+      if (r[i] === undefined) return -1;
+      if (l[i] === r[i]) continue;
+      const ln = /^\d+$/.test(l[i]);
+      const rn = /^\d+$/.test(r[i]);
+      if (ln && rn) return BigInt(r[i]) > BigInt(l[i]) ? 1 : -1;
+      if (ln !== rn) return ln ? 1 : -1;
+      return l[i] < r[i] ? 1 : -1;
+    }
+    return 0;
+  });
+};

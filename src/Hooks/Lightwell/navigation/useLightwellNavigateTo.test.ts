@@ -102,3 +102,18 @@ describe('useLightwellNavigateTo', () => {
     });
   });
 });
+
+it('encodes npm scopes and preserves the package list state', () => {
+  const { result } = renderHook(() => useLightwellNavigateTo());
+  act(() =>
+    result.current.navigateTo('packageDetails', {
+      repoSlug: 'javascript-validated',
+      packageName: 'node',
+      groupId: '@types',
+      packagesParams: { search: '@types/', page: 2, sortBy: 'name', sortDirection: 'asc' },
+    }),
+  );
+  expect(mockNavigate).toHaveBeenCalledWith(
+    '/root/javascript-validated/%40types/node?search=%40types%2F&sort_by=name%3Aasc&page=2',
+  );
+});

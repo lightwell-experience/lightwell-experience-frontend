@@ -23,6 +23,10 @@ export const formatReleaseDate = (iso?: string | null) => {
 };
 
 export const getPackageCoordinate = (packageCoordinate: PackageCoordinate) => {
+  if (packageCoordinate.isNpm)
+    return packageCoordinate.group && packageCoordinate.group !== '-'
+      ? `${packageCoordinate.group}/${packageCoordinate.name}`
+      : packageCoordinate.name;
   const isMaven = packageCoordinate.isMaven ?? !packageCoordinate.isPython;
   return isMaven && packageCoordinate.group
     ? `${packageCoordinate.group}:${packageCoordinate.name}`
@@ -37,6 +41,8 @@ export const getPackageCoordinate = (packageCoordinate: PackageCoordinate) => {
  * ({ name: 'requests', isPython: true }, '1.2.3') -> pip install requests==1.2.3
  */
 export const formatReleaseCopyText = (packageCoordinate: PackageCoordinate, version: string) => {
+  if (packageCoordinate.isNpm)
+    return `npm install ${getPackageCoordinate(packageCoordinate)}@${version}`;
   const isPython = packageCoordinate.isPython ?? !packageCoordinate.isMaven;
   if (isPython) {
     return `pip install ${packageCoordinate.name}==${version}`;

@@ -31,11 +31,16 @@ export const lightwellCoveragePkgsPerPageKey = 'lightwellCoveragePackagesPerPage
 export const lightwellBeaconPerPageKey = 'lightwellBeaconPerPage';
 
 export const CONTENT_TYPE_PARAMETERS: Record<string, { ecosystem: string }> = {
+  npm: { ecosystem: 'JavaScript' },
   maven: { ecosystem: 'Java' },
   python: { ecosystem: 'Python' },
 };
 
 export const REPOSITORY_DESCRIPTIONS: Record<string, Record<string, string>> = {
+  npm: {
+    validated:
+      'JavaScript packages rebuilt from source by Red Hat. Verified end-to-end with no modifications.',
+  },
   maven: {
     validated:
       'Maven artifacts rebuilt from source by Red Hat. Verified end-to-end with no modifications.',
@@ -57,7 +62,12 @@ export const REPOSITORY_DESCRIPTIONS: Record<string, Record<string, string>> = {
 // Long-form "About this package" descriptions shown on a package's overview tab.
 // Keyed by content type then security level, mirroring REPOSITORY_DESCRIPTIONS. The
 // release-suffix note differs per ecosystem (.rhlw for Maven, +rhlw for Python).
+// npm ships validated only, so it has no suffix convention yet.
 export const PACKAGE_DESCRIPTIONS: Record<string, Record<string, string>> = {
+  npm: {
+    validated:
+      'This package has been rebuilt from source by Red Hat with no modifications. Multiple upstream versions are available, each verified end-to-end through the Red Hat build pipeline.',
+  },
   maven: {
     validated:
       'This package has been rebuilt from source by Red Hat with no modifications. Multiple upstream versions are available, each verified end-to-end through the Red Hat build pipeline.',

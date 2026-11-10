@@ -1,5 +1,6 @@
+import type { ContentItem } from 'services/Content/ContentApi';
 import { createElement, type ReactElement } from 'react';
-import { CodeIcon, JavaIcon, PythonIcon } from '@patternfly/react-icons';
+import { CodeIcon, JavaIcon, PythonIcon, JsIcon } from '@patternfly/react-icons';
 import { capitalize } from 'lodash';
 import {
   CONTENT_TYPE_PARAMETERS,
@@ -22,6 +23,9 @@ export const getEcosystemIcon = (ecosystemOrContentType?: string): ReactElement 
     case 'java':
     case 'maven':
       return createElement(JavaIcon);
+    case 'npm':
+    case 'javascript':
+      return createElement(JsIcon);
     case 'python':
       return createElement(PythonIcon);
     default:
@@ -67,7 +71,7 @@ export const formatRepositoryName = (
   const ecosystem = getEcosystemFromContentType(contentType);
 
   if (ecosystem && securityLevel) {
-    return `${capitalize(ecosystem)} ${capitalize(securityLevel)}`;
+    return `${ecosystem} ${capitalize(securityLevel)}`;
   }
 
   return fallbackName || '—';
@@ -145,3 +149,14 @@ export const formatPythonIndexUrl = (url: string): string =>
  */
 export const formatPythonDisplayUrl = (url: string): string =>
   `${stripPythonSimpleSuffix(url)}/simple/`;
+
+export const sortLightwellRepositories = (repositories: ContentItem[]): ContentItem[] => {
+  const ecosystemOrder: Record<string, number> = { maven: 0, python: 1, npm: 2 };
+  const securityOrder: Record<string, number> = { predisclosure: 0, remediated: 1, validated: 2 };
+  return [...repositories].sort(
+    (a, b) =>
+      (ecosystemOrder[a.content_type ?? ''] ?? 3) - (ecosystemOrder[b.content_type ?? ''] ?? 3) ||
+      (securityOrder[a.security_level ?? ''] ?? 3) - (securityOrder[b.security_level ?? ''] ?? 3) ||
+      a.name.localeCompare(b.name),
+  );
+};

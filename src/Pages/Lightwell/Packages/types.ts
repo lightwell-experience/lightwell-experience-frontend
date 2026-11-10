@@ -1,6 +1,6 @@
 import type { AdvisorySeverity } from './utils/severity';
 
-export type PackageCoordinate = { name: string; group?: string } & (
+export type PackageCoordinate = { name: string; group?: string; isNpm?: boolean } & (
   { isMaven: boolean; isPython?: never } | { isPython: boolean; isMaven?: never }
 );
 

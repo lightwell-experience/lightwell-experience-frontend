@@ -233,3 +233,56 @@ export const getMavenPackageVersionsList: (
   );
   return data;
 };
+
+export interface NpmPackageDetailResponse {
+  scope: string;
+  name: string;
+  version: string;
+  // Absent on rows returned by the versions list endpoint, which omits per-version builds.
+  builds?: RepositoryPackageReleaseInfo[];
+  last_updated: string;
+  upstream_version: string;
+  tarball?: { relative_path: string; filename: string; sha256: string; size: number };
+}
+export interface NpmPackageVersionsResponse {
+  scope: string;
+  name: string;
+  versions: NpmPackageDetailResponse[];
+}
+export const getNpmPackageVersions = async (
+  uuid: string,
+  scope: string,
+  name: string,
+): Promise<NpmPackageVersionsResponse> => {
+  const { data } = await axios.get(
+    `/api/content-sources/v1/repositories/${uuid}/javascript_packages/${encodeURIComponent(scope || '-')}/${encodeURIComponent(name)}`,
+  );
+  return data;
+};
+export const getNpmPackageDetail = async (
+  uuid: string,
+  scope: string,
+  name: string,
+  version: string,
+): Promise<NpmPackageDetailResponse> => {
+  const { data } = await axios.get(
+    `/api/content-sources/v1/repositories/${uuid}/javascript_packages/${encodeURIComponent(scope || '-')}/${encodeURIComponent(name)}/${encodeURIComponent(version)}`,
+  );
+  return data;
+};
+
+// Load the complete entitled catalogue before applying browser visibility and order.
+export const getLightwellBrowserRepositories = async (
+  filterData: FilterData,
+): Promise<ContentListResponse> => {
+  const limit = 100;
+  const first = await getContentList(1, limit, filterData, '', []);
+  const repositories = [...first.data];
+  let page = 2;
+  while (repositories.length < first.meta.count) {
+    const next = await getContentList(page++, limit, filterData, '', []);
+    if (!next.data.length) break;
+    repositories.push(...next.data);
+  }
+  return { ...first, data: repositories };
+};

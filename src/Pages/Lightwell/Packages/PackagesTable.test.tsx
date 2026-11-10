@@ -655,3 +655,45 @@ it('sorts last updated when the latest release column is present and resets the 
     { replace: true },
   );
 });
+
+it.each(['@types', '-'])(
+  'displays npm package names and navigates with scope %s',
+  async (scope) => {
+    const user = userEvent.setup();
+    const repo = {
+      ...defaultLightwellContentItem,
+      content_type: 'npm',
+      security_level: 'validated',
+      name: 'lightwell/javascript/validated',
+    };
+    mockRepository(repo);
+    mockUseParams.mockReturnValue({ repoName: 'javascript-validated' });
+    (useLightwellRepositoryPackagesQuery as jest.Mock).mockReturnValue(
+      mockPackagesQuery({
+        data: {
+          results: [
+            { group: scope, name: 'node', versions: ['1.0.0-beta', '1.0.0'], latest_releases: [] },
+          ],
+          total: 1,
+          limit: 20,
+          offset: 0,
+        },
+      }),
+    );
+    renderPackagesTable();
+    const name = scope === '-' ? 'node' : '@types/node';
+    await user.click(await screen.findByRole('button', { name }));
+    expect(mockNavigateTo).toHaveBeenCalledWith(
+      'packageDetails',
+      expect.objectContaining({
+        repoSlug: 'javascript-validated',
+        packageName: 'node',
+        groupId: scope === '-' ? undefined : scope,
+      }),
+    );
+    const writeText = jest.spyOn(navigator.clipboard, 'writeText');
+    await user.click(screen.getByRole('button', { name: '1.0.0' }));
+    expect(writeText).toHaveBeenCalledWith(`npm install ${name}@1.0.0`);
+    expect(screen.getByPlaceholderText('Filter by name or scope')).toBeInTheDocument();
+  },
+);

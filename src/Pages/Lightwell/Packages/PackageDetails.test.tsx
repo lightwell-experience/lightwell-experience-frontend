@@ -7,6 +7,8 @@ import PackageDetails from './PackageDetails';
 import {
   useMavenPackageVersionsListQuery,
   usePythonPackageVersionsQuery,
+  useNpmPackageVersionsQuery,
+  useNpmPackageDetailQuery,
 } from 'services/Content/ContentQueries';
 import {
   useAdvisoryDetailsQuery,
@@ -38,6 +40,8 @@ import { getMockAdvisoriesForLatestRelease } from '../mockAdvisories';
 import useLightwellRepository from '../../../Hooks/Lightwell/useLightwellRepository';
 
 jest.mock('services/Content/ContentQueries', () => ({
+  useNpmPackageVersionsQuery: jest.fn(() => ({})),
+  useNpmPackageDetailQuery: jest.fn(() => ({})),
   useMavenPackageVersionsListQuery: jest.fn(),
   usePythonPackageVersionsQuery: jest.fn(),
 }));
@@ -1267,3 +1271,65 @@ it('keeps the selected sort on the repository breadcrumb', async () => {
     ],
   });
 });
+
+it.each(['@types', ''])(
+  'shows validated npm package details with scope %s and changes versions',
+  async (scope) => {
+    const user = userEvent.setup();
+    const repo = {
+      ...defaultLightwellContentItem,
+      name: 'lightwell/javascript/validated',
+      content_type: 'npm',
+      security_level: 'validated',
+      published_distribution_url: 'https://packages.redhat.com/lightwell/javascript/validated/',
+    };
+    (useLightwellRepository as jest.Mock).mockReturnValue({
+      repository: repo,
+      repoUUID: repo.uuid,
+    });
+    mockUseParams.mockReturnValue({
+      repoName: 'javascript-validated',
+      group: scope,
+      packageName: 'node',
+    });
+    const versions = ['1.0.0-beta.1', '1.0.0', '0.9.0'].map((version) => ({
+      version,
+      builds: [{ version, release: '', created_at: '2026-07-01T00:00:00Z' }],
+    }));
+    (useNpmPackageVersionsQuery as jest.Mock).mockReturnValue({
+      data: { versions },
+      isLoading: false,
+    });
+    (useNpmPackageDetailQuery as jest.Mock).mockReturnValue({
+      data: { tarball: { filename: 'node.tgz', size: 100, sha256: 'abc123' } },
+    });
+    renderPackageDetails('?search=node&page=2');
+    const fullName = scope ? '@types/node' : 'node';
+    expect(
+      await screen.findByText(
+        `npm install ${fullName}@1.0.0 --registry=${repo.published_distribution_url}`,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('node.tgz')).toBeInTheDocument();
+    expect(screen.getByText('abc123')).toBeInTheDocument();
+    expect(screen.queryByText('Group ID')).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Remediations' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Releases' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Versions' }));
+    await user.click(screen.getByRole('button', { name: '0.9.0' }));
+    expect(useNpmPackageDetailQuery).toHaveBeenLastCalledWith(
+      repo.uuid,
+      scope || '-',
+      'node',
+      '0.9.0',
+      true,
+    );
+    expect(useMavenPackageVersionsListQuery).toHaveBeenLastCalledWith(
+      repo.uuid,
+      scope,
+      'node',
+      false,
+    );
+    expect(usePythonPackageVersionsQuery).toHaveBeenLastCalledWith(repo.uuid, 'node', false);
+  },
+);

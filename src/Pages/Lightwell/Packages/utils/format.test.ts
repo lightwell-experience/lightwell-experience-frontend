@@ -51,6 +51,16 @@ describe('getPackageCoordinate', () => {
       'requests',
     );
   });
+
+  it('joins an npm scope with a slash and treats the "-" sentinel as unscoped', () => {
+    expect(
+      getPackageCoordinate({ name: 'node', group: '@types', isMaven: false, isNpm: true }),
+    ).toBe('@types/node');
+    expect(getPackageCoordinate({ name: 'express', group: '-', isMaven: false, isNpm: true })).toBe(
+      'express',
+    );
+    expect(getPackageCoordinate({ name: 'express', isMaven: false, isNpm: true })).toBe('express');
+  });
 });
 
 describe('formatReleaseCopyText', () => {
@@ -64,5 +74,17 @@ describe('formatReleaseCopyText', () => {
     expect(formatReleaseCopyText({ name: 'requests', isPython: true }, '1.2.3')).toBe(
       'pip install requests==1.2.3',
     );
+  });
+
+  it('formats an npm install command, keeping the scope in the coordinate', () => {
+    expect(
+      formatReleaseCopyText(
+        { name: 'node', group: '@types', isPython: false, isNpm: true },
+        '1.0.0',
+      ),
+    ).toBe('npm install @types/node@1.0.0');
+    expect(
+      formatReleaseCopyText({ name: 'express', group: '-', isPython: false, isNpm: true }, '1.0.0'),
+    ).toBe('npm install express@1.0.0');
   });
 });

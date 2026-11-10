@@ -3,6 +3,7 @@ import axios from 'axios';
 import {
   createSubmission,
   listSubmissions,
+  listSubmissionPackages,
   getSubmission,
   addSubmissionFiles,
   deleteSubmissionFile,
@@ -198,5 +199,33 @@ describe('downloadSubmissionArchive', () => {
     get.mockRestore();
     click.mockRestore();
     createElement.mockRestore();
+  });
+});
+
+describe('listSubmissionPackages', () => {
+  it('gets the packages with paging and no filters by default', async () => {
+    const response = { data: [], meta: { count: 0, limit: 10, offset: 0 } };
+    const get = jest.spyOn(axios, 'get').mockResolvedValue({ data: response });
+
+    await expect(listSubmissionPackages('sub-1', 10, 20)).resolves.toEqual(response);
+
+    expect(get).toHaveBeenCalledWith(`${CLEARINGHOUSE_SUBMISSIONS_PATH}/sub-1/packages`, {
+      params: { limit: 10, offset: 20, ecosystem: undefined, valid_purl: undefined },
+    });
+    get.mockRestore();
+  });
+
+  it('sends ecosystems comma separated and the validity filter', async () => {
+    const get = jest.spyOn(axios, 'get').mockResolvedValue({ data: {} });
+
+    await listSubmissionPackages('sub-1', 10, 0, {
+      ecosystem: ['Java', 'Unknown'],
+      valid_purl: false,
+    });
+
+    expect(get).toHaveBeenCalledWith(`${CLEARINGHOUSE_SUBMISSIONS_PATH}/sub-1/packages`, {
+      params: { limit: 10, offset: 0, ecosystem: 'Java,Unknown', valid_purl: false },
+    });
+    get.mockRestore();
   });
 });

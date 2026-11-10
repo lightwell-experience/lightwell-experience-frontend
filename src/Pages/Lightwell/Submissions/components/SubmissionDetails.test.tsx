@@ -5,6 +5,16 @@ import SubmissionDetails from './SubmissionDetails';
 import { useSubmissionDetail } from '../hooks/useSubmissionDetail';
 
 jest.mock('../hooks/useSubmissionDetail');
+jest.mock('./SubmissionPackagesTable', () => ({
+  __esModule: true,
+  default: ({ ecosystems }: { ecosystems: string[] }) => (
+    <div data-ouia-component-id='packages-table'>{ecosystems.join(',')}</div>
+  ),
+}));
+jest.mock('./SubmissionEcosystemChart', () => ({
+  __esModule: true,
+  default: () => <div data-ouia-component-id='ecosystem-chart' />,
+}));
 const mockedHook = useSubmissionDetail as jest.Mock;
 
 let mockCurrentUsername: string | undefined;
@@ -420,5 +430,78 @@ describe('SubmissionDetails', () => {
     render(<SubmissionDetails uuid='sub-1' />);
 
     expect(screen.getByText(/Could not load the submission/i)).toBeInTheDocument();
+  });
+});
+
+describe('SubmissionDetails packages', () => {
+  const packageSummary = {
+    total: 128,
+    invalid_purls: 7,
+    ecosystems: [
+      { ecosystem: 'Java', total: 121 },
+      { ecosystem: 'Unknown', total: 7 },
+    ],
+  };
+  const withSummary = () =>
+    mockedHook.mockReturnValue(
+      buildHook({
+        submission: { ...buildHook().submission, package_summary: packageSummary },
+      }),
+    );
+
+  it('shows the package summary next to the status', () => {
+    withSummary();
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(screen.getByText('128 packages')).toBeInTheDocument();
+    expect(screen.getByText('7 invalid')).toBeInTheDocument();
+  });
+
+  it('opens on the Reproducers tab by default and lazily mounts Packages', () => {
+    withSummary();
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(screen.getByRole('tab', { name: 'Reproducers (2)' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByRole('tab', { name: 'Packages (128)' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    );
+    expect(screen.getByText('repro.jpg')).toBeInTheDocument();
+    expect(screen.queryByTestId('packages-table')).not.toBeInTheDocument();
+  });
+
+  it('switches to the Packages tab and reports the change', async () => {
+    const user = userEvent.setup();
+    const onTabChange = jest.fn();
+    withSummary();
+    render(<SubmissionDetails uuid='sub-1' onTabChange={onTabChange} />);
+
+    await user.click(screen.getByRole('tab', { name: 'Packages (128)' }));
+
+    expect(onTabChange).toHaveBeenCalledWith('packages');
+    expect(screen.getByTestId('ecosystem-chart')).toBeInTheDocument();
+    expect(screen.getByTestId('packages-table')).toHaveTextContent('Java,Unknown');
+  });
+
+  it('honours a controlled active tab', () => {
+    withSummary();
+    render(<SubmissionDetails uuid='sub-1' activeTab='packages' />);
+
+    expect(screen.getByRole('tab', { name: 'Packages (128)' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByTestId('packages-table')).toBeInTheDocument();
+  });
+
+  it('shows no tabs or summary for submissions without a package summary', () => {
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(screen.getByText('Reproducers (2)')).toBeInTheDocument();
+    expect(screen.queryByText(/invalid/)).not.toBeInTheDocument();
   });
 });

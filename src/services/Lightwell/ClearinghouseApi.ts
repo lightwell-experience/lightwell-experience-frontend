@@ -45,6 +45,52 @@ export type ClearinghouseSubmission = {
   can_process: boolean;
   // Customer identifier. Populated on list and get only for clearinghouse read users.
   cid?: string;
+  // Per-ecosystem breakdown of the unique packages in the report. Absent for
+  // submissions created before the backend started parsing packages.
+  package_summary?: ClearinghousePackageSummary;
+};
+
+export type ClearinghousePackageEcosystemSummary = {
+  ecosystem: string;
+  total: number;
+};
+
+export type ClearinghousePackageSummary = {
+  // Unique packages (by ecosystem, namespace, name and version).
+  total: number;
+  // Unique packageurls that don't parse as a Package URL or have no version.
+  invalid_purls: number;
+  // Largest first.
+  ecosystems: ClearinghousePackageEcosystemSummary[];
+};
+
+export type ClearinghouseInvalidReason = 'not_a_purl' | 'missing_version';
+
+export type ClearinghouseSubmissionPackage = {
+  // The packageurl as submitted.
+  packageurl: string;
+  // `Unknown` when the packageurl does not parse as a Package URL.
+  ecosystem: string;
+  // Includes the namespace; empty when the packageurl does not parse.
+  name: string;
+  // Empty when the packageurl does not parse or has no version.
+  version: string;
+  valid_purl: boolean;
+  invalid_reason?: ClearinghouseInvalidReason;
+  // Human-readable explanation, such as the Package URL parser error.
+  invalid_detail?: string;
+};
+
+export type ClearinghouseSubmissionPackageFilters = {
+  ecosystem?: string[];
+  // Only valid (true) or only invalid (false) packages; omit for both.
+  valid_purl?: boolean;
+};
+
+export type ClearinghouseSubmissionPackageListResponse = {
+  data: ClearinghouseSubmissionPackage[];
+  meta: Meta;
+  links: Links;
 };
 
 export type ClearinghouseSubmissionListResponse = {
@@ -95,6 +141,27 @@ export const listSubmissions = async (
 export const getSubmission = async (uuid: string): Promise<ClearinghouseSubmission> => {
   const { data } = await axios.get<ClearinghouseSubmission>(
     `${CLEARINGHOUSE_SUBMISSIONS_PATH}/${uuid}`,
+  );
+  return data;
+};
+
+/** List the unique packages referenced by a submission's report, in first-seen order. */
+export const listSubmissionPackages = async (
+  uuid: string,
+  limit = 100,
+  offset = 0,
+  filters: ClearinghouseSubmissionPackageFilters = {},
+): Promise<ClearinghouseSubmissionPackageListResponse> => {
+  const { data } = await axios.get<ClearinghouseSubmissionPackageListResponse>(
+    `${CLEARINGHOUSE_SUBMISSIONS_PATH}/${uuid}/packages`,
+    {
+      params: {
+        limit,
+        offset,
+        ecosystem: filters.ecosystem?.length ? filters.ecosystem.join(',') : undefined,
+        valid_purl: filters.valid_purl,
+      },
+    },
   );
   return data;
 };

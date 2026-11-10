@@ -18,29 +18,32 @@ import { LwButton } from 'kit/components/primitives';
 import { useSubmissionDetail } from '../hooks/useSubmissionDetail';
 import { useSubmissionDrawerParams } from '../hooks/useSubmissionDrawerParams';
 import { usePendingReproducers } from './PendingReproducersContext';
+import SubmissionPackageSummary from './SubmissionPackageSummary';
 
 export type UploadSuccessStepProps = {
   /** The freshly-created submission; the component fetches it itself. */
   uuid: string;
   /** Fired after the submission is submitted for validation. */
   onSubmitted?: () => void;
-  /** Fired after reproducers are uploaded (so the hero can reset while the drawer opens). */
-  onReproducersUploaded?: () => void;
+  /**
+   * Fired when the step hands the submission off to the drawer — after reproducers
+   * are chosen or the package "Details" link is clicked — so the page can refresh
+   * the table and reset the hero back to the upload form while the drawer opens.
+   */
+  onOpenedInDrawer?: () => void;
 };
 
 /**
  * Post-upload confirmation step shown inline in the Submissions hero right after a
- * report is created. It confirms the main report was saved, then offers two
+ * report is created. It confirms the main report was saved (with a one-line
+ * package summary whose "Details" link opens the drawer on the Packages tab),
+ * then offers two
  * mutually-exclusive next moves: upload optional reproducer file(s) — which hands
  * the chosen files to the submission drawer (where the upload actually happens and
  * a skeleton is shown) and opens it — or submit the submission for structural
  * validation. Reproducer management happens in the drawer's SubmissionDetails.
  */
-const UploadSuccessStep = ({
-  uuid,
-  onSubmitted,
-  onReproducersUploaded,
-}: UploadSuccessStepProps) => {
+const UploadSuccessStep = ({ uuid, onSubmitted, onOpenedInDrawer }: UploadSuccessStepProps) => {
   const { isLoading, isError, submission, mainFile, submit } = useSubmissionDetail({
     uuid,
     onSubmitted,
@@ -70,7 +73,7 @@ const UploadSuccessStep = ({
     // a skeleton) once it opens, then reset the hero back to the upload form.
     setPending(uuid, selected);
     openSubmission(uuid);
-    onReproducersUploaded?.();
+    onOpenedInDrawer?.();
   };
 
   return (
@@ -89,6 +92,19 @@ const UploadSuccessStep = ({
           </FlexItem>
         </Flex>
       </StackItem>
+
+      {submission?.package_summary ? (
+        <StackItem>
+          <SubmissionPackageSummary
+            summary={submission.package_summary}
+            totalSuffix='found'
+            onDetailsClick={() => {
+              openSubmission(uuid, 'packages');
+              onOpenedInDrawer?.();
+            }}
+          />
+        </StackItem>
+      ) : null}
 
       <StackItem>
         <input

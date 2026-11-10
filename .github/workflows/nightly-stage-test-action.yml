@@ -1,5 +1,6 @@
 name: 'E2E tests: Stage'
 on:
+  merge_group:
   pull_request:
     types: [ opened, reopened, synchronize ]
 

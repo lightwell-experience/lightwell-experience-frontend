@@ -11,7 +11,7 @@ import {
   Stack,
   Switch,
 } from '@patternfly/react-core';
-import { CodeIcon, BellIcon } from '@patternfly/react-icons';
+import { CodeIcon, BellIcon, InfoCircleIcon } from '@patternfly/react-icons';
 import { useRemoteHook } from '@scalprum/react-core';
 import { useFlag } from '@unleash/proxy-client-react';
 import { SkeletonTable } from '@patternfly/react-component-groups';
@@ -40,6 +40,7 @@ import {
   LIGHTWELL_FEATURE_NAME,
   LIGHTWELL_USE_MOCK,
   lightwellReposPerPageKey,
+  TECH_PREVIEW_LABEL_TEXT,
 } from '../constants';
 import { useLightwellDemo } from '../LightwellDemoContext';
 import {
@@ -54,8 +55,10 @@ import {
   getRepositoryPathSlug,
   getSlugFromRepositoryName,
   sortLightwellRepositories,
+  isTechPreviewContentType,
 } from '../helpers';
 import ConnectRepositoryModal from './components/ConnectRepositoryModal';
+import { techPreviewPopoverContent } from '../techPreview';
 import { capitalize } from 'lodash';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useLightwellNavigateTo } from 'Hooks/Lightwell/navigation/useLightwellNavigateTo';
@@ -69,7 +72,7 @@ import {
   PageChromeSlots,
   PageTitleStack,
 } from 'kit/components/assemblies';
-import { LwButton, LwCard } from 'kit/components/primitives';
+import { LwButton, LwCard, LwLabel, LwPopover } from 'kit/components/primitives';
 import { useLightwellNotificationPrefs } from './hooks/useLightwellNotificationPrefs';
 import {
   mapSeveritiesToApi,
@@ -329,6 +332,23 @@ const RepositoriesTable = () => {
                                   >
                                     {formatRepositoryName(content_type, security_level, name)}
                                   </LwButton>
+                                  {isTechPreviewContentType(content_type) ? (
+                                    <LwPopover
+                                      {...techPreviewPopoverContent}
+                                      hasTrigger={
+                                        // onClick renders the Label as a focusable button;
+                                        // LwPopover owns the open/close state.
+                                        <LwLabel
+                                          color='purple'
+                                          icon={<InfoCircleIcon />}
+                                          isCompact
+                                          onClick={() => undefined}
+                                        >
+                                          {TECH_PREVIEW_LABEL_TEXT}
+                                        </LwLabel>
+                                      }
+                                    />
+                                  ) : null}
                                 </Flex>
                                 <FlexItem>
                                   <Content component='small'>
@@ -367,7 +387,9 @@ const RepositoriesTable = () => {
                                   {capitalize(security_level)}
                                 </Label>
                               ) : security_level === 'remediated' ? (
-                                <Label color='purple'>{capitalize(security_level)}</Label>
+                                <Label variant='outline' color='orange'>
+                                  {capitalize(security_level)}
+                                </Label>
                               ) : security_level === 'predisclosure' ? (
                                 <Label color='orange'>{capitalize(security_level)}</Label>
                               ) : (

@@ -30,6 +30,18 @@ export const lightwellPkgsPerPageKey = 'lightwellPackagesPerPage';
 export const lightwellCoveragePkgsPerPageKey = 'lightwellCoveragePackagesPerPage';
 export const lightwellBeaconPerPageKey = 'lightwellBeaconPerPage';
 
+// Content types whose ecosystem support is a Tech Preview (backend: config.ContentTypeNpm).
+export const TECH_PREVIEW_CONTENT_TYPES = ['npm'];
+export const TECH_PREVIEW_LABEL_TEXT = 'Technology Preview';
+// Label popover + repository page alert (LWLP-4317).
+// Titles differ; the description is shared.
+export const TECH_PREVIEW_POPOVER_TITLE = 'Technology Preview repository';
+export const TECH_PREVIEW_TITLE = 'This repository is in Technology Preview';
+export const TECH_PREVIEW_DESCRIPTION =
+  'Some packages may be removed or rebuilt. More packages will be added over time.';
+export const TECH_PREVIEW_LEARN_MORE_URL =
+  'https://access.redhat.com/support/offerings/techpreview';
+
 export const CONTENT_TYPE_PARAMETERS: Record<string, { ecosystem: string }> = {
   npm: { ecosystem: 'JavaScript' },
   maven: { ecosystem: 'Java' },

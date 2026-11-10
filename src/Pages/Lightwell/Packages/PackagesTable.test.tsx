@@ -232,6 +232,76 @@ it('shows a loading skeleton instead of the empty state while a search refetch h
   expect(screen.queryByText('No packages match the filter criteria')).not.toBeInTheDocument();
 });
 
+it('shows an info Technology Preview alert on JavaScript repositories', async () => {
+  mockRepository({
+    ...defaultLightwellContentItem,
+    name: 'lightwell/npm/remediated',
+    content_type: 'npm',
+    security_level: 'remediated',
+  });
+
+  renderPackagesTable();
+
+  const title = await screen.findByText('This repository is in Technology Preview');
+  const alert = title.closest('.pf-v6-c-alert');
+  expect(alert).toHaveClass('lw-c-alert', 'pf-m-info', 'pf-m-inline');
+  expect(screen.getByText(/Some packages may be removed or rebuilt/)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /Learn more/ })).toHaveAttribute(
+    'href',
+    'https://access.redhat.com/support/offerings/techpreview',
+  );
+
+  // Sits above the sensitive-data (yellow) alert.
+  const sensitive = screen
+    .getByText('This data is sensitive. Do not share or capture screenshots.')
+    .closest('.pf-v6-c-alert') as HTMLElement;
+  expect(alert?.compareDocumentPosition(sensitive)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+});
+
+it('dismisses the Technology Preview alert', async () => {
+  mockRepository({
+    ...defaultLightwellContentItem,
+    name: 'lightwell/npm/validated',
+    content_type: 'npm',
+  });
+
+  renderPackagesTable();
+
+  const title = await screen.findByText('This repository is in Technology Preview');
+  const alert = title.closest('.pf-v6-c-alert') as HTMLElement;
+  fireEvent.click(within(alert).getByRole('button', { name: /close/i }));
+
+  expect(screen.queryByText('This repository is in Technology Preview')).not.toBeInTheDocument();
+});
+
+it('shows a standard-size Technology Preview label after the title of a JavaScript repository', async () => {
+  mockRepository({
+    ...defaultLightwellContentItem,
+    name: 'lightwell/npm/validated',
+    content_type: 'npm',
+  });
+
+  renderPackagesTable();
+
+  const trigger = await screen.findByRole('button', { name: 'Technology Preview' });
+  const label = trigger.closest('.pf-v6-c-label');
+  expect(label).toHaveClass('lw-c-label', 'pf-m-purple');
+  expect(label).not.toHaveClass('pf-m-compact');
+  expect(label?.closest('.lw-c-page-title-stack__labels')).toBeInTheDocument();
+
+  fireEvent.click(trigger);
+  expect(await screen.findByText('Technology Preview repository')).toBeInTheDocument();
+});
+
+it('shows no Technology Preview alert on non-JavaScript repositories', async () => {
+  renderPackagesTable();
+
+  expect(
+    await screen.findByText('https://example.com/lightwell/java/validated'),
+  ).toBeInTheDocument();
+  expect(screen.queryByText('This repository is in Technology Preview')).not.toBeInTheDocument();
+});
+
 it('shows loader while the repository is resolving', () => {
   (useLightwellRepository as jest.Mock).mockReturnValue({
     repository: undefined,

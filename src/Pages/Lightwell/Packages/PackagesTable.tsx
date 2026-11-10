@@ -1,4 +1,5 @@
 import {
+  AlertActionCloseButton,
   Flex,
   Grid,
   Pagination,
@@ -15,7 +16,7 @@ import {
 } from '@patternfly/react-core';
 import { useRemoteHook } from '@scalprum/react-core';
 import { useFlag } from '@unleash/proxy-client-react';
-import { CodeIcon } from '@patternfly/react-icons';
+import { CodeIcon, InfoCircleIcon } from '@patternfly/react-icons';
 import { SkeletonTable } from '@patternfly/react-component-groups';
 import spacing from '@patternfly/react-styles/css/utilities/Spacing/spacing';
 import text from '@patternfly/react-styles/css/utilities/Text/text';
@@ -48,9 +49,17 @@ import {
   getRepositoryDescription,
   hasBackportedFixes,
   toLightwellEcosystem,
+  isTechPreviewContentType,
 } from '../helpers';
 import Hide from 'components/Hide/Hide';
-import { LIGHTWELL_USE_MOCK, lightwellPkgsPerPageKey } from '../constants';
+import {
+  LIGHTWELL_USE_MOCK,
+  lightwellPkgsPerPageKey,
+  TECH_PREVIEW_DESCRIPTION,
+  TECH_PREVIEW_LABEL_TEXT,
+  TECH_PREVIEW_TITLE,
+} from '../constants';
+import { techPreviewLearnMoreLink, techPreviewPopoverContent } from '../techPreview';
 import EmptyTableState from 'components/EmptyTableState/EmptyTableState';
 import Loader from 'components/Loader';
 import LightwellNotFound from '../components/LightwellNotFound';
@@ -82,7 +91,14 @@ import {
   PageChromeSlots,
   PageTitleStack,
 } from 'kit/components/assemblies';
-import { LwAlert, LwButton, LwCard, LwClipboardCopy } from 'kit/components/primitives';
+import {
+  LwAlert,
+  LwButton,
+  LwCard,
+  LwClipboardCopy,
+  LwLabel,
+  LwPopover,
+} from 'kit/components/primitives';
 
 const useStyles = createUseStyles({
   filterToolbarItem: {
@@ -248,6 +264,7 @@ const PackagesTable = () => {
   const [perPage, setPerPage] = useState(storedPerPage);
 
   const [expandedPackages, setExpandedPackages] = useState<Set<string>>(new Set());
+  const [isTechPreviewAlertDismissed, setIsTechPreviewAlertDismissed] = useState(false);
   const useMock = LIGHTWELL_USE_MOCK;
 
   const {
@@ -435,6 +452,20 @@ const PackagesTable = () => {
             <PageTitleStack
               title={repositoryName}
               icon={getEcosystemIcon(repository?.content_type)}
+              labels={
+                isTechPreviewContentType(repository.content_type) ? (
+                  <LwPopover
+                    {...techPreviewPopoverContent}
+                    hasTrigger={
+                      // onClick renders the Label as a focusable button;
+                      // LwPopover owns the open/close state.
+                      <LwLabel color='purple' icon={<InfoCircleIcon />} onClick={() => undefined}>
+                        {TECH_PREVIEW_LABEL_TEXT}
+                      </LwLabel>
+                    }
+                  />
+                ) : undefined
+              }
               description={getRepositoryDescription(
                 repository.content_type,
                 repository.security_level,
@@ -463,6 +494,21 @@ const PackagesTable = () => {
                     : formatDistributionUrl(repository.published_distribution_url || '')}
                 </LwClipboardCopy>
               </LwButtonGroup>
+              {isTechPreviewContentType(repository.content_type) &&
+                !isTechPreviewAlertDismissed && (
+                  <LwAlert
+                    variant='info'
+                    actionClose={
+                      <AlertActionCloseButton
+                        onClose={() => setIsTechPreviewAlertDismissed(true)}
+                      />
+                    }
+                    title={TECH_PREVIEW_TITLE}
+                    actionLinks={techPreviewLearnMoreLink}
+                  >
+                    {TECH_PREVIEW_DESCRIPTION}
+                  </LwAlert>
+                )}
               {(isRemediated || isPredisclosure) && <LwAlert />}
             </PageChromeSlotFooter>
           </PageChromeSlot>

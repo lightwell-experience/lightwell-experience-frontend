@@ -59,12 +59,17 @@ jest.mock('services/Lightwell/CustomerQueries', () => ({
 
 jest.mock('services/Lightwell/BeaconQueries', () => ({
   useBeaconStatusQuery: jest.fn(),
+  useBeaconVulnerabilitiesQuery: jest.fn(),
   useLtwlsuptTicketIdsQuery: jest.fn(),
 }));
 
 import { useBeaconData } from './hooks/useBeaconData';
 import { useCustomerIdsQuery } from 'services/Lightwell/CustomerQueries';
-import { useBeaconStatusQuery, useLtwlsuptTicketIdsQuery } from 'services/Lightwell/BeaconQueries';
+import {
+  useBeaconStatusQuery,
+  useBeaconVulnerabilitiesQuery,
+  useLtwlsuptTicketIdsQuery,
+} from 'services/Lightwell/BeaconQueries';
 import { mockVulnerabilities } from '../mockVulnerabilities';
 
 const mockBeaconData = {
@@ -127,6 +132,8 @@ beforeEach(() => {
     isLoading: false,
     data: ['batch-1', 'batch-2'],
   });
+
+  (useBeaconVulnerabilitiesQuery as jest.Mock).mockReturnValue({ data: mockBeaconData });
 
   (useBeaconStatusQuery as jest.Mock).mockReturnValue({
     data: '10-02-2026 08:00',
@@ -792,4 +799,93 @@ it('shows distinct CVE counts with status icons in workflow order', () => {
     expect(count.querySelector('svg')).toBeInTheDocument();
   }
   expect(screen.queryByLabelText('Classified: 0')).not.toBeInTheDocument();
+});
+
+it('filters only package rows using complete statuses and leaves the vulnerability view unchanged', async () => {
+  const first = mockVulnerabilities[0];
+  const addressed = { ...first, componentName: 'addressed', status: 'Lightwell Network' };
+  const mixed = { ...addressed, componentName: 'mixed' };
+  const displayed = [addressed, mixed];
+  (useBeaconData as jest.Mock).mockReturnValue({
+    data: { ...mockBeaconData, vulnerabilities: displayed },
+  });
+  (useBeaconVulnerabilitiesQuery as jest.Mock).mockReturnValue({
+    data: { vulnerabilities: [...displayed, { ...mixed, uuid: 'hidden', status: 'On Hold' }] },
+  });
+  renderBeacon();
+  const user = await selectCustomer('CID-01');
+  expect(screen.queryByRole('checkbox', { name: 'All addressed' })).not.toBeInTheDocument();
+  expect(useBeaconVulnerabilitiesQuery).toHaveBeenLastCalledWith('CID-01', undefined, undefined, {
+    enabled: false,
+  });
+  await user.click(screen.getByRole('button', { name: 'Packages' }));
+  await user.click(screen.getByRole('checkbox', { name: 'All addressed' }));
+  const table = screen.getByRole('grid', { name: 'Package tracking table' });
+  expect(within(table).getByText('addressed')).toBeInTheDocument();
+  expect(within(table).queryByText('mixed')).not.toBeInTheDocument();
+  expect(useBeaconVulnerabilitiesQuery).toHaveBeenLastCalledWith('CID-01', undefined, undefined, {
+    enabled: true,
+  });
+  expect(screen.getByRole('heading', { name: 'Filters (1)' })).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Reset' }));
+  expect(screen.getByRole('checkbox', { name: 'All addressed' })).not.toBeChecked();
+  expect(within(table).getByText('mixed')).toBeInTheDocument();
+  await user.click(screen.getByRole('checkbox', { name: 'All addressed' }));
+  await user.click(screen.getByRole('button', { name: 'Vulnerabilities', pressed: false }));
+  expect(screen.queryByRole('checkbox', { name: 'All addressed' })).not.toBeInTheDocument();
+  const vulnerabilities = screen.getByRole('grid', { name: 'Vulnerability tracking table' });
+  expect(within(vulnerabilities).getByText(/mixed/)).toBeInTheDocument();
+  expect(useBeaconData).toHaveBeenLastCalledWith(
+    'CID-01',
+    undefined,
+    expect.objectContaining({ offset: 0 }),
+  );
+  expect(useBeaconVulnerabilitiesQuery).toHaveBeenLastCalledWith('CID-01', undefined, undefined, {
+    enabled: false,
+  });
+});
+
+it('shows a filtered empty state when All addressed excludes every package', async () => {
+  (useBeaconVulnerabilitiesQuery as jest.Mock).mockReturnValue({ data: { vulnerabilities: [] } });
+  renderBeacon();
+  const user = await selectCustomer('CID-01');
+  await user.click(screen.getByRole('button', { name: 'Packages' }));
+  await user.click(screen.getByRole('checkbox', { name: 'All addressed' }));
+  expect(screen.getByText('No results match the current filters')).toBeInTheDocument();
+  expect(screen.queryByText('No submissions yet')).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Reset filters' }));
+  expect(screen.getByRole('checkbox', { name: 'All addressed' })).not.toBeChecked();
+});
+
+it('waits for the complete collection before showing addressed packages', async () => {
+  (useBeaconVulnerabilitiesQuery as jest.Mock).mockReturnValue({
+    data: mockBeaconData,
+    isPlaceholderData: true,
+  });
+  const { rerender } = renderBeacon();
+  const user = await selectCustomer('CID-01');
+  await user.click(screen.getByRole('button', { name: 'Packages' }));
+  await user.click(screen.getByRole('checkbox', { name: 'All addressed' }));
+  expect(screen.queryByText('No results match the current filters')).not.toBeInTheDocument();
+  expect(screen.queryByText('No submissions yet')).not.toBeInTheDocument();
+  (useBeaconVulnerabilitiesQuery as jest.Mock).mockReturnValue({ data: { vulnerabilities: [] } });
+  rerender(
+    <ReactQueryTestWrapper>
+      <Beacon />
+    </ReactQueryTestWrapper>,
+  );
+  expect(screen.getByText('No results match the current filters')).toBeInTheDocument();
+});
+
+it('resets All addressed when the customer changes', async () => {
+  renderBeacon();
+  const user = await selectCustomer('CID-01');
+  await user.click(screen.getByRole('button', { name: 'Packages' }));
+  await user.click(screen.getByRole('checkbox', { name: 'All addressed' }));
+  await user.click(screen.getByRole('button', { name: 'CID-01' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'CID-214' }));
+  expect(screen.getByRole('checkbox', { name: 'All addressed' })).not.toBeChecked();
+  expect(useBeaconVulnerabilitiesQuery).toHaveBeenLastCalledWith('CID-214', undefined, undefined, {
+    enabled: false,
+  });
 });

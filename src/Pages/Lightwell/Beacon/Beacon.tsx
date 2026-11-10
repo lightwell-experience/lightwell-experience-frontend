@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRemoteHook } from '@scalprum/react-core';
 import { useFlag } from '@unleash/proxy-client-react';
 import {
@@ -58,6 +58,7 @@ import {
 import { buildPipelineMetricSteps } from './pipeline';
 import { SLA_POLICY_ITEMS } from './slaPolicyItems';
 import { buildPackageRows, createDefaultPackageColumns } from './utils/packageTableRows';
+import { getAddressedPackageIds, packageIdentity } from './utils/addressedPackages';
 import type { Severity, Status, Vulnerability } from './types';
 import { useBeaconExport } from './hooks/useBeaconExport';
 import { getVulnerabilityTableCellProps } from './components/vulnerabilityTableStickyColumns';
@@ -67,7 +68,11 @@ import {
   type BeaconVulnerabilityFilters,
   type BeaconVulnerabilityFlag,
 } from 'services/Lightwell/BeaconApi';
-import { useBeaconStatusQuery, useLtwlsuptTicketIdsQuery } from 'services/Lightwell/BeaconQueries';
+import {
+  useBeaconStatusQuery,
+  useBeaconVulnerabilitiesQuery,
+  useLtwlsuptTicketIdsQuery,
+} from 'services/Lightwell/BeaconQueries';
 import { useCustomerIdsQuery } from 'services/Lightwell/CustomerQueries';
 import {
   createDefaultVulnerabilityColumns,
@@ -175,6 +180,8 @@ const Beacon = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>();
   const [view, setView] = useState<'vulnerabilities' | 'packages'>('vulnerabilities');
   const isPackageView = view === 'packages';
+  const [allAddressed, setAllAddressed] = useState(false);
+  const filterAddressed = isPackageView && allAddressed;
   const [selectedSeverities, setSelectedSeverities] = useState<Set<Severity>>(new Set());
   const [selectedStatuses, setSelectedStatuses] = useState<Set<Status>>(new Set());
   const [selectedLtwlsuptTickets, setSelectedLtwlsuptTickets] = useState<Set<string>>(new Set());
@@ -224,13 +231,14 @@ const Beacon = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [selectedCustomerId, queryFilters, view]);
+  }, [selectedCustomerId, queryFilters, view, filterAddressed]);
 
   const resetFilters = useCallback(() => {
     setSelectedSeverities(new Set());
     setSelectedStatuses(new Set());
     setSelectedLtwlsuptTickets(new Set());
     setShowDuplicates(false);
+    setAllAddressed(false);
     setSearchQuery('');
     setPage(1);
   }, []);
@@ -273,12 +281,20 @@ const Beacon = () => {
     isError,
     error,
   } = useBeaconData(selectedCustomerId, queryFilters, isPackageView ? undefined : pagination);
+  // This query is disabled outside the package-only filter. With no display
+  // filters its key matches the main package query, so React Query shares it.
+  const eligibility = useBeaconVulnerabilitiesQuery(selectedCustomerId, undefined, undefined, {
+    enabled: Boolean(selectedCustomerId && filterAddressed),
+  });
+  const eligibilityPending =
+    filterAddressed && (!eligibility.data || eligibility.isPlaceholderData);
   const { data: ltwlsuptTicketIds = [] } = useLtwlsuptTicketIdsQuery(selectedCustomerId);
   const { data: lastUpdated } = useBeaconStatusQuery();
 
   const isLoading = (!displayData && isLoadingDisplay) || (isPackageView && isPlaceholderData);
 
   if (isError) throw error;
+  if (filterAddressed && eligibility.isError) throw eligibility.error;
 
   const filteredVulns = displayData?.vulnerabilities ?? [];
   const displayMeta = displayData?.meta;
@@ -318,12 +334,14 @@ const Beacon = () => {
     });
   };
 
-  const activeFilterCount =
+  const vulnerabilityFilterCount =
     selectedSeverities.size +
     selectedStatuses.size +
     selectedLtwlsuptTickets.size +
     (showDuplicates ? 1 : 0) +
     (isSearchApplied(searchQuery) ? 1 : 0);
+
+  const activeFilterCount = vulnerabilityFilterCount + (filterAddressed ? 1 : 0);
 
   const itemCount = displayMeta?.count ?? 0;
   // Export has nothing to export at 0 settled rows. Placeholder data keeps the previous count, so
@@ -332,10 +350,24 @@ const Beacon = () => {
 
   // Grouping is only ever rendered by the package view; the vulnerability view
   // would otherwise rebuild every group on each data change and show none.
-  const packageRows = useMemo(
-    () => (isPackageView ? buildPackageRows(filteredVulns, packageColumns) : []),
-    [isPackageView, filteredVulns, packageColumns],
+  const addressedPackageIds = useMemo(
+    () => getAddressedPackageIds(eligibility.data?.vulnerabilities ?? []),
+    [eligibility.data],
   );
+  const packageRows = useMemo(() => {
+    if (!isPackageView || eligibilityPending) return [];
+    const vulnerabilities = filterAddressed
+      ? filteredVulns.filter((v) => addressedPackageIds.has(packageIdentity(v)))
+      : filteredVulns;
+    return buildPackageRows(vulnerabilities, packageColumns);
+  }, [
+    isPackageView,
+    eligibilityPending,
+    filterAddressed,
+    filteredVulns,
+    addressedPackageIds,
+    packageColumns,
+  ]);
 
   const visibleColumns = useMemo(
     () =>
@@ -508,7 +540,7 @@ const Beacon = () => {
           ) : selectedCustomerId ? (
             <PageChromeSlot>
               <LwMetricsCard
-                hasHeader={`${isPackageView ? 'Vulnerability Status Summary' : 'Status Summary'}${activeFilterCount > 0 ? ' (filtered)' : ''}`}
+                hasHeader={`${isPackageView ? 'Vulnerability Status Summary' : 'Status Summary'}${vulnerabilityFilterCount > 0 ? ' (filtered)' : ''}`}
                 hasAction={
                   <LwPopover
                     hasHeader={SLA_POLICY_HEADER}
@@ -621,13 +653,13 @@ const Beacon = () => {
             // paging and sorts across every package. The vulnerability view is
             // server-paginated — its rows are one page and stay as given.
             isResident={isPackageView}
-            isLoading={isLoading}
+            isLoading={isLoading || eligibilityPending}
             isPlaceholderData={isPlaceholderData}
             emptyState={{
               // What the displayed rows were fetched with, not the live UI state: the search is
               // debounced, so right after Reset/clear the UI is already empty while the rows are
               // still the filtered result. Using the UI count would flash "no data" for that tick.
-              hasActiveFilters: queryFilters !== undefined,
+              hasActiveFilters: queryFilters !== undefined || filterAddressed,
               titleText: 'No results match the current filters',
               bodyText: 'Reset filters to show more results.',
               onClearFilters: resetFilters,
@@ -661,13 +693,22 @@ const Beacon = () => {
                   </FormGroup>
                   <FormGroup label='Status'>
                     {FILTER_STATUSES.map((status) => (
-                      <LwCheckbox
-                        key={status}
-                        id={`status-${status}`}
-                        label={statusLabel(status)}
-                        isChecked={selectedStatuses.has(status)}
-                        onChange={() => toggleStatus(status)}
-                      />
+                      <Fragment key={status}>
+                        <LwCheckbox
+                          id={`status-${status}`}
+                          label={statusLabel(status)}
+                          isChecked={selectedStatuses.has(status)}
+                          onChange={() => toggleStatus(status)}
+                        />
+                        {isPackageView && status === 'Lightwell Network' && (
+                          <LwCheckbox
+                            id='packages-all-addressed'
+                            label='All addressed'
+                            isChecked={allAddressed}
+                            onChange={() => setAllAddressed((current) => !current)}
+                          />
+                        )}
+                      </Fragment>
                     ))}
                   </FormGroup>
                   {ltwlsuptTicketIds.length > 0 && (

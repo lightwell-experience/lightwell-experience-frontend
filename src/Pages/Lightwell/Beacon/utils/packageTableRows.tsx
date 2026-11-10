@@ -17,6 +17,7 @@ import { formatEcosystem, getVulnerabilityColumnValue } from './vulnerabilityTab
 import { PublishedVersions } from '../components/PublishedVersions';
 import { getPipelineStepPresentation } from '../pipeline';
 import { sortVersionsDesc } from '../../Packages/utils/versions';
+import { packageIdentity } from './addressedPackages';
 
 export const PACKAGE_COLUMNS: LwDataViewManageColumn[] = [
   { key: 'package', cell: 'Package', props: { width: 15 as const } },
@@ -168,11 +169,7 @@ export function buildPackageRows(
   for (const vulnerability of vulnerabilities) {
     // Ecosystem separates identically named packages in different registries;
     // componentName retains scoped names, unlike parsing a display label.
-    const key = JSON.stringify([
-      vulnerability.ecosystem,
-      vulnerability.componentName,
-      vulnerability.componentVersion,
-    ]);
+    const key = packageIdentity(vulnerability);
     const group = packages.get(key) ?? [];
     group.push(vulnerability);
     packages.set(key, group);

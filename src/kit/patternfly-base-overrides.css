@@ -14,6 +14,12 @@
     box-shadow: none;
     border-radius: 0;
     border: none;
+    /* PF's glass theme caps this at calc(100% - inset - gutter), which only
+     * reserves a bottom gutter while content is shorter than the viewport —
+     * once content overflows, the reserved space never materializes as real
+     * padding below it. Lightwell pages need natural block growth here, not
+     * a height clamp (LWLP-4488). */
+    --pf-v6-c-page__main-container--MaxHeight: none;
   }
 
   .pf-v6-c-page__drawer {

@@ -245,7 +245,7 @@ const RepositoriesTable = () => {
           </PageChromeSlot>
         </PageChromeSlots>
       </LwPageHeader>
-      <PageSection hasBodyWrapper={false} className={`${spacing.pt_0} ${spacing.pbLg}`}>
+      <PageSection hasBodyWrapper={false} className={spacing.pt_0}>
         <Grid data-ouia-component-id='lightwell-repositories-page'>
           <Hide hide={countIsZero || count < 10}>
             <Flex

@@ -7,7 +7,6 @@ import {
   type SelfAccessCheckResultItemWithRelation,
   type SelfAccessCheckResourceWithRelation,
 } from '@project-kessel/react-kessel-access-check';
-import { Features } from 'services/Features/FeatureApi';
 import { RbacPermissions } from './rbacPermissions';
 import PackageJson from '../../package.json';
 import { BulkSelfAccessCheckNestedRelationsParams } from '@project-kessel/react-kessel-access-check/types';
@@ -42,6 +41,7 @@ export const mapKesselToRbac = (
 export const useKesselWorkspace = (enabled: boolean) => {
   const [workspaceId, setWorkspaceId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const didResolveRef = useRef(false);
 
   useEffect(() => {
@@ -66,9 +66,11 @@ export const useKesselWorkspace = (enabled: boolean) => {
           setWorkspaceId(ws.id);
         }
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        console.error('Failed to fetch default Kessel workspace', err);
         if (!cancelled) {
           setWorkspaceId(undefined);
+          setError(true);
         }
       })
       .finally(() => {
@@ -82,13 +84,17 @@ export const useKesselWorkspace = (enabled: boolean) => {
     };
   }, [enabled]);
 
-  return { workspaceId, loading };
+  return { workspaceId, loading, error };
 };
 
 /**
  * Hook to fetch the rbac permissions from Kessel
  */
-export const useKesselRbac = (workspaceId: string | undefined, workspaceLoading: boolean) => {
+export const useKesselRbac = (
+  workspaceId: string | undefined,
+  workspaceLoading: boolean,
+  workspaceError: boolean,
+) => {
   const params = useMemo(() => {
     // Don't make a request if we don't have a workspace ID yet
     if (!workspaceId) {
@@ -127,12 +133,27 @@ export const useKesselRbac = (workspaceId: string | undefined, workspaceLoading:
     };
   }, [workspaceId]);
 
-  const { data: kesselData, loading: kesselLoading } = useSelfAccessCheck(
-    params as BulkSelfAccessCheckNestedRelationsParams,
-  );
-  const rbac = mapKesselToRbac(kesselData);
-  const loading = workspaceLoading || kesselLoading || !rbac;
-  return { rbac, loading };
+  const {
+    data: kesselData,
+    loading: kesselLoading,
+    error: kesselError,
+  } = useSelfAccessCheck(params as BulkSelfAccessCheckNestedRelationsParams);
+
+  useEffect(() => {
+    if (kesselError) {
+      console.error('Kessel self access check failed', kesselError);
+    }
+  }, [kesselError]);
+
+  // A failed workspace lookup produces an empty resources array, which resolves
+  // the bulk check immediately with no data — indistinguishable from "no
+  // permissions" unless we track the workspace failure separately. Treat either
+  // failure as an error rather than silently waiting on a `rbac` that will
+  // never arrive.
+  const error = workspaceError || !!kesselError;
+  const rbac = error ? undefined : mapKesselToRbac(kesselData);
+  const loading = workspaceLoading || kesselLoading || (!rbac && !error);
+  return { rbac, loading, error };
 };
 
 /**
@@ -140,29 +161,39 @@ export const useKesselRbac = (workspaceId: string | undefined, workspaceLoading:
  */
 export const useTraditionalRbac = (
   chrome: ChromeAPI | undefined,
-  features: Features | null,
+  isFeaturesSettled: boolean,
   enabled: boolean,
 ) => {
   const [rbac, setRbac] = useState<Record<keyof typeof RbacPermissions, boolean> | undefined>(
     undefined,
   );
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (chrome && features !== null && enabled && !rbac) {
-      chrome.auth.getUser().then(async () =>
-        getRBAC(appname).then((res) => {
-          const rbacSet = new Set(res.permissions.map(({ permission }) => permission));
+    // Wait for the features fetch to *settle* (succeed or fail), not to succeed —
+    // RBAC v1 permissions don't depend on `features`, so a failed features call
+    // (e.g. the user lacks a role features-gates on) must not block this check.
+    if (chrome && isFeaturesSettled && enabled && !rbac && !error) {
+      chrome.auth
+        .getUser()
+        .then(async () =>
+          getRBAC(appname).then((res) => {
+            const rbacSet = new Set(res.permissions.map(({ permission }) => permission));
 
-          setRbac({
-            repoRead: rbacSet.has('content-sources:repositories:read'),
-            repoWrite: rbacSet.has('content-sources:repositories:write'),
-            templateRead: rbacSet.has('content-sources:templates:read'),
-            templateWrite: rbacSet.has('content-sources:templates:write'),
-          });
-        }),
-      );
+            setRbac({
+              repoRead: rbacSet.has('content-sources:repositories:read'),
+              repoWrite: rbacSet.has('content-sources:repositories:write'),
+              templateRead: rbacSet.has('content-sources:templates:read'),
+              templateWrite: rbacSet.has('content-sources:templates:write'),
+            });
+          }),
+        )
+        .catch((err: unknown) => {
+          console.error('Failed to fetch RBAC v1 permissions', err);
+          setError(true);
+        });
     }
-  }, [!!chrome, features, enabled, rbac]);
+  }, [!!chrome, isFeaturesSettled, enabled, rbac, error]);
 
-  return { rbac, loading: !rbac };
+  return { rbac, loading: !rbac && !error, error };
 };

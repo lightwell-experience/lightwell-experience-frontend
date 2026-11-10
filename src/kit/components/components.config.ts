@@ -20,6 +20,7 @@ import {
 } from '@patternfly/react-core';
 import type { DataViewTableBasicProps } from '@patternfly/react-data-view/dist/dynamic/DataViewTableBasic';
 import type { DataViewToolbarProps } from '@patternfly/react-data-view/dist/dynamic/DataViewToolbar';
+import type { ErrorStateProps } from '@redhat-cloud-services/frontend-components/ErrorState';
 
 import { lightwellConfig, type LwStepIconColorKey } from '../lightwell.config';
 
@@ -143,6 +144,11 @@ export type LwListConfig = Partial<LwListPassthroughProps>;
 /** Defaults for `LwEmptyState` — EmptyState root; Footer/Actions/Body stay call-site children. */
 export type LwEmptyStateConfig = Partial<EmptyStateProps>;
 
+// ─── Primitive: LwErrorState (root only) ─────────────────────────────────────
+
+/** Defaults for `LwErrorState` — ErrorState root; call-site wins via merge. */
+export type LwErrorStateConfig = Partial<ErrorStateProps>;
+
 // ─── Primitive: LwSkeleton (root only) ───────────────────────────────────────
 
 /** Defaults for `LwSkeleton` — Skeleton root; call-site wins via merge. */
@@ -263,6 +269,13 @@ export type LwFormConfig = Partial<
   Omit<import('@patternfly/react-core').FormProps, 'children' | 'ref'>
 >;
 
+// ─── Primitive: LwModal ──────────────────────────────────────────────────────
+
+/** Defaults for `LwModal` — Modal host; call-site wins via merge. */
+export type LwModalConfig = Partial<
+  Omit<import('@patternfly/react-core').ModalProps, 'children' | 'ref'>
+>;
+
 // ─── Assembly: LwDataView (DataView + DataViewTable) ─────────────────────────
 
 /** PF `DataViewTable` props forwarded by `LwDataView` (kit builds variant/columns/rows/bodyStates/headStates/isSticky; isTreeTable not supported). */
@@ -332,10 +345,12 @@ export interface LwComponentsConfig {
   button: LwButtonConfig;
   card: LwCardConfig;
   menu: LwMenuConfig;
+  modal: LwModalConfig;
   popover: LwPopoverConfig;
   tooltip: LwTooltipConfig;
   list: LwListConfig;
   emptyState: LwEmptyStateConfig;
+  errorState: LwErrorStateConfig;
   skeleton: LwSkeletonConfig;
   title: LwTitleConfig;
   icon: LwIconConfig;
@@ -395,6 +410,9 @@ export const componentsConfig: LwComponentsConfig = {
   emptyState: {
     // Root-only harness — no Lightwell-specific EmptyState defaults yet.
   },
+  errorState: {
+    // Root-only harness — no Lightwell-specific ErrorState defaults yet.
+  },
   skeleton: {
     // Root-only harness — no Lightwell-specific Skeleton defaults yet.
   },
@@ -410,6 +428,10 @@ export const componentsConfig: LwComponentsConfig = {
   },
   form: {
     // No Lightwell-specific Form defaults yet.
+  },
+  modal: {
+    // Root-only harness — no Lightwell-specific Modal defaults yet.
+    // `variant` / `position` stay call-site opts until a shared baseline earns them.
   },
   clipboardCopy: {
     isReadOnly: true,
@@ -509,6 +531,10 @@ export function getLwEmptyStateDefaults(): LwEmptyStateConfig {
   return { ...componentsConfig.emptyState };
 }
 
+export function getLwErrorStateDefaults(): LwErrorStateConfig {
+  return { ...componentsConfig.errorState };
+}
+
 export function getLwSkeletonDefaults(): LwSkeletonConfig {
   return { ...componentsConfig.skeleton };
 }
@@ -538,6 +564,10 @@ export function getLwContentDefaults(): LwContentConfig {
 
 export function getLwFormDefaults(): LwFormConfig {
   return { ...componentsConfig.form };
+}
+
+export function getLwModalDefaults(): LwModalConfig {
+  return { ...componentsConfig.modal };
 }
 
 export function getLwClipboardCopyDefaults(): LwClipboardCopyConfig {

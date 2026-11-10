@@ -58,7 +58,15 @@ const submission = {
   username: 'author@example.com',
   name: 'RHOSE-4.9.json',
   files: [{ uuid: 'f-0', filename: 'submission.json' }],
+  can_delete: false,
+  can_download: false,
+  can_add_reproducers: false,
+  can_submit: false,
+  can_process: false,
 };
+
+// A processed submission as a read (STAM) user sees it: downloadable, not deletable.
+const downloadableSubmission = { ...submission, status: 'processed', can_download: true };
 
 const buildQuery = (overrides = {}) => ({
   data: { data: [submission], meta: { count: 1, limit: 20, offset: 0 } },
@@ -146,6 +154,48 @@ describe('SubmissionsTable', () => {
     expect(screen.getByText(/submitter@example.com/)).toBeInTheDocument();
   });
 
+  it('shows a CID column for users with the read feature', () => {
+    mockedList.mockReturnValue(
+      buildQuery({
+        data: {
+          data: [{ ...submission, cid: 'CID-00000' }],
+          meta: { count: 1 },
+        },
+      }),
+    );
+    renderWithRouter();
+
+    const headers = screen.getAllByRole('columnheader').map((header) => header.textContent);
+    const row = screen.getByRole('row', { name: /RHOSE-4.9.json/ });
+
+    expect(within(row).getAllByRole('cell')[headers.indexOf('CID')]).toHaveTextContent('CID-00000');
+  });
+
+  it('shows a dash in the CID column when the identifier is missing', () => {
+    renderWithRouter();
+
+    const headers = screen.getAllByRole('columnheader').map((header) => header.textContent);
+    const row = screen.getByRole('row', { name: /RHOSE-4.9.json/ });
+
+    expect(within(row).getAllByRole('cell')[headers.indexOf('CID')]).toHaveTextContent('—');
+  });
+
+  it('hides the CID column from users without the read feature', () => {
+    mockFeatures = { lightwellclearinghouse: ON };
+    mockedList.mockReturnValue(
+      buildQuery({
+        data: {
+          data: [{ ...submission, cid: 'CID-00000' }],
+          meta: { count: 1 },
+        },
+      }),
+    );
+    renderWithRouter();
+
+    expect(screen.queryByRole('columnheader', { name: 'CID' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('cell', { name: 'CID-00000' })).not.toBeInTheDocument();
+  });
+
   it('shows dashes for the submitted/processed columns when not yet set', () => {
     renderWithRouter();
 
@@ -225,29 +275,21 @@ describe('SubmissionsTable', () => {
     expect(screen.getByText(/Could not load submissions/i)).toBeInTheDocument();
   });
 
-  it('shows a delete action for a pending submission the author can manage', () => {
-    mockCurrentUsername = 'author@example.com';
+  it('shows a delete action when the backend allows deleting the row', () => {
+    mockedList.mockReturnValue(
+      buildQuery({ data: { data: [{ ...submission, can_delete: true }], meta: { count: 1 } } }),
+    );
     renderWithRouter();
 
     expect(screen.getByRole('button', { name: /Delete RHOSE-4.9.json/i })).toBeInTheDocument();
-    // Download is read-only on submitted/processed, so a pending row has none.
     expect(
       screen.queryByRole('button', { name: /Download RHOSE-4.9.json/i }),
     ).not.toBeInTheDocument();
   });
 
-  it('hides the delete action on a pending submission from a non-author', () => {
-    mockCurrentUsername = 'someone-else@example.com';
-    renderWithRouter();
-
-    expect(
-      screen.queryByRole('button', { name: /Delete RHOSE-4.9.json/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('shows a download action for a processed submission but no delete', () => {
+  it('shows a download action when the backend allows downloading the row', () => {
     mockedList.mockReturnValue(
-      buildQuery({ data: { data: [{ ...submission, status: 'processed' }], meta: { count: 1 } } }),
+      buildQuery({ data: { data: [downloadableSubmission], meta: { count: 1 } } }),
     );
     renderWithRouter();
 
@@ -257,21 +299,10 @@ describe('SubmissionsTable', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('hides download actions from users without the read feature', () => {
-    mockFeatures = { lightwellclearinghouse: ON };
-    mockedList.mockReturnValue(
-      buildQuery({ data: { data: [{ ...submission, status: 'processed' }], meta: { count: 1 } } }),
-    );
-    renderWithRouter();
-
-    expect(
-      screen.queryByRole('button', { name: /Download RHOSE-4.9.json/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('hides the action column entirely when no row supports an action', () => {
-    // No features: the user can neither delete nor download anything.
-    mockFeatures = {};
+  it('follows the backend flags rather than the feature flags or the author', () => {
+    // Even with both features on and the viewer as the author, a row with no
+    // permission flags offers no actions.
+    mockCurrentUsername = 'author@example.com';
     renderWithRouter();
 
     expect(screen.queryByRole('columnheader', { name: 'Actions' })).not.toBeInTheDocument();
@@ -285,7 +316,7 @@ describe('SubmissionsTable', () => {
 
   it('downloads the whole submission as an archive from the row action', async () => {
     mockedList.mockReturnValue(
-      buildQuery({ data: { data: [{ ...submission, status: 'processed' }], meta: { count: 1 } } }),
+      buildQuery({ data: { data: [downloadableSubmission], meta: { count: 1 } } }),
     );
     const user = userEvent.setup();
     renderWithRouter();
@@ -296,7 +327,9 @@ describe('SubmissionsTable', () => {
   });
 
   it('deletes a submission only after confirming', async () => {
-    mockCurrentUsername = 'author@example.com';
+    mockedList.mockReturnValue(
+      buildQuery({ data: { data: [{ ...submission, can_delete: true }], meta: { count: 1 } } }),
+    );
     const user = userEvent.setup();
     renderWithRouter();
 

@@ -11,9 +11,9 @@ type AdvisoryDetailsOptions = {
   preferredRecord?: PreferredAdvisoryRecord;
 };
 
-export const useAdvisoryDetails = (name?: string, options?: AdvisoryDetailsOptions) => {
-  const query = useAdvisoryDetailsQuery(name, {
-    enabled: (options?.enabled ?? Boolean(name)) && !LIGHTWELL_USE_MOCK,
+export const useAdvisoryDetails = (cveId?: string, options?: AdvisoryDetailsOptions) => {
+  const query = useAdvisoryDetailsQuery(cveId, {
+    enabled: (options?.enabled ?? Boolean(cveId)) && !LIGHTWELL_USE_MOCK,
   });
 
   const repository = options?.preferredRecord?.repository;
@@ -30,16 +30,16 @@ export const useAdvisoryDetails = (name?: string, options?: AdvisoryDetailsOptio
 
   const data = useMemo(
     () =>
-      name && query.data?.data
-        ? toAdvisoryDetails(query.data.data, name, preferredRecord)
+      cveId && query.data?.data
+        ? toAdvisoryDetails(query.data.data, cveId, preferredRecord)
         : undefined,
-    [query.data, name, preferredRecord],
+    [query.data, cveId, preferredRecord],
   );
 
   if (LIGHTWELL_USE_MOCK) {
     return {
-      data: name
-        ? toAdvisoryDetails(getMockAdvisoriesForLatestRelease(), name, preferredRecord)
+      data: cveId
+        ? toAdvisoryDetails(getMockAdvisoriesForLatestRelease(), cveId, preferredRecord)
         : undefined,
       isLoading: false,
       isFetching: false,

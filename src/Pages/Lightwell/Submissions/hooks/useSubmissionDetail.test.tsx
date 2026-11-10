@@ -6,11 +6,6 @@ import { useSubmissionDetail } from './useSubmissionDetail';
 const mockNotify = jest.fn();
 jest.mock('Hooks/useNotification', () => () => ({ notify: mockNotify }));
 
-let mockCurrentUsername: string | undefined = 'author@example.com';
-jest.mock('./useCurrentUsername', () => ({
-  useCurrentUsername: () => mockCurrentUsername,
-}));
-
 let mockSubmission: ClearinghouseSubmission | undefined;
 let mockIsLoading = false;
 let mockIsError = false;
@@ -32,15 +27,6 @@ jest.mock('services/Lightwell/ClearinghouseQueries', () => ({
   useDeleteSubmissionMutation: () => ({ mutate: mockDeleteSubmissionMutate, isPending: false }),
   useSubmitSubmissionMutation: () => ({ mutate: mockSubmitMutate, isPending: false }),
   useProcessSubmissionMutation: () => ({ mutate: mockProcessMutate, isPending: false }),
-}));
-
-const ON = { enabled: true, accessible: true };
-let mockFeatures: Record<string, { enabled: boolean; accessible: boolean }> = {
-  lightwellclearinghouse: ON,
-  lightwellclearinghouseread: ON,
-};
-jest.mock('middleware/AppContext', () => ({
-  useAppContext: () => ({ features: mockFeatures }),
 }));
 
 const mockDownloadSubmissionFile = jest.fn();
@@ -66,14 +52,23 @@ const pendingSubmission: ClearinghouseSubmission = {
       username: 'author@example.com',
       created_at: '2026-10-20T10:00:00Z',
       submission: true,
+      can_delete: true,
+      can_download: false,
     },
     {
       uuid: 'f-1',
       filename: 'repro.jpg',
       username: 'author@example.com',
       created_at: '2026-10-20T10:05:00Z',
+      can_delete: true,
+      can_download: false,
     },
   ],
+  can_delete: true,
+  can_download: false,
+  can_add_reproducers: true,
+  can_submit: true,
+  can_process: false,
 };
 
 const render = (opts: Parameters<typeof useSubmissionDetail>[0]) =>
@@ -84,89 +79,43 @@ beforeEach(() => {
   mockSubmission = pendingSubmission;
   mockIsLoading = false;
   mockIsError = false;
-  mockFeatures = { lightwellclearinghouse: ON, lightwellclearinghouseread: ON };
-  mockCurrentUsername = 'author@example.com';
 });
 
 describe('useSubmissionDetail', () => {
-  it('can edit only while pending and only with the write feature', () => {
+  it('exposes the backend permission flags for the submission', () => {
     const { result, rerender } = render({ uuid: 'sub-1' });
-    expect(result.current.canEdit).toBe(true);
+    expect(result.current.canAddReproducers).toBe(true);
+    expect(result.current.canDelete).toBe(true);
+    expect(result.current.canSubmit).toBe(true);
+    expect(result.current.canProcess).toBe(false);
+    expect(result.current.canDownload).toBe(false);
 
-    mockSubmission = { ...pendingSubmission, status: 'submitted' };
+    mockSubmission = {
+      ...pendingSubmission,
+      status: 'submitted',
+      can_delete: false,
+      can_download: true,
+      can_add_reproducers: false,
+      can_submit: false,
+      can_process: true,
+    };
     rerender();
-    expect(result.current.canEdit).toBe(false);
-
-    mockSubmission = pendingSubmission;
-    mockFeatures = { lightwellclearinghouseread: ON };
-    rerender();
-    expect(result.current.canEdit).toBe(false);
-  });
-
-  it('can manage (submit/delete) only when the current user is the submission author', () => {
-    // Author of a pending submission with write access: can manage.
-    const { result, rerender } = render({ uuid: 'sub-1' });
-    expect(result.current.canEdit).toBe(true);
-    expect(result.current.canManage).toBe(true);
-
-    // A different write user can still edit (add reproducers) but cannot manage.
-    mockCurrentUsername = 'someone-else@example.com';
-    rerender();
-    expect(result.current.canEdit).toBe(true);
-    expect(result.current.canManage).toBe(false);
-
-    // Fails closed before the username resolves.
-    mockCurrentUsername = undefined;
-    rerender();
-    expect(result.current.canManage).toBe(false);
-
-    // The author of a non-pending submission cannot manage it.
-    mockCurrentUsername = 'author@example.com';
-    mockSubmission = { ...pendingSubmission, status: 'submitted' };
-    rerender();
-    expect(result.current.canManage).toBe(false);
-  });
-
-  it('can process only a submitted submission and only with the read feature', () => {
-    mockSubmission = { ...pendingSubmission, status: 'submitted' };
-    const { result, rerender } = render({ uuid: 'sub-1' });
+    expect(result.current.canAddReproducers).toBe(false);
+    expect(result.current.canDelete).toBe(false);
+    expect(result.current.canSubmit).toBe(false);
     expect(result.current.canProcess).toBe(true);
-
-    mockFeatures = { lightwellclearinghouse: ON };
-    rerender();
-    expect(result.current.canProcess).toBe(false);
-
-    mockSubmission = pendingSubmission;
-    mockFeatures = { lightwellclearinghouseread: ON };
-    rerender();
-    expect(result.current.canProcess).toBe(false);
+    expect(result.current.canDownload).toBe(true);
   });
 
-  it('gates download to read users on submitted/processed submissions', () => {
-    // The author (write only) can never download, regardless of status.
-    mockFeatures = { lightwellclearinghouse: ON };
-    mockSubmission = { ...pendingSubmission, status: 'pending' };
-    const { result, rerender } = render({ uuid: 'sub-1' });
+  it('fails closed (no permissions) until the submission loads', () => {
+    mockSubmission = undefined;
+    mockIsLoading = true;
+    const { result } = render({ uuid: 'sub-1' });
+    expect(result.current.canAddReproducers).toBe(false);
+    expect(result.current.canDelete).toBe(false);
+    expect(result.current.canSubmit).toBe(false);
+    expect(result.current.canProcess).toBe(false);
     expect(result.current.canDownload).toBe(false);
-
-    mockSubmission = { ...pendingSubmission, status: 'submitted' };
-    rerender();
-    expect(result.current.canDownload).toBe(false);
-
-    // Read users cannot download while pending...
-    mockFeatures = { lightwellclearinghouseread: ON };
-    mockSubmission = { ...pendingSubmission, status: 'pending' };
-    rerender();
-    expect(result.current.canDownload).toBe(false);
-
-    // ...but can once submitted or processed.
-    mockSubmission = { ...pendingSubmission, status: 'submitted' };
-    rerender();
-    expect(result.current.canDownload).toBe(true);
-
-    mockSubmission = { ...pendingSubmission, status: 'processed' };
-    rerender();
-    expect(result.current.canDownload).toBe(true);
   });
 
   it('processes the submission through the process mutation', () => {

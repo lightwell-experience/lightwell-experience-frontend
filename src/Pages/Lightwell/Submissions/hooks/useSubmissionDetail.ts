@@ -3,8 +3,6 @@ import { AlertVariant } from '@patternfly/react-core';
 
 import useNotification from 'Hooks/useNotification';
 import { composeErrorDescription } from 'Hooks/useErrorNotification';
-import { useAppContext } from 'middleware/AppContext';
-import { isFeatureOn } from 'services/Features/FeatureApi';
 import {
   downloadSubmissionArchive,
   downloadSubmissionFile,
@@ -18,8 +16,6 @@ import {
   useProcessSubmissionMutation,
 } from 'services/Lightwell/ClearinghouseQueries';
 
-import { useCurrentUsername } from './useCurrentUsername';
-
 type UseSubmissionDetailOptions = {
   uuid: string;
   /** Called after the whole submission is deleted (e.g. to collapse the view). */
@@ -31,14 +27,12 @@ type UseSubmissionDetailOptions = {
 /**
  * Drives the SubmissionDetail view: fetches a submission, splits its main
  * report from reproducer files, and exposes add / delete / submit / process /
- * download actions. `canEdit` (pending + clearinghouse write) gates the
- * "add reproducers" control; `canManage` additionally requires that the current
- * user is the submission's author and gates the submit / delete-file /
- * delete-submission controls; `canProcess` (submitted + clearinghouse read) gates
- * the "Mark as processed" control; `canDownload` gates the per-file / archive
- * download controls, mirroring the backend authorization (author may submit /
- * delete while pending, read while submitted/processed). Callers hide controls
- * accordingly.
+ * download actions. The `can*` flags come straight from the backend's
+ * per-caller permission fields (`can_add_reproducers`, `can_delete`,
+ * `can_submit`, `can_process`, `can_download`), so the UI never re-derives the
+ * authorization rules. They are all false until the submission loads. Per-file
+ * delete / download is gated by each file's own `can_delete` / `can_download`.
+ * Callers hide controls accordingly.
  */
 export const useSubmissionDetail = ({
   uuid,
@@ -46,8 +40,6 @@ export const useSubmissionDetail = ({
   onSubmitted,
 }: UseSubmissionDetailOptions) => {
   const { notify } = useNotification();
-  const { features } = useAppContext();
-  const currentUsername = useCurrentUsername();
   const { data: submission, isLoading, isError } = useSubmissionQuery(uuid);
 
   const addFilesMutation = useAddSubmissionFilesMutation(uuid);
@@ -62,20 +54,11 @@ export const useSubmissionDetail = ({
   const mainFile = files.find((file) => file.submission) ?? files[0];
   const reproducerFiles = files.filter((file) => file !== mainFile);
 
-  const status = submission?.status;
-  const hasWrite = isFeatureOn(features?.lightwellclearinghouse);
-  const hasRead = isFeatureOn(features?.lightwellclearinghouseread);
-  const canEdit = status === 'pending' && hasWrite;
-  // Only the submission's author may submit or delete (individual files or the
-  // whole submission); any clearinghouse-write user can still add reproducers
-  // while the submission is pending. Fails closed until the username resolves.
-  const isAuthor = !!currentUsername && submission?.username === currentUsername;
-  const canManage = canEdit && isAuthor;
-  const canProcess = status === 'submitted' && hasRead;
-  // Downloading any file (per-file or the full archive) is restricted to
-  // clearinghouse read (STAM / processor) users, and only once the submission is
-  // submitted or processed (matching what the backend will serve).
-  const canDownload = hasRead && (status === 'submitted' || status === 'processed');
+  const canAddReproducers = !!submission?.can_add_reproducers;
+  const canDelete = !!submission?.can_delete;
+  const canSubmit = !!submission?.can_submit;
+  const canProcess = !!submission?.can_process;
+  const canDownload = !!submission?.can_download;
 
   // Surface the backend's reason (e.g. too many files, duplicate filename)
   // instead of a generic message; fall back to the generic text otherwise.
@@ -166,8 +149,9 @@ export const useSubmissionDetail = ({
     submission,
     isLoading,
     isError,
-    canEdit,
-    canManage,
+    canAddReproducers,
+    canDelete,
+    canSubmit,
     canProcess,
     canDownload,
     mainFile,

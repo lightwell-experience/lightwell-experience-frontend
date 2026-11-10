@@ -7,7 +7,6 @@ import type {
   CoverageReportPackagesListResponse,
 } from 'services/Lightwell/CoverageReportsApi';
 import type { Meta } from 'services/Lightwell/types';
-import { EXPORT_PAGE_SIZE } from '../../utils/exportUtils';
 
 export const COVERAGE_PDF_MANIFEST = '/apps/content-sources/fed-mods.json';
 export const COVERAGE_PDF_SCOPE = 'contentSources';
@@ -16,6 +15,11 @@ export const COVERAGE_REPORTS_PATH = '/api/content-sources/v1/coverage_reports/'
 
 // A package count is known before rendering; the PDF's page count is not.
 export const COVERAGE_PDF_MAX_PACKAGES = 1500;
+
+// Rows requested per packages call. The coverage packages endpoint serves up to
+// 1000 rows a page; a backend still on the global 200-row cap clamps the request,
+// and fetchData pages by the limit the server reports, so either way is complete.
+export const COVERAGE_PDF_PAGE_SIZE = 1000;
 
 export function formatCoveragePdfGeneratedAt(date: Date = new Date()): string {
   const day = date.getUTCDate();
@@ -55,7 +59,7 @@ export function buildCoveragePackagesQueryParams(
   pagination?: { limit: number; offset: number },
 ): Record<string, string> {
   const params: Record<string, string> = {
-    limit: (pagination?.limit ?? EXPORT_PAGE_SIZE).toString(),
+    limit: (pagination?.limit ?? COVERAGE_PDF_PAGE_SIZE).toString(),
     offset: (pagination?.offset ?? 0).toString(),
   };
 
@@ -111,58 +115,77 @@ export const fetchData = async (
 
     return {
       packages: [],
-      meta: { count: 0, limit: EXPORT_PAGE_SIZE, offset: options.offset ?? 0 },
+      meta: { count: 0, limit: COVERAGE_PDF_PAGE_SIZE, offset: options.offset ?? 0 },
       report,
     };
   }
 
-  const packages: CoverageReportPackage[] = [];
-  let offset = options?.offset ?? 0;
-  let meta: Meta | undefined;
+  const startOffset = options?.offset ?? 0;
 
-  // One printed document, paged at the API cap, so the table flows across PDF
-  // pages instead of leaving a gap where a separate slice would start.
-  while (true) {
-    const packagesResponse = await createAsyncRequest('content-sources-backend', {
+  const packagesRequest = (offset: number) =>
+    createAsyncRequest('content-sources-backend', {
       method: 'GET',
       url: `${COVERAGE_REPORTS_PATH}${encodeURIComponent(uuid)}/packages`,
       params: buildCoveragePackagesQueryParams(options?.filters, {
-        limit: EXPORT_PAGE_SIZE,
+        limit: COVERAGE_PDF_PAGE_SIZE,
         offset,
       }),
     });
 
+  // The per-page packages endpoint carries no coverage summary, so the report is
+  // fetched separately and only for the first (cover) page that renders the
+  // summary. It is independent of the package pages, so it starts immediately.
+  const reportRequest = options?.includeSummary
+    ? createAsyncRequest('content-sources-backend', {
+        method: 'GET',
+        url: `${COVERAGE_REPORTS_PATH}${encodeURIComponent(uuid)}`,
+      })
+    : null;
+  // It is awaited only after the first package page, so mark it handled now; a
+  // first-page failure must not leave its rejection unobserved. Awaiting the
+  // original promise below still surfaces the error.
+  reportRequest?.catch(() => undefined);
+
+  // The first page is fetched on its own to learn the total count; every
+  // remaining page is then requested in parallel instead of waterfalling one
+  // round trip after another.
+  const firstResponse = await packagesRequest(startOffset);
+  if (!isPackagesResponse(firstResponse)) {
+    throw new Error('Unexpected coverage report packages response');
+  }
+  const meta = firstResponse.meta;
+
+  // One printed document, so the table flows across PDF pages instead of
+  // leaving a gap where a separate slice would start. Pages are stepped by the
+  // limit the server actually served, which can be below the requested size when
+  // the backend clamps it; stepping by the request would skip rows. A short final
+  // page (fewer rows than the served limit) means there is nothing left to fetch.
+  const pageSize = meta.limit > 0 ? meta.limit : firstResponse.data.length;
+  const remainingOffsets: number[] = [];
+  if (pageSize > 0 && firstResponse.data.length === pageSize) {
+    for (let offset = startOffset + pageSize; offset < meta.count; offset += pageSize) {
+      remainingOffsets.push(offset);
+    }
+  }
+
+  const [remainingResponses, reportResponse] = await Promise.all([
+    Promise.all(remainingOffsets.map(packagesRequest)),
+    reportRequest,
+  ]);
+
+  const packages: CoverageReportPackage[] = [...firstResponse.data];
+  for (const packagesResponse of remainingResponses) {
     if (!isPackagesResponse(packagesResponse)) {
       throw new Error('Unexpected coverage report packages response');
     }
-
     packages.push(...packagesResponse.data);
-    meta = packagesResponse.meta;
-
-    if (
-      packagesResponse.data.length < EXPORT_PAGE_SIZE ||
-      packages.length >= packagesResponse.meta.count
-    ) {
-      break;
-    }
-
-    offset += packagesResponse.data.length;
   }
 
-  // The per-page packages endpoint carries no coverage summary, so the report is
-  // fetched separately and only for the first (cover) page that renders the summary.
-  let report: CompletedCoverageReport | null = null;
-  if (options?.includeSummary) {
-    const reportResponse = await createAsyncRequest('content-sources-backend', {
-      method: 'GET',
-      url: `${COVERAGE_REPORTS_PATH}${encodeURIComponent(uuid)}`,
-    });
-    report = isCompletedReport(reportResponse) ? reportResponse : null;
-  }
+  const report = isCompletedReport(reportResponse) ? reportResponse : null;
 
   return {
     packages,
-    meta: meta ?? { count: 0, limit: EXPORT_PAGE_SIZE, offset: options?.offset ?? 0 },
+    meta,
     report,
   };
 };

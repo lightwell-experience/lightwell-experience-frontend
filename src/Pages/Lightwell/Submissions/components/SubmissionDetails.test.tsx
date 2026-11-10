@@ -12,7 +12,18 @@ jest.mock('../hooks/useCurrentUsername', () => ({
   useCurrentUsername: () => mockCurrentUsername,
 }));
 
-const buildHook = (overrides = {}) => ({
+type BuildHookOptions = Record<string, unknown> & {
+  /** Per-file `can_delete` applied to every file. */
+  fileCanDelete?: boolean;
+  /** Per-file `can_download` applied to every file. */
+  fileCanDownload?: boolean;
+};
+
+const buildHook = ({
+  fileCanDelete = true,
+  fileCanDownload = true,
+  ...overrides
+}: BuildHookOptions = {}) => ({
   submission: {
     uuid: 'sub-1',
     status: 'pending',
@@ -22,23 +33,33 @@ const buildHook = (overrides = {}) => ({
   },
   isLoading: false,
   isError: false,
-  canEdit: true,
-  canManage: true,
+  canAddReproducers: true,
+  canDelete: true,
+  canSubmit: true,
   canProcess: false,
   canDownload: true,
-  mainFile: { uuid: 'f-0', filename: 'RHOSE-4.9.json' },
+  mainFile: {
+    uuid: 'f-0',
+    filename: 'RHOSE-4.9.json',
+    can_delete: fileCanDelete,
+    can_download: fileCanDownload,
+  },
   reproducerFiles: [
     {
       uuid: 'f-1',
       filename: 'repro.jpg',
       username: 'author@example.com',
       created_at: '2026-10-20T10:05:00Z',
+      can_delete: fileCanDelete,
+      can_download: fileCanDownload,
     },
     {
       uuid: 'f-2',
       filename: 'trace.log',
       username: 'helper@example.com',
       created_at: '2026-10-20T10:06:00Z',
+      can_delete: fileCanDelete,
+      can_download: fileCanDownload,
     },
   ],
   addFiles: jest.fn(),
@@ -147,7 +168,7 @@ describe('SubmissionDetails', () => {
   });
 
   it('hides the header downloads when the user cannot download', () => {
-    mockedHook.mockReturnValue(buildHook({ canDownload: false }));
+    mockedHook.mockReturnValue(buildHook({ canDownload: false, fileCanDownload: false }));
     render(<SubmissionDetails uuid='sub-1' />);
 
     expect(screen.queryByRole('button', { name: 'Download all' })).not.toBeInTheDocument();
@@ -161,7 +182,12 @@ describe('SubmissionDetails', () => {
       buildHook({
         canDownload: false,
         submission: { ...buildHook().submission, name: 'My submission' },
-        mainFile: { uuid: 'f-0', filename: 'secret-internal.json' },
+        mainFile: {
+          uuid: 'f-0',
+          filename: 'secret-internal.json',
+          can_delete: false,
+          can_download: false,
+        },
       }),
     );
     render(<SubmissionDetails uuid='sub-1' />);
@@ -190,7 +216,7 @@ describe('SubmissionDetails', () => {
     expect(screen.getByText(/No reproducer files/i)).toBeInTheDocument();
   });
 
-  it('shows the footer edit controls plus per-row download and delete when canEdit', () => {
+  it('shows the footer edit controls plus per-row download and delete when permitted', () => {
     render(<SubmissionDetails uuid='sub-1' />);
 
     expect(screen.getByRole('button', { name: 'Add more reproducers' })).toBeInTheDocument();
@@ -201,8 +227,15 @@ describe('SubmissionDetails', () => {
   });
 
   it('lets a non-author write user add reproducers but hides submit/delete controls', () => {
-    // canEdit (pending + write) but canManage false: the viewer is not the author.
-    mockedHook.mockReturnValue(buildHook({ canEdit: true, canManage: false }));
+    // The backend allows adding reproducers but not deleting/submitting (not the author).
+    mockedHook.mockReturnValue(
+      buildHook({
+        canAddReproducers: true,
+        canDelete: false,
+        canSubmit: false,
+        fileCanDelete: false,
+      }),
+    );
     render(<SubmissionDetails uuid='sub-1' />);
 
     // Adding reproducers stays available to any write user while pending.
@@ -214,7 +247,15 @@ describe('SubmissionDetails', () => {
   });
 
   it('shows only downloads for a read-only viewer who cannot edit or process', () => {
-    mockedHook.mockReturnValue(buildHook({ canEdit: false, canManage: false, canProcess: false }));
+    mockedHook.mockReturnValue(
+      buildHook({
+        canAddReproducers: false,
+        canDelete: false,
+        canSubmit: false,
+        canProcess: false,
+        fileCanDelete: false,
+      }),
+    );
     render(<SubmissionDetails uuid='sub-1' />);
 
     expect(screen.queryByRole('button', { name: 'Add more reproducers' })).not.toBeInTheDocument();
@@ -229,7 +270,15 @@ describe('SubmissionDetails', () => {
 
   it('hides the footer entirely when no edit/process/download actions are available', () => {
     mockedHook.mockReturnValue(
-      buildHook({ canEdit: false, canManage: false, canProcess: false, canDownload: false }),
+      buildHook({
+        canAddReproducers: false,
+        canDelete: false,
+        canSubmit: false,
+        canProcess: false,
+        canDownload: false,
+        fileCanDelete: false,
+        fileCanDownload: false,
+      }),
     );
     render(<SubmissionDetails uuid='sub-1' />);
 
@@ -242,7 +291,9 @@ describe('SubmissionDetails', () => {
   });
 
   it('shows "Mark as processed" in the footer when canProcess', () => {
-    mockedHook.mockReturnValue(buildHook({ canEdit: false, canManage: false, canProcess: true }));
+    mockedHook.mockReturnValue(
+      buildHook({ canAddReproducers: false, canDelete: false, canSubmit: false, canProcess: true }),
+    );
     render(<SubmissionDetails uuid='sub-1' />);
 
     expect(screen.getByRole('button', { name: 'Mark as processed' })).toBeInTheDocument();
@@ -250,10 +301,28 @@ describe('SubmissionDetails', () => {
   });
 
   it('hides all per-row download buttons when the user cannot download', () => {
-    mockedHook.mockReturnValue(buildHook({ canDownload: false }));
+    mockedHook.mockReturnValue(buildHook({ canDownload: false, fileCanDownload: false }));
     render(<SubmissionDetails uuid='sub-1' />);
 
     expect(screen.queryByRole('button', { name: /Download repro.jpg/i })).not.toBeInTheDocument();
+  });
+
+  it("gates each reproducer's download/delete on that file's own flags", () => {
+    const [repro, trace] = buildHook().reproducerFiles;
+    mockedHook.mockReturnValue(
+      buildHook({
+        reproducerFiles: [
+          { ...repro, can_delete: false, can_download: true },
+          { ...trace, can_delete: true, can_download: false },
+        ],
+      }),
+    );
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(screen.getByRole('button', { name: /Download repro.jpg/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Delete repro.jpg/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Download trace.log/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Delete trace.log/i })).toBeInTheDocument();
   });
 
   it('downloads a reproducer when its download button is clicked', async () => {
@@ -321,7 +390,13 @@ describe('SubmissionDetails', () => {
   it('marks as processed only after confirming', async () => {
     const process = jest.fn();
     mockedHook.mockReturnValue(
-      buildHook({ canEdit: false, canManage: false, canProcess: true, process }),
+      buildHook({
+        canAddReproducers: false,
+        canDelete: false,
+        canSubmit: false,
+        canProcess: true,
+        process,
+      }),
     );
     const user = userEvent.setup();
     render(<SubmissionDetails uuid='sub-1' />);

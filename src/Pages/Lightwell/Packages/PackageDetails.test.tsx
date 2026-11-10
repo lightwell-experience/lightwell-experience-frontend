@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { useFlag } from '@unleash/proxy-client-react';
@@ -140,13 +140,22 @@ const threeLatestVersionBuilds = [
 const expectFixSummary = async (text: string) =>
   expect((await screen.findByTestId('lightwell-package-fix-summary')).textContent).toBe(text);
 
+const mockClipboard = () => {
+  const writeText = jest.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  return writeText;
+};
+
+const cveAliases = (cveId: string, ghsaId = 'GHSA-lw01-4k2m-9abc') => [cveId, ghsaId];
+
 const latestReleaseAdvisory = {
-  advisory_name: 'CVE-2024-0001',
   severity: '8.5',
   severity_score: 8.5,
   package_name: packageCoordinate,
   package_version: '3.14.0',
   fixed_versions: ['3.14.0.rhlw-00001'],
+  aliases: cveAliases('CVE-2024-0001'),
+  upstream: cveAliases('CVE-2024-0001'),
 };
 
 const mockPackageAdvisoriesQuery = (
@@ -182,7 +191,7 @@ const mockAdvisoryDetailsQuery = () => {
     isLoading: false,
     data: name
       ? {
-          data: advisories.filter((advisory) => advisory.advisory_name === name),
+          data: advisories.filter((advisory) => advisory.aliases.includes(name)),
         }
       : undefined,
   }));
@@ -391,14 +400,26 @@ it('opens the vulnerability details drawer from the remediations tab', async () 
   );
 });
 
-it('opens the vulnerability details drawer from the name search param', async () => {
-  renderPackageDetails('?name=CVE-2026-1234');
+it('opens the vulnerability details drawer from the cve_id search param', async () => {
+  renderPackageDetails('?cve_id=CVE-2026-1234');
 
   expect(await screen.findByRole('heading', { name: 'CVE-2026-1234' })).toBeInTheDocument();
   expect(screen.getByRole('dialog', { name: 'CVE-2026-1234' })).toBeInTheDocument();
   expect(screen.getByText(/Remediated across/)).toHaveTextContent(
     'Remediated across 6 packages, 18 upstream versions, in 2 ecosystems',
   );
+  expect(screen.queryByText('Aliases')).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Vulnerability OSV tab' }));
+  expect(screen.getByText('Record ID')).toBeInTheDocument();
+  expect(screen.queryByText('Source')).not.toBeInTheDocument();
+
+  const writeText = mockClipboard();
+  await userEvent.click(screen.getByRole('button', { name: 'Copy API URL' }));
+  await waitFor(() => expect(writeText).toHaveBeenCalled());
+  const copiedUrl = writeText.mock.calls[0][0] as string;
+  expect(copiedUrl).toContain('cve_id=CVE-2026-1234');
+  expect(new URL(copiedUrl).searchParams.has('name')).toBe(false);
 });
 
 it('renders sidebar metadata', async () => {
@@ -517,24 +538,28 @@ it('shows unique fixes across all releases for the selected package version', as
     '3.14.0': [
       {
         ...latestReleaseAdvisory,
-        advisory_name: 'CVE-2024-0001',
+        aliases: cveAliases('CVE-2024-0001'),
+        upstream: cveAliases('CVE-2024-0001'),
         fixed_versions: ['3.14.0.rhlw-00001', '3.14.0.rhlw-00002'],
       },
       {
         ...latestReleaseAdvisory,
-        advisory_name: 'CVE-2024-0001',
+        aliases: cveAliases('CVE-2024-0001'),
+        upstream: cveAliases('CVE-2024-0001'),
         fixed_versions: ['3.14.0.rhlw-00002'],
       },
       {
         ...latestReleaseAdvisory,
-        advisory_name: 'CVE-2024-0002',
+        aliases: cveAliases('CVE-2024-0002', 'GHSA-lw02-8n4p-1cde'),
+        upstream: cveAliases('CVE-2024-0002', 'GHSA-lw02-8n4p-1cde'),
         fixed_versions: ['3.14.0.rhlw-00002', '3.14.0.rhlw-00003'],
       },
     ],
     '2.12.0': [
       {
         ...latestReleaseAdvisory,
-        advisory_name: 'CVE-2024-0003',
+        aliases: cveAliases('CVE-2024-0003'),
+        upstream: cveAliases('CVE-2024-0003'),
         package_version: '2.12.0',
         fixed_versions: ['2.12.0.rhlw-00001'],
       },
@@ -556,6 +581,89 @@ it('shows unique fixes across all releases for the selected package version', as
     expect.objectContaining({ package_version: '2.12.0' }),
     { enabled: true },
   );
+});
+
+it('counts latest-release CVEs separately from every advisory for the package version', async () => {
+  setupRepository('remediated');
+  setupMultiVersionReleasePackage('rhlw-00002', threeLatestVersionBuilds);
+
+  const everyAdvisory = [
+    {
+      ...latestReleaseAdvisory,
+      aliases: ['CVE-2024-0001', 'CVE-2024-0002', 'GHSA-skip'],
+      upstream: ['CVE-2024-0001', 'CVE-2024-0002', 'GHSA-skip'],
+      fixed_versions: ['3.14.0.rhlw-00001', '3.14.0.rhlw-00002'],
+    },
+    {
+      ...latestReleaseAdvisory,
+      aliases: cveAliases('CVE-2024-0001'),
+      upstream: cveAliases('CVE-2024-0001'),
+      fixed_versions: ['3.14.0.rhlw-00002'],
+    },
+    {
+      ...latestReleaseAdvisory,
+      aliases: cveAliases('CVE-2024-0003'),
+      upstream: cveAliases('CVE-2024-0003'),
+      fixed_versions: ['3.14.0.rhlw-00003'],
+    },
+  ];
+  const latestRebuild = [
+    {
+      ...latestReleaseAdvisory,
+      aliases: ['CVE-2024-0001', 'CVE-2024-0002', 'GHSA-skip'],
+      upstream: ['CVE-2024-0001', 'CVE-2024-0002', 'GHSA-skip'],
+      severity_score: 9.1,
+      fixed_versions: ['3.14.0.rhlw-00003'],
+    },
+    {
+      ...latestReleaseAdvisory,
+      aliases: cveAliases('CVE-2024-0001'),
+      upstream: cveAliases('CVE-2024-0001'),
+      severity_score: 3,
+      fixed_versions: ['3.14.0.rhlw-00003'],
+    },
+    {
+      ...latestReleaseAdvisory,
+      aliases: ['GHSA-only'],
+      upstream: ['GHSA-only'],
+      severity_score: 10,
+      fixed_versions: ['3.14.0.rhlw-00003'],
+    },
+  ];
+
+  (usePackageAdvisoriesQuery as jest.Mock).mockImplementation(
+    (filters: { latest_release?: boolean }) => ({
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+      data: { data: filters.latest_release ? latestRebuild : everyAdvisory },
+    }),
+  );
+
+  renderPackageDetails();
+
+  await expectFixSummary('3 fixes across 3 Lightwell releases');
+  expect(await screen.findByText('2 new backported fixes in this release')).toBeInTheDocument();
+  const fixesCard = screen.getByTestId('lightwell-fixes-card');
+  expect(within(fixesCard).getByRole('heading', { name: '2' })).toBeInTheDocument();
+  expect(within(fixesCard).getAllByRole('heading', { name: '0' })).toHaveLength(3);
+
+  await userEvent.click(await screen.findByRole('tab', { name: 'Remediations' }));
+  const table = screen.getByRole('grid', { name: /Remediations for/ });
+  expect(within(table).getAllByRole('link', { name: 'CVE-2024-0001' })).toHaveLength(2);
+  expect(within(table).getAllByRole('link', { name: 'CVE-2024-0002' })).toHaveLength(2);
+  expect(within(table).getAllByRole('link', { name: 'CVE-2024-0003' })).toHaveLength(1);
+  expect(within(table).queryByRole('link', { name: /GHSA/ })).not.toBeInTheDocument();
+  expect(within(table).getByRole('link', { name: 'CVE-2024-0003' })).toHaveAttribute(
+    'href',
+    expect.stringContaining('cve_id=CVE-2024-0003'),
+  );
+
+  await userEvent.type(
+    screen.getByRole('textbox', { name: 'Search CVEs or releases' }),
+    'GHSA-skip',
+  );
+  expect(within(table).queryByRole('link')).not.toBeInTheDocument();
 });
 
 it('shows zero fixes across multiple releases with no advisories', async () => {
@@ -955,12 +1063,6 @@ it('shows the Releases tab and hides Remediations for a python predisclosure pac
   expect(screen.queryByRole('tab', { name: 'Remediations' })).not.toBeInTheDocument();
   expect(screen.queryByRole('tab', { name: 'Versions' })).not.toBeInTheDocument();
 });
-
-const mockClipboard = () => {
-  const writeText = jest.fn().mockResolvedValue(undefined);
-  Object.assign(navigator, { clipboard: { writeText } });
-  return writeText;
-};
 
 const assertClipboardCopy = async (
   writeText: jest.Mock,

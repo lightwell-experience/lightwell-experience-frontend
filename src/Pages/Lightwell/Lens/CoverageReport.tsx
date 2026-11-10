@@ -20,6 +20,10 @@ import {
   CardBody,
   Content,
   Flex,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalVariant,
   PageSection,
   Title,
   Truncate,
@@ -30,7 +34,8 @@ import PackageCoverageTable from './components/PackageCoverageTable';
 import CveFixesBlock from './components/CveFixesBlock';
 import ManifestFormatPopover from './components/ManifestFormatPopover';
 import { fetchAllCoveragePackages } from './components/ExportMenu';
-import { buildCoveragePdfPayload } from './pdf/coveragePdf';
+import { buildCoveragePdfPayload, COVERAGE_PDF_MAX_PACKAGES } from './pdf/coveragePdf';
+import { getCoverageReportPackages } from 'services/Lightwell/CoverageReportsApi';
 import { useCoverageReport } from './hooks/useCoverageReport';
 import { usePackageCoverageTable } from './hooks/usePackageCoverageTable';
 import Loader from 'components/Loader';
@@ -49,7 +54,7 @@ import {
   exportToJson,
   type ExportFormat,
 } from '../utils/exportUtils';
-import { LwButton, LwCard, LwMenu, LwTitle } from 'kit/components/primitives';
+import { LwButton, LwCard, LwMenu, LwModal, LwTitle } from 'kit/components/primitives';
 import { useContainerWidth } from '../hooks/useContainerWidth';
 import {
   COVERAGE_DONUT_WIDTH,
@@ -101,6 +106,10 @@ const CoverageReport = () => {
   const table = usePackageCoverageTable(ecosystems);
 
   const [isExporting, setIsExporting] = useState(false);
+  // Holds the report the warning was raised for, not just "is it open". The count
+  // request is async, so navigating to another report mid-flight would otherwise
+  // leave the old report's warning on screen wired to the new report's export.
+  const [pdfLimitReportUuid, setPdfLimitReportUuid] = useState<string | null>(null);
   const { notify } = useNotification();
   const errorNotifier = useErrorNotification();
   const { requestPdf } = useChrome();
@@ -168,23 +177,36 @@ const CoverageReport = () => {
   const inCatalog = report.exact_matches + report.partial_matches;
   const skippedEntries = report.skipped_entries ?? 0;
 
-  const handleExport = async (format: ExportFormat) => {
+  const handleExport = async (format: ExportFormat, overviewOnly = false) => {
     if (isExporting) return;
     setIsExporting(true);
+    // Pin the export to the report and filters it started on: both can change
+    // under us while the requests below are in flight.
+    const exportUuid = report.uuid;
+    const exportFilters = table.debouncedFilters;
     try {
       if (format === 'pdf') {
+        if (!overviewOnly) {
+          // Count against the export's own filters, not the table's loaded page.
+          const { meta } = await getCoverageReportPackages(exportUuid, 1, 1, exportFilters);
+          if (meta.count > COVERAGE_PDF_MAX_PACKAGES) {
+            setPdfLimitReportUuid(exportUuid);
+            return;
+          }
+        }
         notify(PDF_GENERATING_NOTIFICATION);
         const payload = buildCoveragePdfPayload({
-          uuid: report.uuid,
+          uuid: exportUuid,
           filename,
-          filters: table.debouncedFilters,
+          filters: exportFilters,
           includeCveData: hasCveData,
+          includePackages: !overviewOnly,
         }) as unknown as PDFRequestPayload;
-        await requestPdf({ filename: `lightwell-match-analysis-${report.uuid}.pdf`, payload });
+        await requestPdf({ filename: `lightwell-match-analysis-${exportUuid}.pdf`, payload });
         notify(PDF_READY_NOTIFICATION);
         return;
       }
-      const packages = await fetchAllCoveragePackages(report.uuid, table.debouncedFilters);
+      const packages = await fetchAllCoveragePackages(exportUuid, exportFilters);
       const rows = hasCveData
         ? packages
         : packages.map(({ cve_count, cve_range, ...rest }) => {
@@ -193,9 +215,9 @@ const CoverageReport = () => {
             return rest;
           });
       if (format === 'csv') {
-        exportToCsv(rows, `lightwell-match-analysis-${report.uuid}.csv`);
+        exportToCsv(rows, `lightwell-match-analysis-${exportUuid}.csv`);
       } else {
-        exportToJson(rows, `lightwell-match-analysis-${report.uuid}.json`);
+        exportToJson(rows, `lightwell-match-analysis-${exportUuid}.json`);
       }
     } catch (err) {
       errorNotifier(
@@ -378,6 +400,62 @@ const CoverageReport = () => {
           </CardBody>
         </LwCard>
       </PageSection>
+      <LwModal
+        variant={ModalVariant.medium}
+        position='top'
+        isOpen={pdfLimitReportUuid === report.uuid}
+        onClose={() => setPdfLimitReportUuid(null)}
+        aria-labelledby='lightwell-coverage-pdf-too-large-title'
+        ouiaId='lightwell-coverage-pdf-too-large'
+      >
+        <ModalHeader
+          title='Package list exceeds PDF export limit'
+          labelId='lightwell-coverage-pdf-too-large-title'
+        />
+        <ModalBody>
+          <Content component='p'>
+            This list exceeds the {COVERAGE_PDF_MAX_PACKAGES.toLocaleString()}-package PDF limit.
+            You can export the overview as a PDF, or filter the list to{' '}
+            {COVERAGE_PDF_MAX_PACKAGES.toLocaleString()} packages or fewer.
+          </Content>
+          <Content component='p'>To export the current package list, use CSV or JSON.</Content>
+        </ModalBody>
+        <ModalFooter>
+          <LwButton
+            variant='primary'
+            ouiaId='lightwell-coverage-pdf-export-overview'
+            onClick={() => {
+              setPdfLimitReportUuid(null);
+              void handleExport('pdf', true);
+            }}
+          >
+            Export overview PDF
+          </LwButton>
+          <LwButton
+            variant='secondary'
+            ouiaId='lightwell-coverage-pdf-export-csv'
+            onClick={() => {
+              setPdfLimitReportUuid(null);
+              void handleExport('csv');
+            }}
+          >
+            Export CSV
+          </LwButton>
+          <LwButton
+            variant='secondary'
+            ouiaId='lightwell-coverage-pdf-export-json'
+            onClick={() => {
+              setPdfLimitReportUuid(null);
+              void handleExport('json');
+            }}
+          >
+            Export JSON
+          </LwButton>
+          <LwButton variant='link' onClick={() => setPdfLimitReportUuid(null)}>
+            Cancel
+          </LwButton>
+        </ModalFooter>
+      </LwModal>
     </>
   );
 };

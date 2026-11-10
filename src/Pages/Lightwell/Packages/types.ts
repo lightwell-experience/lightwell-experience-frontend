@@ -42,7 +42,6 @@ export type AdvisoryDetails = {
   overview: {
     severity: AdvisorySeverity;
     cvssScore: string;
-    aliases: string[];
     released: string;
     lastUpdated: string;
     summary: string;
@@ -51,7 +50,6 @@ export type AdvisoryDetails = {
   remediations: AdvisoryRemediationEcosystem[];
   osv: {
     schemaVersion: string;
-    source: string;
     published: string;
     lastUpdated: string;
     recordId: string;

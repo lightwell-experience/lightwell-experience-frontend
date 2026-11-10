@@ -19,7 +19,7 @@ const remediations: PackageAdvisoryRemediation[] = [
   },
 ];
 
-it('renders advisory links that set the name search param', () => {
+it('renders advisory links that set the cve_id search param', () => {
   render(
     <MemoryRouter initialEntries={['/lightwell/java-remediated/org.json.test/json-test']}>
       <PackageRemediationsTab
@@ -36,16 +36,16 @@ it('renders advisory links that set the name search param', () => {
 
   expect(screen.getByRole('link', { name: 'CVE-2022-40152' })).toHaveAttribute(
     'href',
-    '/lightwell/java-remediated/org.json.test/json-test?name=CVE-2022-40152',
+    '/lightwell/java-remediated/org.json.test/json-test?cve_id=CVE-2022-40152',
   );
   expect(screen.getByText('Latest')).toBeInTheDocument();
   expect(screen.getByText('3.14.0.rhlw-00003')).toBeInTheDocument();
 });
 
-it('replaces the name param when the drawer is already open', () => {
+it('replaces the cve_id param when the drawer is already open', () => {
   render(
     <MemoryRouter
-      initialEntries={['/lightwell/java-remediated/org.json.test/json-test?name=CVE-2022-40151']}
+      initialEntries={['/lightwell/java-remediated/org.json.test/json-test?cve_id=CVE-2022-40151']}
     >
       <PackageRemediationsTab
         name='json-test'
@@ -61,7 +61,7 @@ it('replaces the name param when the drawer is already open', () => {
 
   expect(screen.getByRole('link', { name: 'CVE-2022-40152' })).toHaveAttribute(
     'href',
-    '/lightwell/java-remediated/org.json.test/json-test?name=CVE-2022-40152',
+    '/lightwell/java-remediated/org.json.test/json-test?cve_id=CVE-2022-40152',
   );
 });
 

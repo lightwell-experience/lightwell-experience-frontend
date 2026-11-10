@@ -6,7 +6,7 @@ import './kit/patternfly-base-overrides.css';
 import '../styles/lightwell-chrome-overrides.scss';
 import '../styles/lightwell-clipboard-copy.scss';
 import '../styles/lightwell-coverage-charts.scss';
-import { Alert } from '@patternfly/react-core';
+import { Alert, Button } from '@patternfly/react-core';
 import spacing from '@patternfly/react-styles/css/utilities/Spacing/spacing';
 import { useChrome } from '@redhat-cloud-services/frontend-components/useChrome';
 import { useEffect } from 'react';
@@ -29,11 +29,13 @@ import CoverageReport from 'Pages/Lightwell/Lens/CoverageReport';
 import ManifestUpload from 'Pages/Lightwell/Lens/ManifestUpload';
 import TermsGuard from 'Pages/Lightwell/components/TermsGuard';
 import Submissions from 'Pages/Lightwell/Submissions/Submissions';
+import { LwErrorState } from 'kit/components/primitives';
+import { LwPageHeader } from 'kit/components/assemblies';
 
 export default function LightwellApp() {
   const pageSafe = usePageSafe();
   const { hideGlobalFilter } = useChrome();
-  const { features, isFetchingPermissions } = useAppContext();
+  const { features, isFetchingPermissions, permissionsError } = useAppContext();
 
   useEffect(() => {
     hideGlobalFilter(true);
@@ -170,7 +172,19 @@ export default function LightwellApp() {
         className={`${spacing.mxLg} ${spacing.mtLg}`}
         title='This is the new Lightwell app, served from the lightwell-experience-frontend repository.'
       />
-      {isFetchingPermissions ? (
+      {permissionsError ? (
+        <LwPageHeader hero>
+          <LwErrorState
+            titleText='Unable to load permissions'
+            bodyText='We could not verify your access. Check your connection and try again.'
+            customFooter={
+              <Button variant='primary' onClick={() => window.location.reload()}>
+                Retry
+              </Button>
+            }
+          />
+        </LwPageHeader>
+      ) : isFetchingPermissions ? (
         <Loader />
       ) : termsEnabled ? (
         <TermsGuard>{routes}</TermsGuard>

@@ -22,6 +22,9 @@ export type { LwDrawerProps, LwDrawerResponsiveConfig } from './drawer/drawer';
 export { LwEmptyState } from './empty-state/empty-state';
 export type { LwEmptyStateProps } from './empty-state/empty-state';
 
+export { LwErrorState } from './error-state/error-state';
+export type { LwErrorStateProps } from './error-state/error-state';
+
 export { LwForm } from './form/form';
 export type { LwFormProps } from './form/form';
 
@@ -33,6 +36,9 @@ export type { LwListProps, LwListItem } from './list/list';
 
 export { LwMenu } from './menu/menu';
 export type { LwMenuProps, LwMenuItem, LwMenuToggleProps } from './menu/menu';
+
+export { LwModal } from './modal/modal';
+export type { LwModalProps } from './modal/modal';
 
 export { LwPopover } from './popover/popover';
 export type { LwPopoverProps } from './popover/popover';

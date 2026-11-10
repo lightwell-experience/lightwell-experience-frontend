@@ -79,6 +79,10 @@ import '../../../../styles/lightwell-beacon.scss';
 
 const DROP_LAST_CHROME_SEGMENT_OPTIONS = { dropLastChromeSegment: true };
 
+// The API only receives a search of 2+ non-whitespace characters, so only that counts as an
+// applied filter (query builder, "(filtered)" badge, and empty-state classification).
+const isSearchApplied = (search: string) => search.trim().length >= 2;
+
 function buildBeaconFilters(
   selectedSeverities: Set<Severity>,
   selectedStatuses: Set<Status>,
@@ -193,7 +197,7 @@ const Beacon = () => {
 
   const queryFilters = useMemo((): BeaconVulnerabilityFilters | undefined => {
     const search = debouncedSearch.trim();
-    const hasSearch = search.length >= 2;
+    const hasSearch = isSearchApplied(search);
 
     if (!apiFilters && !hasSearch) {
       return undefined;
@@ -217,17 +221,27 @@ const Beacon = () => {
     setPage(1);
   }, [selectedCustomerId, queryFilters]);
 
+  const resetFilters = useCallback(() => {
+    setSelectedSeverities(new Set());
+    setSelectedStatuses(new Set());
+    setSelectedLtwlsuptTickets(new Set());
+    setShowDuplicates(false);
+    setSearchQuery('');
+    setPage(1);
+  }, []);
+
+  // Filters belong to the customer they were applied to; a stale severity/status filter would
+  // make an empty new customer look "filtered to zero" instead of truly empty.
   const handleCustomerIdChange = useCallback(
     (customerId: string) => {
       if (customerId === selectedCustomerId) {
         return;
       }
 
-      setSelectedLtwlsuptTickets(new Set());
-      setSearchQuery('');
+      resetFilters();
       setSelectedCustomerId(customerId);
     },
-    [selectedCustomerId],
+    [selectedCustomerId, resetFilters],
   );
 
   const { data: customerIds, isLoading: isLoadingCustomers } = useCustomerIdsQuery();
@@ -244,21 +258,13 @@ const Beacon = () => {
     onSelect: () => handleCustomerIdChange(customerId),
   }));
 
-  const resetFilters = useCallback(() => {
-    setSelectedSeverities(new Set());
-    setSelectedStatuses(new Set());
-    setSelectedLtwlsuptTickets(new Set());
-    setShowDuplicates(false);
-    setSearchQuery('');
-    setPage(1);
-  }, []);
-
   // TODO: pass sort params to the API query when backend supports it.
   // Wire `onSortChange` on LwDataView when that work begins.
 
   const {
     data: displayData,
     isLoading: isLoadingDisplay,
+    isPlaceholderData,
     isError,
     error,
   } = useBeaconData(selectedCustomerId, queryFilters, pagination);
@@ -312,9 +318,12 @@ const Beacon = () => {
     selectedStatuses.size +
     selectedLtwlsuptTickets.size +
     (showDuplicates ? 1 : 0) +
-    (searchQuery ? 1 : 0);
+    (isSearchApplied(searchQuery) ? 1 : 0);
 
   const itemCount = displayMeta?.count ?? 0;
+  // Export has nothing to export at 0 settled rows. Placeholder data keeps the previous count, so
+  // Export doesn't flicker while a refetch is in flight; stay visible while the first load runs.
+  const showExport = isLoading || itemCount > 0;
 
   const visibleColumns = useMemo(
     () =>
@@ -490,14 +499,16 @@ const Beacon = () => {
               isDisabled={customerIdMenuItems.length === 0}
               items={customerIdMenuItems}
             />
-            <LwMenu
-              label='Export'
-              busyLabel='Exporting'
-              isBusy={isExportBusy}
-              toggleProps={{ variant: 'secondary', ouiaId: 'lightwell-beacon-export-toggle' }}
-              popperProps={{ position: 'right' }}
-              items={exportItems}
-            />
+            {showExport ? (
+              <LwMenu
+                label='Export'
+                busyLabel='Exporting'
+                isBusy={isExportBusy}
+                toggleProps={{ variant: 'secondary', ouiaId: 'lightwell-beacon-export-toggle' }}
+                popperProps={{ position: 'right' }}
+                items={exportItems}
+              />
+            ) : null}
           </LwButtonGroup>
         ) : null}
       </PageSection>
@@ -526,10 +537,19 @@ const Beacon = () => {
             columns={dataViewColumns}
             rows={dataViewRows}
             isLoading={isLoading}
+            isPlaceholderData={isPlaceholderData}
             emptyState={{
+              // What the displayed rows were fetched with, not the live UI state: the search is
+              // debounced, so right after Reset/clear the UI is already empty while the rows are
+              // still the filtered result. Using the UI count would flash "no data" for that tick.
+              hasActiveFilters: queryFilters !== undefined,
               titleText: 'No results match the current filters',
               bodyText: 'Reset filters to show more results.',
               onClearFilters: resetFilters,
+              noData: {
+                titleText: 'No submissions yet',
+                bodyText: 'Vulnerabilities will appear here once this customer has submissions.',
+              },
             }}
             search={{
               value: searchQuery,

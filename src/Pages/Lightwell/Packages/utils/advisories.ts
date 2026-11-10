@@ -17,9 +17,17 @@ import { normalizeAdvisorySeverity } from './severity';
 import { formatReleaseDate } from './format';
 import { getVersionSeries, lightwellReleaseNum, sortVersionsDesc } from './versions';
 
-export const copyAdvisoryApiUrl = async (advisoryName: string): Promise<void> => {
+const CVE_ID_PREFIX = 'CVE-';
+
+const isCveId = (id: string): boolean => id.startsWith(CVE_ID_PREFIX);
+
+/** CVE ids in an advisory alias list. GHSA ids are left out. */
+export const cveIdsInAliases = (aliases: readonly string[] | null | undefined): string[] =>
+  (aliases ?? []).filter(isCveId);
+
+export const copyAdvisoryApiUrl = async (cveId: string): Promise<void> => {
   const url = new URL(LIGHTWELL_ADVISORIES_PATH, window.location.origin);
-  url.searchParams.set('name', advisoryName);
+  url.searchParams.set('cve_id', cveId);
   await navigator.clipboard.writeText(url.toString());
 };
 
@@ -41,31 +49,42 @@ export const countAdvisoryUpstreamVersions = (
   series: Pick<AdvisoryRemediationSeries, 'versions'>[],
 ): number => series.reduce((count, item) => count + item.versions.length, 0);
 
-/** Expands package advisories into unique rows for each Lightwell release. */
+/** One row per CVE and Lightwell release. A repeated CVE and release keeps the higher score. */
 export const toPackageRemediations = (
   advisories: LightwellAdvisoryResponse[],
   latestPackageRelease?: string,
 ): PackageAdvisoryRemediation[] => {
-  const rows = new Map<string, PackageAdvisoryRemediation>();
+  const rows = new Map<
+    string,
+    { remediation: PackageAdvisoryRemediation; severityScore: number }
+  >();
 
   for (const advisory of advisories) {
-    for (const lightwellRelease of advisory.fixed_versions) {
-      const key = `${advisory.advisory_name}\0${lightwellRelease}`;
-      if (!rows.has(key)) {
-        rows.set(key, {
-          advisoryName: advisory.advisory_name,
-          severity: normalizeAdvisorySeverity(advisory.severity_score),
-          lightwellRelease,
-          isLatest: false,
-        });
+    for (const cveId of cveIdsInAliases(advisory.aliases)) {
+      for (const lightwellRelease of advisory.fixed_versions) {
+        const key = `${cveId}\0${lightwellRelease}`;
+        const existing = rows.get(key);
+        if (!existing || advisory.severity_score > existing.severityScore) {
+          rows.set(key, {
+            severityScore: advisory.severity_score,
+            remediation: {
+              advisoryName: cveId,
+              severity: normalizeAdvisorySeverity(advisory.severity_score),
+              lightwellRelease,
+              isLatest: false,
+            },
+          });
+        }
       }
     }
   }
 
   return [...rows.values()]
-    .map((row) => ({
-      ...row,
-      isLatest: Boolean(latestPackageRelease && row.lightwellRelease === latestPackageRelease),
+    .map(({ remediation }) => ({
+      ...remediation,
+      isLatest: Boolean(
+        latestPackageRelease && remediation.lightwellRelease === latestPackageRelease,
+      ),
     }))
     .sort(
       (a, b) =>
@@ -74,7 +93,7 @@ export const toPackageRemediations = (
     );
 };
 
-/** Counts unique advisories for one package version. */
+/** Counts unique CVEs for one package version. */
 export const summarizePackageRemediations = (
   remediations: Pick<PackageAdvisoryRemediation, 'advisoryName'>[],
 ) => ({
@@ -176,13 +195,15 @@ const newestAdvisoryFirst = (
   return a.advisory_id.localeCompare(b.advisory_id);
 };
 
-/** Build the drawer model from one CVE-scoped response. */
+/** Build the drawer model for one CVE. A row matches when aliases contain that CVE. */
 export const toAdvisoryDetails = (
   advisories: LightwellAdvisoryResponse[],
-  name: string,
+  cveId: string,
   preferredRecord?: PreferredAdvisoryRecord,
 ): AdvisoryDetails | undefined => {
-  const matched = advisories.filter((advisory) => advisory.advisory_name === name);
+  const matched = isCveId(cveId)
+    ? advisories.filter((advisory) => (advisory.aliases ?? []).includes(cveId))
+    : [];
   if (!matched.length) {
     return undefined;
   }
@@ -211,12 +232,11 @@ export const toAdvisoryDetails = (
   }
 
   return {
-    advisoryName: selected.advisory_name,
+    advisoryName: cveId,
     counts,
     overview: {
       severity: normalizeAdvisorySeverity(selected.severity_score),
       cvssScore: `CVSS ${selected.severity_score.toFixed(1)}`,
-      aliases: selected.aliases,
       released: formatReleaseDate(selected.published),
       lastUpdated: formatReleaseDate(selected.modified),
       summary: selected.summary,
@@ -225,7 +245,6 @@ export const toAdvisoryDetails = (
     remediations,
     osv: {
       schemaVersion: selected.schema_version,
-      source: selected.source,
       published: formatReleaseDate(selected.published ?? undefined),
       lastUpdated: formatReleaseDate(selected.modified ?? undefined),
       recordId: selected.advisory_id,

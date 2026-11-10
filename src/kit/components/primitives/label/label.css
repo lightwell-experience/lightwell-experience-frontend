@@ -1,0 +1,3 @@
+/* LwLabel — kit primitive, co-located CSS (plain .css; no layers yet).
+ * Root host is PatternFly `Label` — lw-c-label merges onto that node (logic harness, not a wrap).
+ */

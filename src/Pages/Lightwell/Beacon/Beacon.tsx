@@ -6,6 +6,7 @@ import {
   EmptyStateBody,
   EmptyStateFooter,
   EmptyStateVariant,
+  Flex,
   FormGroup,
   PageSection,
 } from '@patternfly/react-core';
@@ -42,6 +43,7 @@ import {
   LwMenu,
   LwPopover,
   LwTitle,
+  LwToggleGroup,
 } from 'kit/components/primitives';
 
 import { lightwellBeaconPerPageKey } from 'Pages/Lightwell/constants';
@@ -291,7 +293,11 @@ const Beacon = () => {
   const { data: ltwlsuptTicketIds = [] } = useLtwlsuptTicketIdsQuery(selectedCustomerId);
   const { data: lastUpdated } = useBeaconStatusQuery();
 
-  const isLoading = (!displayData && isLoadingDisplay) || (isPackageView && isPlaceholderData);
+  // Placeholder (stale) rows are passed through to LwDataView as isPlaceholderData,
+  // not folded into isLoading — the assembly keeps the toolbar/panel mounted and
+  // shows the stale rows during a refetch rather than flashing the skeleton and
+  // dropping focus (D28). Same handling for both views.
+  const isLoading = !displayData && isLoadingDisplay;
 
   if (isError) throw error;
   if (filterAddressed && eligibility.isError) throw eligibility.error;
@@ -592,39 +598,39 @@ const Beacon = () => {
       </LwPageHeader>
       <PageSection data-ouia-component-id='lightwell-beacon-controls'>
         {selectedCustomerId ? (
-          <LwButtonGroup>
-            <LwButton
-              variant={isPackageView ? 'secondary' : 'primary'}
-              aria-pressed={!isPackageView}
-              onClick={() => setView('vulnerabilities')}
-            >
-              Vulnerabilities
-            </LwButton>
-            <LwButton
-              variant={isPackageView ? 'primary' : 'secondary'}
-              aria-pressed={isPackageView}
-              onClick={() => setView('packages')}
-            >
-              Packages
-            </LwButton>
-            <LwMenu
-              fieldLabel='Customer ID'
-              label={selectedCustomerId}
-              toggleProps={{ variant: 'primary', ouiaId: 'customer-id-select-toggle' }}
-              isDisabled={customerIdMenuItems.length === 0}
-              items={customerIdMenuItems}
-            />
-            {showExport ? (
+          <Flex
+            justifyContent={{ default: 'justifyContentSpaceBetween' }}
+            alignItems={{ default: 'alignItemsFlexEnd' }}
+          >
+            <LwButtonGroup>
               <LwMenu
-                label={isPackageView ? 'Export vulnerabilities' : 'Export'}
-                busyLabel='Exporting'
-                isBusy={isExportBusy}
-                toggleProps={{ variant: 'secondary', ouiaId: 'lightwell-beacon-export-toggle' }}
-                popperProps={{ position: 'right' }}
-                items={exportItems}
+                fieldLabel='Customer ID'
+                label={selectedCustomerId}
+                toggleProps={{ variant: 'primary', ouiaId: 'customer-id-select-toggle' }}
+                isDisabled={customerIdMenuItems.length === 0}
+                items={customerIdMenuItems}
               />
-            ) : null}
-          </LwButtonGroup>
+              {showExport ? (
+                <LwMenu
+                  label={isPackageView ? 'Export vulnerabilities' : 'Export'}
+                  busyLabel='Exporting'
+                  isBusy={isExportBusy}
+                  toggleProps={{ variant: 'secondary', ouiaId: 'lightwell-beacon-export-toggle' }}
+                  popperProps={{ position: 'right' }}
+                  items={exportItems}
+                />
+              ) : null}
+            </LwButtonGroup>
+            <LwToggleGroup
+              aria-label='Table view'
+              items={[
+                { value: 'vulnerabilities', label: 'Vulnerabilities' },
+                { value: 'packages', label: 'Packages' },
+              ]}
+              value={view}
+              onChange={(next) => setView(next as 'vulnerabilities' | 'packages')}
+            />
+          </Flex>
         ) : null}
       </PageSection>
       <PageSection
@@ -643,10 +649,6 @@ const Beacon = () => {
             rows={tableView.rows}
             manageColumns={tableView.manageColumns}
             expandedRows={tableView.expandedRows}
-            // Only the vulnerability view has sticky columns. Package expansions
-            // need a bounded table rather than the sticky view's max-content sizing.
-            isSticky={!isPackageView}
-            isCompact={isPackageView || undefined}
             isExpandable={isPackageView}
             indexBy='id'
             // Package rows group the whole filtered result, so LwDataView owns

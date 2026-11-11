@@ -58,5 +58,8 @@ export type { LwSkeletonProps } from './skeleton/skeleton';
 export { LwTitle } from './title/title';
 export type { LwTitleProps } from './title/title';
 
+export { LwToggleGroup } from './toggle-group/toggle-group';
+export type { LwToggleGroupProps, LwToggleGroupItem } from './toggle-group/toggle-group';
+
 export { LwTooltip } from './tooltip/tooltip';
 export type { LwTooltipProps } from './tooltip/tooltip';

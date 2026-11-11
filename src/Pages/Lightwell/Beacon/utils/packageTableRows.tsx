@@ -19,18 +19,22 @@ import { getPipelineStepPresentation } from '../pipeline';
 import { sortVersionsDesc } from '../../Packages/utils/versions';
 import { packageIdentity } from './addressedPackages';
 
+// Sorting is intentionally off for every package column — same stance as the
+// vulnerability view (D27): no sort affordance until API-driven sort lands
+// (LWLP-4495), rather than a client-only sort that can't survive the backend
+// APIs this POC still needs. No column sets `isSortable`, so LwDataView renders
+// the headers unsortable.
 export const PACKAGE_COLUMNS: LwDataViewManageColumn[] = [
   { key: 'package', cell: 'Package', props: { width: 15 as const } },
   { key: 'version', cell: 'Version' },
   { key: 'ecosystem', cell: 'Ecosystem' },
   { key: 'vulnerabilities', cell: 'Vulnerabilities' },
   { key: 'severity', cell: 'Highest severity' },
-  { key: 'severityCounts', cell: 'CVEs by severity', props: { isSortable: false } },
-  { key: 'statuses', cell: 'Statuses', props: { isSortable: false } },
+  { key: 'severityCounts', cell: 'CVEs by severity' },
+  { key: 'statuses', cell: 'Statuses' },
   { key: 'publishedVersions', cell: 'Published version' },
 ].map((column) => ({
   ...column,
-  props: { isSortable: true, ...column.props },
   isShown: true,
   isShownByDefault: true,
 }));
@@ -160,6 +164,18 @@ function PackageDetails({ group }: { group: Vulnerability[] }) {
   );
 }
 
+/**
+ * Attach a `dataLabel` to a cell without disturbing its content. The object-form
+ * cell (`{ cell, props }`) keeps its existing props (e.g. `sortValue`); a bare
+ * value is wrapped so the stacked/mobile layout still gets the column label.
+ */
+function withDataLabel(value: LwDataViewTd, dataLabel: string): LwDataViewTd {
+  if (value != null && typeof value === 'object' && 'cell' in value) {
+    return { ...value, props: { ...value.props, dataLabel } };
+  }
+  return { cell: value, props: { dataLabel } };
+}
+
 /** Group the full filtered result, never a single API page. */
 export function buildPackageRows(
   vulnerabilities: Vulnerability[],
@@ -268,7 +284,12 @@ export function buildPackageRows(
     return {
       id,
       expandedContent: <PackageDetails group={group} />,
-      row: columns.filter((column) => column.isShown).map((column) => cells[column.key]),
+      // `dataLabel` is the column name PF shows before each cell in the stacked
+      // (mobile/narrow) layout — attach the header to every cell so the package
+      // view reads correctly there, same as the vulnerability view.
+      row: columns
+        .filter((column) => column.isShown)
+        .map((column) => withDataLabel(cells[column.key], String(column.cell))),
     };
   });
 }

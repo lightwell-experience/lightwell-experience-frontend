@@ -231,20 +231,6 @@ it('renders the beacon page with status summary and vulnerability table', async 
   expect(screen.getByRole('button', { name: 'CID-01' })).toBeInTheDocument();
 });
 
-it('renders PF scroll-container wrappers required by the sticky Package/Title columns', async () => {
-  const { container } = renderBeacon();
-  await selectCustomer('CID-01');
-
-  await waitFor(() => {
-    expect(screen.getByText('JNDI injection via crafted log message')).toBeInTheDocument();
-  });
-  // isSticky must be set on LwDataView for these to render at all — without
-  // it, DataViewTableBasic renders a bare <Table> and isStickyColumn on the
-  // Package/Title columns has nothing to attach sticky behavior to.
-  expect(container.querySelector('.pf-v6-c-scroll-outer-wrapper')).toBeInTheDocument();
-  expect(container.querySelector('.pf-v6-c-scroll-inner-wrapper')).toBeInTheDocument();
-});
-
 it('shows support ticket IDs from the dedicated API instead of vulnerability rows', async () => {
   (useLtwlsuptTicketIdsQuery as jest.Mock).mockReturnValue({
     isLoading: false,
@@ -557,7 +543,6 @@ it('toggles to packages using the complete filtered collection and returns to vu
   await user.click(screen.getByRole('button', { name: 'Packages' }));
 
   const table = screen.getByRole('grid', { name: 'Package tracking table' });
-  expect(table.closest('.pf-v6-c-scroll-inner-wrapper')).toBeNull();
   expect(within(table).getAllByRole('row')).toHaveLength(3);
   expect(within(table).getByRole('cell', { name: '2' })).toBeInTheDocument();
   expect(within(table).getByText('another-version')).toBeInTheDocument();
@@ -587,8 +572,11 @@ it('keeps ecosystems distinct and counts unique vulnerability IDs per package ve
   expect(rows).toHaveLength(2);
   expect(rows[0]).toMatchObject({
     row: expect.arrayContaining([
-      2,
-      expect.objectContaining({ cell: 'Critical', props: { sortValue: 0 } }),
+      expect.objectContaining({ cell: 2 }),
+      expect.objectContaining({
+        cell: 'Critical',
+        props: expect.objectContaining({ sortValue: 0 }),
+      }),
     ]),
   });
 });
@@ -637,8 +625,8 @@ it('counts each CVE once at its highest severity and includes zero counts', () =
     { ...first, uuid: 'duplicate', severity: 'Critical' },
     { ...first, uuid: 'second', vulnerabilityId: 'CVE-SECOND', severity: 'Moderate' },
   ]);
-  const row = rows[0] as { row: ReactElement[] };
-  render(row.row[PACKAGE_COLUMNS.findIndex((column) => column.key === 'severityCounts')]);
+  const row = rows[0] as { row: { cell: ReactElement }[] };
+  render(row.row[PACKAGE_COLUMNS.findIndex((column) => column.key === 'severityCounts')].cell);
   for (const label of ['Critical: 1', 'Important: 0', 'Moderate: 1', 'Low: 0']) {
     const severityCount = screen.getByLabelText(label);
     expect(severityCount).toHaveTextContent(label.split(': ')[1]);
@@ -785,9 +773,9 @@ it('shows distinct CVE counts with status icons in workflow order', () => {
     { ...first, uuid: 'validating', status: 'Validation', vulnerabilityId: 'CVE-VALIDATING' },
     { ...first, uuid: 'on-hold', status: 'On Hold', vulnerabilityId: 'CVE-ON-HOLD' },
   ]);
-  const row = rows[0] as { row: ReactElement[] };
+  const row = rows[0] as { row: { cell: ReactElement }[] };
   const { container } = render(
-    row.row[PACKAGE_COLUMNS.findIndex((column) => column.key === 'statuses')],
+    row.row[PACKAGE_COLUMNS.findIndex((column) => column.key === 'statuses')].cell,
   );
   const labels = ['Submitted: 1', 'Validating: 1', 'On Hold: 1', 'No remediation: 1'];
   expect(

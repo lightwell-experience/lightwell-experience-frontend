@@ -55,19 +55,6 @@
   overflow: auto;
 }
 
-/*
- * PF's own `.pf-v6-c-table` sets `width: 100%` unconditionally
- * (table-scrollable.css), which shrinks columns to fit the viewport instead
- * of letting the table overflow its scroll wrapper. Only matters once a
- * table is actually inside the scroll wrappers above (isSticky) — scoping to
- * the wrapper, not `.lw-c-data-view` generally, keeps this off tables that
- * don't opt into sticky/scrollable columns. `min-width: 100%` keeps it
- * filling the available width when content is narrower than the container.
- */
-.lw-c-data-view .pf-v6-c-scroll-inner-wrapper > .pf-v6-c-table {
-  width: max-content;
-  min-width: 100%;
-}
 
 /*
  * Header cell paired with the row-expansion toggle PF adds to the body only

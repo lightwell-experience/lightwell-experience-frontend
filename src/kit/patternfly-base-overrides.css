@@ -115,6 +115,7 @@
 /* the scroll outer wrapper should have a border radius to match rounded border styles */
 .pf-v6-c-scroll-outer-wrapper {
   border-radius: var(--pf-t--global--border--radius--medium);
+  min-height: auto;
 }
 
 /* Responsive grid vs table: `gridBreakPoint="grid-lg"` keeps `.pf-m-grid-lg` on

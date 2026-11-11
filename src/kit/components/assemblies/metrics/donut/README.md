@@ -10,13 +10,18 @@ future products) pass series + title; chromatic defaults come from
 
 ## What it can do
 
-| Capability              | Notes                                                 |
-| ----------------------- | ----------------------------------------------------- |
-| Series                  | `{ x, y }[]`                                          |
-| Center title / subtitle | PF ChartDonut                                         |
-| Color scale             | Default match-status order; override via `colorScale` |
-| Tooltips                | Optional `getLabel`                                   |
-| Responsive host         | Optional `containerRef` for call-site resize observer |
+| Capability              | Notes                                                        |
+| ----------------------- | ------------------------------------------------------------ |
+| Series                  | `{ x, y }[]`                                                 |
+| Center title / subtitle | PF ChartDonut                                                |
+| Color scale             | Default match-status order; override via `colorScale`        |
+| Tooltips                | Optional `getLabel`                                          |
+| Legend                  | Optional HTML list from `data` + `colorScale` (`showLegend`) |
+| Legend placement        | `legendPosition`: `right`, `bottom`, or `responsive`         |
+| Responsive host         | Optional `containerRef` for call-site resize observer        |
+
+Call sites own series builders and resize measurement. Kit does not own product
+slice catalogs.
 
 ## Related
 

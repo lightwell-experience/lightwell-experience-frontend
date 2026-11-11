@@ -337,19 +337,6 @@ type LwDataViewOwnedProps = {
    * container chrome.
    */
   isCardless?: boolean;
-  /**
-   * Sticky **columns** — horizontal scroll via `OuterScrollContainer`/
-   * `InnerScrollContainer`, so columns with `props.isStickyColumn` pin while
-   * scrolling. **Opt-in only** — not a default. Requires verified layout
-   * context (columns actually marked `isStickyColumn`); do not enable
-   * speculatively.
-   *
-   * Does **not** enable sticky *header* — that needs a height-bounded
-   * scroll context to mean anything (the header sticks relative to its own
-   * scrolling ancestor), and table height isn't bounded today. Held pending
-   * that refactor (ROADMAP D26) rather than shipped half-working.
-   */
-  isSticky?: boolean;
   /** Arbitrary chrome above the table, inside `DataView`. */
   children?: ReactNode;
   /** Chrome after the table, inside `DataView` (e.g. custom footer chrome).
@@ -501,7 +488,6 @@ export function LwDataView({
   showBottomPagination,
   isCompact,
   isCardless,
-  isSticky,
   children,
   footer,
   selection,
@@ -730,6 +716,7 @@ export function LwDataView({
   // know when the page changes to refetch (e.g. Beacon).
   const [internalPage, setInternalPage] = useState(1);
   const [internalPerPage, setInternalPerPage] = useState(defaultPerPage ?? 10);
+  const isPageControlled = pagination?.page !== undefined;
   const requestedPage = pagination?.page ?? internalPage;
   const resolvedPerPage = pagination?.perPage ?? internalPerPage;
 
@@ -739,9 +726,16 @@ export function LwDataView({
         // Resident rows are the whole result set, so the assembly knows the
         // total — a call site has nothing to say about it.
         itemCount: isResident ? rows.length : (pagination.itemCount ?? 0),
-        page: isResident
-          ? Math.max(1, Math.min(requestedPage, Math.ceil(rows.length / resolvedPerPage)))
-          : requestedPage,
+        // Clamp only the page the assembly owns (uncontrolled). When resident
+        // rows shrink below the current page (e.g. after a filter), snapping an
+        // uncontrolled page back into range avoids a blank table. A *controlled*
+        // page belongs to the caller: silently showing a different page than its
+        // state — without calling onSetPage — would desync the two, so leave it
+        // as given and let the caller reset it (as Beacon does on filter change).
+        page:
+          isResident && !isPageControlled
+            ? Math.max(1, Math.min(requestedPage, Math.ceil(rows.length / resolvedPerPage)))
+            : requestedPage,
         perPage: resolvedPerPage,
         onSetPage: pagination.onSetPage ?? ((_event, newPage) => setInternalPage(newPage)),
         onPerPageSelect:
@@ -842,8 +836,9 @@ export function LwDataView({
   ) : null;
 
   // ─── Table props ──────────────────────────────────────────────────────────
-  // `isSticky` is deliberately NOT forwarded here — see the `tableNode`
-  // comment below for why.
+  // PF's own `isSticky` is never forwarded into `DataViewTableBasic` — see the
+  // `tableNode` comment below (it would force sticky-header on). The scroll
+  // wrappers are built here instead, unconditionally.
   const tableProps = mergeComponentProps(pfDefaults, {
     ...rest,
     variant: compact ? ('compact' as const) : undefined,
@@ -887,44 +882,25 @@ export function LwDataView({
   );
 
   // ─── DataView branches ────────────────────────────────────────────────────
-  // `isSticky` is the opt-in signal (verified layout context, not auto-derived
-  // — see skill) that sticky COLUMNS are in play — horizontal scroll via
-  // Outer/InnerScrollContainer, not vertical sticky header.
+  // Always wrapped in Outer/InnerScrollContainer (D30). Built here rather than via
+  // `DataViewTableBasic`'s own `isSticky`: PF couples that prop to also forcing
+  // `isStickyHeader: true`, which needs a height-bounded scroll context we don't
+  // have yet (D26) — so `isSticky` is never forwarded and the wrappers live here.
   //
-  // `DataViewTableBasic` (what `DataViewTable` always renders underneath —
-  // confirmed by reading PF's source) couples its OWN `isSticky` prop to
-  // BOTH concerns at once: it wraps in Outer/InnerScrollContainer *and*
-  // unconditionally forces `isStickyHeader: true` on the underlying `Table`,
-  // with no way to opt out of just the header half. Sticky header only means
-  // anything with a height-bounded scroll context (it sticks relative to its
-  // own scrolling ancestor); table height isn't bounded today, so sticky
-  // header would be a no-op at best — held pending that refactor (D26), not
-  // shipped half-working. So `tableProps` (above) never includes `isSticky`
-  // — `DataViewTableBasic` always takes its plain, unwrapped `<Table>`
-  // branch — and the scroll-wrapper/sticky-column behavior is built here
-  // instead, only when `isSticky` is set.
-  //
-  // The empty state nests inside `OuterScrollContainer`, as a sibling of
-  // `InnerScrollContainer` — not inside the scrollable inner region itself
-  // (it doesn't need horizontal scroll), but still part of the same table
-  // surface, so it stays coupled to the table's column width rather than
-  // the full drawer+panel row's width once a `panel` is present.
+  // The empty state nests inside `OuterScrollContainer` as a sibling of
+  // `InnerScrollContainer`, keeping it coupled to the table's column width rather
+  // than the full drawer+panel row's width once a `panel` is present.
   const tableNode = isTrueEmpty ? null : <DataViewTable {...tableProps} />;
 
   // True empty: no rows and nothing to clear — column headers would only label
   // an empty grid, so render the empty state alone.
   const tableAndEmptyState = isTrueEmpty ? (
     emptyStateNode
-  ) : isSticky ? (
+  ) : (
     <OuterScrollContainer>
       <InnerScrollContainer>{tableNode}</InnerScrollContainer>
       {emptyStateNode}
     </OuterScrollContainer>
-  ) : (
-    <>
-      {tableNode}
-      {emptyStateNode}
-    </>
   );
 
   const tableSurface =

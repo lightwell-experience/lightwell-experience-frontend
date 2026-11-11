@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Default values for URL and target string
-DEFAULT_URL="https://gitlab.cee.redhat.com/service/app-interface/-/blob/master/data/services/lightwell-experience/cicd/saas.yaml"
+DEFAULT_URL="https://gitlab.cee.redhat.com/service/app-interface/-/raw/master/data/services/lightwell-experience/cicd/saas.yaml"
 DEFAULT_TARGET_STRING="/services/insights/frontend-operator/namespaces/prod-frontends.yml"
 
 # Use defaults for URL and target string

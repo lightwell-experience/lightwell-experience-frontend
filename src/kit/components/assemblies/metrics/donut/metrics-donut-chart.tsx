@@ -1,4 +1,4 @@
-import { ChartDonut, ChartLabel } from '@patternfly/react-charts/victory';
+import { ChartContainer, ChartDonut, ChartLabel } from '@patternfly/react-charts/victory';
 import { chart_donut_label_subtitle_Fill } from '@patternfly/react-tokens/dist/esm/chart_donut_label_subtitle_Fill';
 import { chart_donut_label_title_Fill } from '@patternfly/react-tokens/dist/esm/chart_donut_label_title_Fill';
 import { chart_global_FontSize_sm } from '@patternfly/react-tokens/dist/esm/chart_global_FontSize_sm';
@@ -51,6 +51,13 @@ const DEFAULT_COLOR_SCALE = [
   lightwellConfig.colors.matchStatus.none,
 ];
 
+/**
+ * Where the HTML legend sits. `responsive` is beside the ring below `lg` (62rem) and
+ * under it from `lg` up — the page-chrome-slot breakpoint (slots stack, then sit side
+ * by side). See the unit ROADMAP § Legend.
+ */
+export type LwMetricsDonutLegendPosition = 'right' | 'bottom' | 'responsive';
+
 export type LwMetricsDonutChartProps = {
   data: LwMetricsDonutDatum[];
   width: number;
@@ -61,10 +68,20 @@ export type LwMetricsDonutChartProps = {
   ariaDesc?: string;
   allowTooltip?: boolean;
   getLabel?: (args: { datum: LwMetricsDonutDatum }) => string;
+  /** Render an HTML legend built from `data` + `colorScale`. */
+  showLegend?: boolean;
+  legendPosition?: LwMetricsDonutLegendPosition;
+  /** Row text. Default `${x}: ${y}`. Pass the same formatter as `getLabel` to keep tooltips in step. */
+  formatLegendLabel?: (args: { datum: LwMetricsDonutDatum }) => string;
+  /** Accessible name of the legend list. Defaults to `ariaDesc`. */
+  legendAriaLabel?: string;
   containerRef?: Ref<HTMLDivElement>;
   padding?: { bottom?: number; left?: number; right?: number; top?: number };
   className?: string;
 };
+
+const formatDefaultLegendLabel = ({ datum }: { datum: LwMetricsDonutDatum }): string =>
+  `${datum.x}: ${datum.y}`;
 
 /**
  * Kit **assembly** — PF `ChartDonut` harness for match / utilization metrics.
@@ -80,6 +97,10 @@ export function LwMetricsDonutChart({
   ariaDesc = 'Donut chart',
   allowTooltip = true,
   getLabel,
+  showLegend = false,
+  legendPosition = 'right',
+  formatLegendLabel = formatDefaultLegendLabel,
+  legendAriaLabel,
   containerRef,
   padding = DEFAULT_PADDING,
   className,
@@ -88,6 +109,14 @@ export function LwMetricsDonutChart({
     <ChartDonut
       ariaDesc={ariaDesc}
       constrainToVisibleArea
+      // PF's responsive container has no intrinsic width, so a flex row would collapse
+      // the ring. With a legend, give the plot its own box. Without one, leave PF's
+      // default (fill the host) so call-site measurement keeps working.
+      containerComponent={
+        showLegend ? (
+          <ChartContainer className='lw-c-metrics-donut-chart__plot' style={{ width, height }} />
+        ) : undefined
+      }
       data={data}
       colorScale={colorScale}
       allowTooltip={allowTooltip}
@@ -105,8 +134,32 @@ export function LwMetricsDonutChart({
   );
 
   return (
-    <div ref={containerRef} className={mergeClassNames('lw-c-metrics-donut-chart', className)}>
+    <div
+      ref={containerRef}
+      className={mergeClassNames(
+        'lw-c-metrics-donut-chart',
+        showLegend ? `lw-m-legend lw-m-legend-${legendPosition}` : undefined,
+        className,
+      )}
+    >
       {chart}
+      {showLegend ? (
+        <ul className='lw-c-metrics-donut-chart__legend' aria-label={legendAriaLabel ?? ariaDesc}>
+          {data.map((datum, index) => (
+            <li
+              key={datum.x}
+              className='lw-c-metrics-donut-chart__legend-item'
+              style={
+                {
+                  '--lw-metrics-donut-swatch': colorScale[index % colorScale.length],
+                } as CSSProperties
+              }
+            >
+              {formatLegendLabel({ datum })}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

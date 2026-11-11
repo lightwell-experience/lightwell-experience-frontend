@@ -1,5 +1,6 @@
 name: Build & Unit Tests
 on:
+  merge_group:
   pull_request:
     branches: [main]
     paths-ignore:

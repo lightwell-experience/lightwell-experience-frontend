@@ -10,3 +10,6 @@ export type Meta = {
   limit: number;
   offset: number;
 };
+
+/** Sort direction accepted by Lightwell list APIs (`sort_by=<field>:<direction>`). */
+export type SortDirection = 'asc' | 'desc';

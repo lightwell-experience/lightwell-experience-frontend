@@ -43,6 +43,7 @@ export type { LwMetricsCardProps } from './metrics/card/metrics-card';
 export type {
   LwMetricsDonutChartProps,
   LwMetricsDonutDatum,
+  LwMetricsDonutLegendPosition,
 } from './metrics/donut/metrics-donut-chart';
 export type {
   LwMetricsStackChartProps,

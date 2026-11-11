@@ -10,6 +10,7 @@ import {
   type FlexProps,
   type HeroProps,
   type IconComponentProps,
+  type LabelProps,
   type ListProps,
   type PopoverProps,
   type ProgressStepperProps,
@@ -138,6 +139,11 @@ export type LwListPassthroughProps = Omit<ListProps, 'children'>;
 
 /** Defaults for `LwList` — List host; call-site wins via merge. */
 export type LwListConfig = Partial<LwListPassthroughProps>;
+
+// ─── Primitive: LwLabel (PF Label) ────────────────────────────────────────────
+
+/** Defaults for `LwLabel` — Label host; call-site wins via merge. */
+export type LwLabelConfig = Partial<LabelProps>;
 
 // ─── Primitive: LwEmptyState (root only) ─────────────────────────────────────
 
@@ -349,6 +355,7 @@ export interface LwComponentsConfig {
   popover: LwPopoverConfig;
   tooltip: LwTooltipConfig;
   list: LwListConfig;
+  label: LwLabelConfig;
   emptyState: LwEmptyStateConfig;
   errorState: LwErrorStateConfig;
   skeleton: LwSkeletonConfig;
@@ -406,6 +413,9 @@ export const componentsConfig: LwComponentsConfig = {
   },
   list: {
     // No Lightwell-specific List defaults yet — PF basic list pattern only.
+  },
+  label: {
+    // No Lightwell-specific Label defaults yet — PF default pattern only (filled, grey).
   },
   emptyState: {
     // Root-only harness — no Lightwell-specific EmptyState defaults yet.
@@ -525,6 +535,10 @@ export function getLwTooltipDefaults(): LwTooltipConfig {
 
 export function getLwListDefaults(): LwListConfig {
   return { ...componentsConfig.list };
+}
+
+export function getLwLabelDefaults(): LwLabelConfig {
+  return { ...componentsConfig.label };
 }
 
 export function getLwEmptyStateDefaults(): LwEmptyStateConfig {

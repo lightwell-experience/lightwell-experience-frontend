@@ -14,6 +14,11 @@ permissions:
   contents: read
   pull-requests: write
 
+# pull_request checks out the PR head. merge_group has no pull_request
+# payload; github.sha is the merge-queue commit.
+env:
+  CHECKOUT_REF: ${{ (github.event_name == 'merge_group' && github.sha) || github.event.pull_request.head.sha }}
+
 jobs:
   malware-scan:
     runs-on: ubuntu-latest
@@ -22,13 +27,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Supply chain malware scan
         working-directory: .github/
         env:
+          # pull_request.base.ref is the bare branch name. merge_group.base_ref
+          # is a full ref (refs/heads/main) and is absent on pull_request.
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
         run: |
+          if [ -z "$PR_BASE_REF" ]; then
+            PR_BASE_REF="${MERGE_GROUP_BASE_REF#refs/heads/}"
+          fi
+          export PR_BASE_REF
           chmod +x workflowScripts/malware-pr-check.py
           python3 workflowScripts/malware-pr-check.py
 
@@ -39,7 +51,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Known vulnerability review
         uses: actions/dependency-review-action@v5
@@ -63,7 +75,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Cache - node_modules
         if: always()
@@ -93,7 +105,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Cache - node_modules
         if: always()
@@ -123,7 +135,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Cache - node_modules
         if: always()
@@ -153,7 +165,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Cache - node_modules
         if: always()

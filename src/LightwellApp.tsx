@@ -6,8 +6,7 @@ import './kit/patternfly-base-overrides.css';
 import '../styles/lightwell-chrome-overrides.scss';
 import '../styles/lightwell-clipboard-copy.scss';
 import '../styles/lightwell-coverage-charts.scss';
-import { Alert, Button } from '@patternfly/react-core';
-import spacing from '@patternfly/react-styles/css/utilities/Spacing/spacing';
+import { Button } from '@patternfly/react-core';
 import { useChrome } from '@redhat-cloud-services/frontend-components/useChrome';
 import { useEffect } from 'react';
 import { Route, Routes } from 'react-router-dom';
@@ -166,12 +165,6 @@ export default function LightwellApp() {
 
   return (
     <ErrorPage>
-      <Alert
-        variant='info'
-        isInline
-        className={`${spacing.mxLg} ${spacing.mtLg}`}
-        title='This is the new Lightwell app, served from the lightwell-experience-frontend repository.'
-      />
       {permissionsError ? (
         <LwPageHeader hero>
           <LwErrorState

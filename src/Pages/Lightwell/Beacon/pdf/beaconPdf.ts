@@ -11,8 +11,8 @@ import {
 } from 'services/Lightwell/BeaconApi';
 import type { VulnerabilityTableColumn } from '../utils/vulnerabilityTableColumns';
 
-export const BEACON_PDF_MANIFEST = '/apps/content-sources/fed-mods.json';
-export const BEACON_PDF_SCOPE = 'contentSources';
+export const BEACON_PDF_MANIFEST = '/apps/lightwell-experience/fed-mods.json';
+export const BEACON_PDF_SCOPE = 'lightwellExperience';
 export const BEACON_PDF_MODULE = './BeaconPdfEntry';
 export const BEACON_PDF_PAGE_SIZE = 50;
 

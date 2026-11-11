@@ -62,6 +62,8 @@ import { getVulnerabilityTableCellProps } from './components/vulnerabilityTableS
 import { renderVulnerabilityCell } from './utils/vulnerabilityTableCells';
 import { useBeaconData } from './hooks/useBeaconData';
 import {
+  type BeaconSort,
+  type BeaconSortBy,
   type BeaconVulnerabilityFilters,
   type BeaconVulnerabilityFlag,
 } from 'services/Lightwell/BeaconApi';
@@ -156,6 +158,11 @@ function getBeaconSortValue(key: string, vulnerability: Vulnerability): string |
   }
 }
 
+/** Table column key → API `sort_by` field. Only columns listed here are sortable. */
+const SERVER_SORT_FIELDS: Partial<Record<string, BeaconSortBy>> = {
+  lastUpdated: 'last_updated',
+};
+
 const Beacon = () => {
   const rootPath = useLightwellRootPath();
   const appBreadcrumbsEnabled = useFlag('platform.chrome.app-breadcrumbs');
@@ -181,6 +188,7 @@ const Beacon = () => {
   const paginationProps = { page, perPage, onSetPage, onPerPageSelect };
   const [searchQuery, setSearchQuery] = useState('');
   const [columns, setColumns] = useState(createDefaultVulnerabilityColumns);
+  const [sort, setSort] = useState<BeaconSort>();
 
   const debouncedSearch = useDebounce(searchQuery, searchQuery === '' ? 0 : 500);
 
@@ -219,7 +227,7 @@ const Beacon = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [selectedCustomerId, queryFilters]);
+  }, [selectedCustomerId, queryFilters, sort]);
 
   const resetFilters = useCallback(() => {
     setSelectedSeverities(new Set());
@@ -258,16 +266,13 @@ const Beacon = () => {
     onSelect: () => handleCustomerIdChange(customerId),
   }));
 
-  // TODO: pass sort params to the API query when backend supports it.
-  // Wire `onSortChange` on LwDataView when that work begins.
-
   const {
     data: displayData,
     isLoading: isLoadingDisplay,
     isPlaceholderData,
     isError,
     error,
-  } = useBeaconData(selectedCustomerId, queryFilters, pagination);
+  } = useBeaconData(selectedCustomerId, queryFilters, pagination, sort);
   const { data: ltwlsuptTicketIds = [] } = useLtwlsuptTicketIdsQuery(selectedCustomerId);
   const { data: lastUpdated } = useBeaconStatusQuery();
 
@@ -332,12 +337,23 @@ const Beacon = () => {
       ),
     [columns],
   );
+  const visibleColumnsKey = visibleColumns.map((c) => c.key).join(',');
+
+  // LwDataView remounts (and drops its sort indicator) when the visible columns change,
+  // so drop the API sort too to keep the data matching the header.
+  useEffect(() => {
+    setSort(undefined);
+  }, [visibleColumnsKey]);
 
   const dataViewColumns: LwDataViewTh[] = useMemo(
     () =>
       visibleColumns.map((column) => ({
         cell: column.title,
-        props: getVulnerabilityTableCellProps(column.key),
+        // Only columns the API can sort by are sortable; the rest stay unsortable.
+        props: {
+          ...getVulnerabilityTableCellProps(column.key),
+          isSortable: column.key in SERVER_SORT_FIELDS,
+        },
       })),
     [visibleColumns],
   );
@@ -521,7 +537,7 @@ const Beacon = () => {
             // LwDataView tracks its active sort by column index internally; remount
             // when the visible-column set/order changes so a stale index can't end
             // up pointing at a different field after a column is hidden/shown.
-            key={visibleColumns.map((c) => c.key).join(',')}
+            key={visibleColumnsKey}
             aria-label='Vulnerability tracking table'
             // Package + Vulnerability ID columns set isStickyColumn (below) —
             // isSticky is what actually activates PF's OuterScrollContainer /
@@ -536,6 +552,10 @@ const Beacon = () => {
             }}
             columns={dataViewColumns}
             rows={dataViewRows}
+            onSortChange={(columnIndex, direction) => {
+              const sortBy = SERVER_SORT_FIELDS[visibleColumns[columnIndex]?.key];
+              setSort(sortBy ? { sortBy, direction } : undefined);
+            }}
             isLoading={isLoading}
             isPlaceholderData={isPlaceholderData}
             emptyState={{

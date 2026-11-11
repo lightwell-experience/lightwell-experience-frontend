@@ -93,8 +93,8 @@ describe('buildBeaconPdfPayload', () => {
 
     expect(payload).toHaveLength(Math.ceil(120 / BEACON_PDF_PAGE_SIZE));
     expect(payload[0]).toMatchObject({
-      manifestLocation: '/apps/content-sources/fed-mods.json',
-      scope: 'contentSources',
+      manifestLocation: '/apps/lightwell-experience/fed-mods.json',
+      scope: 'lightwellExperience',
       module: './BeaconPdfEntry',
       landscape: false,
       fetchDataParams: { customerId: 'CID-01', limit: 50, offset: 0 },

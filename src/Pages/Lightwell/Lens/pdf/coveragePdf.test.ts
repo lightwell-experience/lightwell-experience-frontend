@@ -292,8 +292,8 @@ describe('buildCoveragePdfPayload', () => {
 
     expect(payload).toHaveLength(1);
     expect(payload[0]).toMatchObject({
-      manifestLocation: '/apps/content-sources/fed-mods.json',
-      scope: 'contentSources',
+      manifestLocation: '/apps/lightwell-experience/fed-mods.json',
+      scope: 'lightwellExperience',
       module: './CoveragePdfEntry',
       fetchDataParams: {
         uuid: 'report-uuid',

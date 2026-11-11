@@ -8,8 +8,8 @@ import type {
 } from 'services/Lightwell/CoverageReportsApi';
 import type { Meta } from 'services/Lightwell/types';
 
-export const COVERAGE_PDF_MANIFEST = '/apps/content-sources/fed-mods.json';
-export const COVERAGE_PDF_SCOPE = 'contentSources';
+export const COVERAGE_PDF_MANIFEST = '/apps/lightwell-experience/fed-mods.json';
+export const COVERAGE_PDF_SCOPE = 'lightwellExperience';
 export const COVERAGE_PDF_MODULE = './CoveragePdfEntry';
 export const COVERAGE_REPORTS_PATH = '/api/content-sources/v1/coverage_reports/';
 

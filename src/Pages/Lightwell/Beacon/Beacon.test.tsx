@@ -284,7 +284,7 @@ it('clears every filter when the customer changes', async () => {
   ).toBe(true);
 });
 
-it('sorts by Last Updated through the API and leaves other columns unsortable', async () => {
+it('sorts by Last Updated through the API and leaves unsupported columns unsortable', async () => {
   renderBeacon();
   const user = await selectCustomer('CID-01');
   const lastSort = () => (useBeaconData as jest.Mock).mock.lastCall?.[3];

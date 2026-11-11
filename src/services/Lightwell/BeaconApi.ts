@@ -30,8 +30,9 @@ export type BeaconVulnerabilityFilters = {
 
 export type BeaconPagination = Pick<Meta, 'limit' | 'offset'>;
 
-/** Server-sortable fields of the Beacon vulnerabilities API. Extend as the backend adds support. */
-export type BeaconSortBy = 'last_updated';
+/** Fields the Beacon vulnerabilities API can sort by. */
+export type BeaconSortBy =
+  'last_updated' | 'submitted_date' | 'cvss' | 'severity' | 'status' | 'vulnerability_id';
 export type BeaconSort = { sortBy: BeaconSortBy; direction: SortDirection };
 
 export type BeaconVulnerabilityMeta = {

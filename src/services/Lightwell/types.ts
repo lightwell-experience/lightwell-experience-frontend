@@ -11,5 +11,5 @@ export type Meta = {
   offset: number;
 };
 
-/** Sort direction accepted by Lightwell list APIs (`sort_by=<field>:<direction>`). */
+/** Sort direction for Lightwell list APIs (`sort_by=<field>:<direction>`). */
 export type SortDirection = 'asc' | 'desc';

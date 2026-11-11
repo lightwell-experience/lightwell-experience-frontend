@@ -20,7 +20,8 @@ type BuildLightwellPath = (params: LightwellNavigationParams) => string;
  * Builds location strings for Lightwell routes from navigation parameters
  *
  * Routes use repository slugs (e.g. java-validated)
- * Maven package details include groupId in the path; Python packages do not
+ * Maven package details include groupId; scoped npm packages use that segment for scope.
+ * Python and unscoped npm packages use only the package name
  *
  * To add a new destination:
  * 1. Add a key to LightwellDestinationKey

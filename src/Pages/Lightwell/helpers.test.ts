@@ -1,4 +1,4 @@
-import { CodeIcon, JavaIcon, PythonIcon } from '@patternfly/react-icons';
+import { CodeIcon, JavaIcon, PythonIcon, JsIcon } from '@patternfly/react-icons';
 import {
   formatDistributionUrl,
   formatPythonDisplayUrl,
@@ -11,6 +11,7 @@ import {
   getRepositoryNameFromPathSlug,
   getRepositoryPathSlug,
   hasBackportedFixes,
+  toLightwellEcosystem,
 } from './helpers';
 import {
   compareReleasesDesc,
@@ -37,6 +38,17 @@ describe('getEcosystemFromContentType', () => {
   });
 });
 
+describe('toLightwellEcosystem', () => {
+  it('narrows known content types and defaults unknown ones to Maven', () => {
+    expect(toLightwellEcosystem('npm')).toBe('npm');
+    expect(toLightwellEcosystem('NPM')).toBe('npm');
+    expect(toLightwellEcosystem('python')).toBe('python');
+    expect(toLightwellEcosystem('maven')).toBe('maven');
+    expect(toLightwellEcosystem('rust')).toBe('maven');
+    expect(toLightwellEcosystem()).toBe('maven');
+  });
+});
+
 describe('getEcosystemIcon', () => {
   it('returns the icon for a known ecosystem or content type, regardless of case', () => {
     expect(getEcosystemIcon('JAVA').type).toBe(JavaIcon);
@@ -44,12 +56,14 @@ describe('getEcosystemIcon', () => {
     expect(getEcosystemIcon('MAVEN').type).toBe(JavaIcon);
     expect(getEcosystemIcon('Python').type).toBe(PythonIcon);
     expect(getEcosystemIcon('python').type).toBe(PythonIcon);
+    expect(getEcosystemIcon('npm').type).toBe(JsIcon);
+    expect(getEcosystemIcon('NPM').type).toBe(JsIcon);
+    expect(getEcosystemIcon('JavaScript').type).toBe(JsIcon);
   });
 
   it('returns the generic icon for a missing or unknown ecosystem or content type', () => {
     expect(getEcosystemIcon().type).toBe(CodeIcon);
     expect(getEcosystemIcon('rust').type).toBe(CodeIcon);
-    expect(getEcosystemIcon('npm').type).toBe(CodeIcon);
   });
 });
 
@@ -140,6 +154,7 @@ describe('formatRepositoryName', () => {
   it('formats ecosystem and security level when both are available', () => {
     expect(formatRepositoryName('maven', 'validated')).toBe('Java Validated');
     expect(formatRepositoryName('python', 'remediated')).toBe('Python Remediated');
+    expect(formatRepositoryName('npm', 'validated')).toBe('JavaScript Validated');
   });
 
   it('falls back to repository name when content type or security level is missing', () => {
@@ -160,6 +175,7 @@ describe('getRepositoryPathSlug', () => {
   it('creates a slug from ecosystem and security level', () => {
     expect(getRepositoryPathSlug('maven', 'validated')).toBe('java-validated');
     expect(getRepositoryPathSlug('python', 'remediated')).toBe('python-remediated');
+    expect(getRepositoryPathSlug('npm', 'validated')).toBe('javascript-validated');
   });
 
   it('returns empty string when content type or security level is missing', () => {

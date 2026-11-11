@@ -1,4 +1,7 @@
-import { getPythonPackageUsageSnippetTabs } from './packageDependencySnippets';
+import {
+  getNpmPackageUsageSnippetTabs,
+  getPythonPackageUsageSnippetTabs,
+} from './packageDependencySnippets';
 
 it.each([
   ['validated', '2.21.2'],
@@ -45,3 +48,22 @@ it.each(['validated', 'remediated'])(
     );
   },
 );
+
+it('pins the npm install command to the registry and the package.json entry to the version', () => {
+  const tabs = getNpmPackageUsageSnippetTabs({
+    name: '@types/node',
+    release: '1.0.0',
+    sourceUrl: 'https://packages.redhat.com/api/pulp-content/lightwell/javascript/validated/',
+  });
+
+  expect(tabs.map((tab) => tab.eventKey)).toEqual(['npm', 'package.json']);
+  expect(tabs[0].snippets[0].code).toBe(
+    'npm install @types/node@1.0.0 --registry=https://packages.redhat.com/lightwell/javascript/validated/',
+  );
+  expect(JSON.parse(tabs[1].snippets[0].code)).toEqual({
+    dependencies: { '@types/node': '1.0.0' },
+  });
+  expect(tabs[1].snippets[1].code).toBe(
+    'registry=https://packages.redhat.com/lightwell/javascript/validated/',
+  );
+});

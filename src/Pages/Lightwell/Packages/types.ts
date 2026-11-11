@@ -1,8 +1,12 @@
 import type { AdvisorySeverity } from './utils/severity';
 
-export type PackageCoordinate = { name: string; group?: string } & (
-  { isMaven: boolean; isPython?: never } | { isPython: boolean; isMaven?: never }
-);
+export type LightwellEcosystem = 'maven' | 'python' | 'npm';
+
+export type PackageCoordinate = {
+  name: string;
+  group?: string;
+  ecosystem: LightwellEcosystem;
+};
 
 export type PackageAdvisoryRemediation = {
   advisoryName: string;

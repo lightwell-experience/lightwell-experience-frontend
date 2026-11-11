@@ -10,6 +10,7 @@ import {
 } from '@patternfly/react-core';
 import UrlWithExternalIcon from 'components/UrlWithLinkIcon/UrlWithLinkIcon';
 import dayjs from 'dayjs';
+import type { NpmPackageDetailResponse } from 'services/Content/ContentApi';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useState } from 'react';
 dayjs.extend(relativeTime);
@@ -17,6 +18,8 @@ dayjs.extend(relativeTime);
 type PackageSidebarProps = {
   lastUpdated: string;
   groupId?: string;
+  scope?: string;
+  tarball?: NpmPackageDetailResponse['tarball'];
   upstreamVersion: string;
   allVersions?: string[];
   license?: string;
@@ -28,6 +31,8 @@ type PackageSidebarProps = {
 const PackageSidebar = ({
   lastUpdated,
   groupId,
+  scope,
+  tarball,
   upstreamVersion,
   allVersions,
   license,
@@ -82,6 +87,13 @@ const PackageSidebar = ({
               <DescriptionListDescription>{groupId}</DescriptionListDescription>
             </DescriptionListGroup>
           ) : null}
+          {/* npm's analogue of Group ID, so it takes the same slot. */}
+          {scope && scope !== '-' ? (
+            <DescriptionListGroup>
+              <DescriptionListTerm>Scope</DescriptionListTerm>
+              <DescriptionListDescription>{scope}</DescriptionListDescription>
+            </DescriptionListGroup>
+          ) : null}
           {author ? (
             <DescriptionListGroup>
               <DescriptionListTerm>{hasRelease ? 'Original author' : 'Author'}</DescriptionListTerm>
@@ -104,6 +116,28 @@ const PackageSidebar = ({
               <DescriptionListTerm>Upstream version</DescriptionListTerm>
               <DescriptionListDescription>{upstreamVersion}</DescriptionListDescription>
             </DescriptionListGroup>
+          ) : null}
+          {tarball?.filename ? (
+            <>
+              <DescriptionListGroup>
+                <DescriptionListTerm>Tarball</DescriptionListTerm>
+                <DescriptionListDescription>{tarball.filename}</DescriptionListDescription>
+              </DescriptionListGroup>
+              <DescriptionListGroup>
+                <DescriptionListTerm>Size</DescriptionListTerm>
+                <DescriptionListDescription>
+                  {tarball.size.toLocaleString()} bytes
+                </DescriptionListDescription>
+              </DescriptionListGroup>
+              {tarball.sha256 ? (
+                <DescriptionListGroup>
+                  <DescriptionListTerm>SHA-256</DescriptionListTerm>
+                  <DescriptionListDescription style={{ overflowWrap: 'anywhere' }}>
+                    {tarball.sha256}
+                  </DescriptionListDescription>
+                </DescriptionListGroup>
+              ) : null}
+            </>
           ) : null}
           {projectUrl ? (
             <DescriptionListGroup>

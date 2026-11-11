@@ -74,7 +74,7 @@ index-url = ${indexUrl}`,
 export const getMavenPackageUsageSnippetTabs = (
   pkg: MavenPackageSnippetInput,
 ): ConnectSnippetTab[] => {
-  const packageCoordinate = getPackageCoordinate({ ...pkg, isMaven: true });
+  const packageCoordinate = getPackageCoordinate({ ...pkg, ecosystem: 'maven' });
 
   return [
     {
@@ -100,6 +100,38 @@ export const getMavenPackageUsageSnippetTabs = (
           label: 'Add to your build.gradle:',
           code: `// Source: ${pkg.sourceUrl}
 implementation("${packageCoordinate}:${pkg.release}")`,
+        },
+      ],
+    },
+  ];
+};
+
+export const getNpmPackageUsageSnippetTabs = (pkg: PythonPackageVersion): ConnectSnippetTab[] => {
+  const registryUrl = formatDistributionUrl(pkg.sourceUrl);
+
+  return [
+    {
+      eventKey: 'npm',
+      title: 'npm',
+      snippets: [
+        {
+          label: 'Install with npm:',
+          code: `npm install ${pkg.name}@${pkg.release} --registry=${registryUrl}`,
+        },
+      ],
+    },
+    {
+      eventKey: 'package.json',
+      title: 'package.json',
+      snippets: [
+        {
+          label: 'Add to package.json:',
+          code: JSON.stringify({ dependencies: { [pkg.name]: pkg.release } }, null, 2),
+        },
+        {
+          // package.json cannot carry a registry, so the adjacent .npmrc has to.
+          label: 'Add .npmrc beside package.json so the dependency resolves from Lightwell:',
+          code: `registry=${registryUrl}`,
         },
       ],
     },

@@ -32,7 +32,7 @@ import text from '@patternfly/react-styles/css/utilities/Text/text';
 
 import EmptyTableState from './components/EmptyTableState';
 import Hide from 'components/Hide/Hide';
-import { FilterData } from 'services/Content/ContentApi';
+import { FilterData, getLightwellBrowserRepositories } from 'services/Content/ContentApi';
 import { useContentListQuery } from 'services/Content/ContentQueries';
 
 import {
@@ -53,6 +53,7 @@ import {
   formatRepositoryName,
   getRepositoryPathSlug,
   getSlugFromRepositoryName,
+  sortLightwellRepositories,
 } from '../helpers';
 import ConnectRepositoryModal from './components/ConnectRepositoryModal';
 import { capitalize } from 'lodash';
@@ -115,18 +116,21 @@ const RepositoriesTable = () => {
   const useMock = LIGHTWELL_USE_MOCK;
 
   const mockRepositoryListQuery = useQuery({
-    queryKey: ['lightwell-repositories-mock', page, perPage, filters, isDemo],
+    queryKey: ['lightwell-repositories-mock', filters, isDemo],
     queryFn: () =>
       isDemo
-        ? getDemoLightwellRepositoryList(page, perPage, filters)
-        : getMockLightwellRepositoryList(page, perPage, filters),
+        ? getDemoLightwellRepositoryList(1, 100, filters)
+        : getMockLightwellRepositoryList(1, 100, filters),
     placeholderData: keepPreviousData,
     staleTime: 20000,
     enabled: useMock,
   });
 
   // Fetch repositories with the lightwell-network feature
-  const apiRepositoryListQuery = useContentListQuery(page, perPage, filters, '', [], !useMock);
+  const apiRepositoryListQuery = useContentListQuery(1, 100, filters, '', [], !useMock, false, {
+    queryKey: ['LIGHTWELL_BROWSER_REPOSITORIES', filters.feature_name],
+    queryFn: () => getLightwellBrowserRepositories(filters),
+  });
 
   const {
     isLoading,
@@ -135,10 +139,10 @@ const RepositoriesTable = () => {
     data = { data: [], meta: { count: 0, limit: 20, offset: 0 } },
   } = useMock ? mockRepositoryListQuery : apiRepositoryListQuery;
 
-  const {
-    data: repositories = [],
-    meta: { count = 0 },
-  } = data;
+  // Repository visibility is the backend's job (OPTIONS_LIGHTWELL_IGNORE_REPOS); only order here.
+  const sortedRepositories = useMemo(() => sortLightwellRepositories(data.data), [data.data]);
+  const count = sortedRepositories.length;
+  const repositories = sortedRepositories.slice((page - 1) * perPage, page * perPage);
 
   if (isError) throw error;
 

@@ -5,6 +5,8 @@ import {
   ContentOrigin,
   FilterData,
   getContentList,
+  getNpmPackageVersions,
+  getNpmPackageDetail,
   getLightwellRepositoryPackages,
   getMavenPackageVersionsList,
   getPythonPackageVersions,
@@ -108,4 +110,32 @@ export const usePythonPackageVersionsQuery = (uuid: string, name: string, enable
       title: 'Unable to load package versions.',
       id: 'python-package-versions-error',
     },
+  });
+
+export const useNpmPackageVersionsQuery = (
+  uuid: string,
+  scope: string,
+  name: string,
+  enabled: boolean,
+) =>
+  useQuery({
+    queryKey: ['NPM_PACKAGE_VERSIONS', uuid, scope, name],
+    meta: { title: 'Unable to load package versions.', id: 'npm-package-versions-error' },
+    queryFn: () => getNpmPackageVersions(uuid, scope, name),
+    enabled: enabled && !!uuid && !!name,
+    staleTime: 60000,
+  });
+export const useNpmPackageDetailQuery = (
+  uuid: string,
+  scope: string,
+  name: string,
+  version: string,
+  enabled: boolean,
+) =>
+  useQuery({
+    queryKey: ['NPM_PACKAGE_DETAIL', uuid, scope, name, version],
+    meta: { title: 'Unable to load version metadata.', id: 'npm-package-detail-error' },
+    queryFn: () => getNpmPackageDetail(uuid, scope, name, version),
+    enabled: enabled && !!uuid && !!name && !!version,
+    staleTime: 60000,
   });

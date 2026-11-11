@@ -32,37 +32,51 @@ describe('formatReleaseDate', () => {
 });
 
 describe('getPackageCoordinate', () => {
-  it('formats Maven names with either ecosystem flag', () => {
-    expect(getPackageCoordinate({ name: 'json', group: 'org.json', isMaven: true })).toBe(
+  it('joins a Maven group with a colon', () => {
+    expect(getPackageCoordinate({ name: 'json', group: 'org.json', ecosystem: 'maven' })).toBe(
       'org.json:json',
     );
-    expect(getPackageCoordinate({ name: 'json', group: 'org.json', isPython: false })).toBe(
-      'org.json:json',
-    );
-    expect(getPackageCoordinate({ name: 'json', isMaven: true })).toBe('json');
-    expect(getPackageCoordinate({ name: 'json', group: '', isMaven: true })).toBe('json');
+    expect(getPackageCoordinate({ name: 'json', ecosystem: 'maven' })).toBe('json');
+    expect(getPackageCoordinate({ name: 'json', group: '', ecosystem: 'maven' })).toBe('json');
   });
 
   it('uses only the package name for Python, even when a group is present', () => {
-    expect(getPackageCoordinate({ name: 'requests', group: 'ignored', isPython: true })).toBe(
+    expect(getPackageCoordinate({ name: 'requests', group: 'ignored', ecosystem: 'python' })).toBe(
       'requests',
     );
-    expect(getPackageCoordinate({ name: 'requests', group: 'ignored', isMaven: false })).toBe(
-      'requests',
+  });
+
+  it('joins an npm scope with a slash and treats the "-" sentinel as unscoped', () => {
+    expect(getPackageCoordinate({ name: 'node', group: '@types', ecosystem: 'npm' })).toBe(
+      '@types/node',
     );
+    expect(getPackageCoordinate({ name: 'express', group: '-', ecosystem: 'npm' })).toBe('express');
+    expect(getPackageCoordinate({ name: 'express', ecosystem: 'npm' })).toBe('express');
   });
 });
 
 describe('formatReleaseCopyText', () => {
   it('formats maven coordinates', () => {
     expect(
-      formatReleaseCopyText({ name: 'json', group: 'org.json', isMaven: true }, '1.2.3.rhlw-00001'),
+      formatReleaseCopyText(
+        { name: 'json', group: 'org.json', ecosystem: 'maven' },
+        '1.2.3.rhlw-00001',
+      ),
     ).toBe('org.json:json:1.2.3.rhlw-00001');
   });
 
   it('formats a pip install command for python packages', () => {
-    expect(formatReleaseCopyText({ name: 'requests', isPython: true }, '1.2.3')).toBe(
+    expect(formatReleaseCopyText({ name: 'requests', ecosystem: 'python' }, '1.2.3')).toBe(
       'pip install requests==1.2.3',
+    );
+  });
+
+  it('formats an npm install command, keeping the scope in the coordinate', () => {
+    expect(
+      formatReleaseCopyText({ name: 'node', group: '@types', ecosystem: 'npm' }, '1.0.0'),
+    ).toBe('npm install @types/node@1.0.0');
+    expect(formatReleaseCopyText({ name: 'express', group: '-', ecosystem: 'npm' }, '1.0.0')).toBe(
+      'npm install express@1.0.0',
     );
   });
 });

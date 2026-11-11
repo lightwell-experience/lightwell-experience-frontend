@@ -20,13 +20,14 @@ import ConnectRepositoryModal from '../../Repositories/components/ConnectReposit
 import { ConnectSnippetTab } from '../../Repositories/components/connectSnippets';
 import {
   getMavenPackageUsageSnippetTabs,
+  getNpmPackageUsageSnippetTabs,
   getPythonPackageUsageSnippetTabs,
 } from '../components/packageDependencySnippets';
 import LatestReleaseFixes from '../components/LatestReleaseFixes';
 import { fixesCardHeight, fixesCardWidth } from '../components/FixesCard';
 import { useLatestReleaseFixes } from '../hooks/useLatestReleaseFixes';
 import { getPackageCoordinate } from '../utils/format';
-import { getPackageByRepositoryDescription } from '../../helpers';
+import { getPackageByRepositoryDescription, toLightwellEcosystem } from '../../helpers';
 
 type PackageOverviewTabProps = {
   isMaven: boolean;
@@ -59,19 +60,25 @@ const PackageOverviewTab = ({
 }: PackageOverviewTabProps) => {
   const tabs = useMemo(
     () =>
-      isMaven
-        ? getMavenPackageUsageSnippetTabs({
-            group,
-            name,
+      repository?.content_type === 'npm'
+        ? getNpmPackageUsageSnippetTabs({
+            name: group && group !== '-' ? `${group}/${name}` : name,
             release: latestRelease,
             sourceUrl,
           })
-        : getPythonPackageUsageSnippetTabs({
-            name,
-            release: latestRelease,
-            sourceUrl,
-          }),
-    [isMaven, group, name, latestRelease, sourceUrl],
+        : isMaven
+          ? getMavenPackageUsageSnippetTabs({
+              group,
+              name,
+              release: latestRelease,
+              sourceUrl,
+            })
+          : getPythonPackageUsageSnippetTabs({
+              name,
+              release: latestRelease,
+              sourceUrl,
+            }),
+    [isMaven, group, name, latestRelease, sourceUrl, repository?.content_type],
   );
 
   const [activeTabKey, setActiveTabKey] = useState(tabs[0]?.eventKey ?? '');
@@ -84,7 +91,11 @@ const PackageOverviewTab = ({
     repository?.content_type ?? (isMaven ? 'maven' : 'python'),
   );
 
-  const packageCoordinate = getPackageCoordinate({ name, group, isMaven });
+  const packageCoordinate = getPackageCoordinate({
+    name,
+    group,
+    ecosystem: toLightwellEcosystem(repository?.content_type ?? (isMaven ? 'maven' : 'python')),
+  });
   const showRenovate =
     isMaven &&
     (repository?.security_level === 'remediated' || repository?.security_level === 'predisclosure');
@@ -92,7 +103,9 @@ const PackageOverviewTab = ({
     ? showRenovate
       ? 'configure your build tool (Maven, Gradle, Artifactory, Nexus, or Renovate)'
       : 'configure your build tool (Maven, Gradle, Artifactory, or Nexus)'
-    : 'configure your build tool (pip, Pipenv, Poetry, uv, Artifactory, or Nexus)';
+    : repository?.content_type === 'npm'
+      ? 'configure your package manager (npm or Yarn)'
+      : 'configure your build tool (pip, Pipenv, Poetry, uv, Artifactory, or Nexus)';
 
   const { data: latestReleaseFixes, isLoading: isLoadingAdvisories } = useLatestReleaseFixes({
     repository: repository?.name,

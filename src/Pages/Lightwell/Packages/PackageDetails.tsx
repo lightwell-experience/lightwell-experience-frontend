@@ -32,6 +32,8 @@ import LightwellNotFound from '../components/LightwellNotFound';
 import {
   useMavenPackageVersionsListQuery,
   usePythonPackageVersionsQuery,
+  useNpmPackageVersionsQuery,
+  useNpmPackageDetailQuery,
 } from 'services/Content/ContentQueries';
 import { LIGHTWELL_USE_MOCK } from '../constants';
 import {
@@ -39,6 +41,7 @@ import {
   formatRepositoryName,
   getEcosystemIcon,
   getRepositoryNameFromPathSlug,
+  toLightwellEcosystem,
   hasBackportedFixes,
 } from '../helpers';
 import {
@@ -60,6 +63,7 @@ import {
   lightwellReleaseNum,
   pythonLightwellRelease,
   sortVersionsDesc,
+  sortNpmVersionsDesc,
   stripLightwellVersionSuffix,
   toLightwellRelease,
 } from './utils/versions';
@@ -125,15 +129,20 @@ const PackageDetails = () => {
 
   const isMaven = repository?.content_type === 'maven';
   const isPython = repository?.content_type === 'python';
+  const isNpm = repository?.content_type === 'npm';
+  const ecosystem = toLightwellEcosystem(repository?.content_type);
 
   const packageCoordinate = getPackageCoordinate({
     name: packageName,
     group: packageGroup,
-    isMaven,
+    ecosystem,
   });
 
   const hasValidPackagePath =
-    Boolean(packageName) && ((isMaven && Boolean(packageGroup)) || (isPython && !packageGroup));
+    Boolean(packageName) &&
+    ((isMaven && Boolean(packageGroup)) ||
+      (isPython && !packageGroup) ||
+      (isNpm && (!packageGroup || /^@[a-z0-9_.-]+$/i.test(packageGroup))));
 
   const appBreadcrumbsEnabled = useFlag('platform.chrome.app-breadcrumbs');
 
@@ -142,7 +151,7 @@ const PackageDetails = () => {
     : '';
   const breadcrumbPackageName = packageCoordinate || '';
   const breadcrumbPackagePath =
-    isMaven && packageGroup
+    (isMaven || isNpm) && packageGroup
       ? `${rootPath}/${repoSlug}/${encodeURIComponent(packageGroup)}/${encodeURIComponent(packageName)}`
       : `${rootPath}/${repoSlug}/${encodeURIComponent(packageName)}`;
 
@@ -175,13 +184,27 @@ const PackageDetails = () => {
     repoUUID,
     packageGroup,
     packageName,
-    !useMock,
+    isMaven && !useMock,
   );
 
   const pythonPackageVersionsQuery = usePythonPackageVersionsQuery(
     repoUUID,
     packageName,
     isPython && !!repoUUID && !!packageName && !useMock,
+  );
+
+  const npmVersionsQuery = useNpmPackageVersionsQuery(
+    repoUUID,
+    packageGroup || '-',
+    packageName,
+    isNpm &&
+      hasValidPackagePath &&
+      repository?.name === getRepositoryNameFromPathSlug(repoSlug) &&
+      !useMock,
+  );
+  const npmVersions = useMemo(
+    () => sortNpmVersionsDesc(npmVersionsQuery.data?.versions.map((v) => v.version) ?? []),
+    [npmVersionsQuery.data],
   );
 
   const mockMavenVersionsList = useMemo(
@@ -250,9 +273,24 @@ const PackageDetails = () => {
     }));
   }, [pythonUsesBuilds, pythonVersionItems]);
 
-  const packageVersion = isMaven ? (mavenVersions[0] ?? '') : (pythonVersions[0] ?? '');
+  const versionOptions = isNpm ? npmVersions : isPython ? pythonVersions : mavenVersions;
 
-  const activeVersion = selectedVersion || packageVersion;
+  const packageVersion = versionOptions[0] ?? '';
+
+  // The reset effect below runs after render, so ignore a selection the new package lacks.
+  const activeVersion =
+    selectedVersion && versionOptions.includes(selectedVersion) ? selectedVersion : packageVersion;
+  const npmDetailQuery = useNpmPackageDetailQuery(
+    repoUUID,
+    packageGroup || '-',
+    packageName,
+    activeVersion,
+    isNpm &&
+      hasValidPackagePath &&
+      repository?.name === getRepositoryNameFromPathSlug(repoSlug) &&
+      !useMock,
+  );
+  const npmDetail = npmDetailQuery.data;
 
   const mavenDetail = mavenVersionsData?.versions.find((v) => v.version === activeVersion);
 
@@ -309,8 +347,6 @@ const PackageDetails = () => {
     );
   }, [pythonUsesBuilds, pythonVersionItems, pythonBuilds, activeVersion]);
 
-  const versionOptions = isPython ? pythonVersions : mavenVersions;
-
   useLayoutEffect(() => {
     if (!versionOptions.length) {
       return;
@@ -323,17 +359,31 @@ const PackageDetails = () => {
 
   const isLoadingDetail = useMock
     ? false
-    : isMaven
-      ? mavenVersionsListQuery.isLoading
-      : pythonPackageVersionsQuery.isLoading && !pythonPackageVersionsQuery.data;
+    : isNpm
+      ? npmVersionsQuery.isLoading
+      : isMaven
+        ? mavenVersionsListQuery.isLoading
+        : pythonPackageVersionsQuery.isLoading && !pythonPackageVersionsQuery.data;
 
   const isFetchingDetail =
     !useMock &&
-    Boolean(isMaven ? mavenVersionsListQuery.isFetching : pythonPackageVersionsQuery.isFetching);
+    Boolean(
+      isNpm
+        ? npmVersionsQuery.isFetching
+        : isMaven
+          ? mavenVersionsListQuery.isFetching
+          : pythonPackageVersionsQuery.isFetching,
+    );
 
   const isErrorDetail =
     !useMock &&
-    Boolean(isMaven ? mavenVersionsListQuery.isError : pythonPackageVersionsQuery.isError);
+    Boolean(
+      isNpm
+        ? npmVersionsQuery.isError
+        : isMaven
+          ? mavenVersionsListQuery.isError
+          : pythonPackageVersionsQuery.isError,
+    );
 
   const builds = isMaven ? (hasRelease ? mavenBuilds : (mavenDetail?.builds ?? [])) : pythonBuilds;
   const latestBuild = builds[0];
@@ -344,7 +394,7 @@ const PackageDetails = () => {
     version: activeVersion,
     repository: repositoryMatchesRoute ? (repository?.name ?? '') : '',
     group: packageGroup,
-    isPython,
+    ecosystem,
     latestPackageRelease: latestRelease,
   };
 
@@ -390,6 +440,7 @@ const PackageDetails = () => {
     return <LightwellNotFound />;
   }
 
+  // TODO: use npmDetail.upstream_version once JavaScript remediated ships; validated has no suffix.
   const upstreamVersion = isMaven ? (latestBuild?.version ?? activeVersion) : activeVersion;
 
   const displayVersion =
@@ -397,34 +448,46 @@ const PackageDetails = () => {
       ? toLightwellRelease(latestBuild)
       : activeVersion;
 
-  const lastUpdated = pythonUsesBuilds
-    ? (pythonVersionReleases
-        .filter((release) => release.version === activeVersion)
-        .map((build) => build.created_at)
-        .sort()
-        .at(-1) ?? '')
-    : isMaven
-      ? (builds
+  const lastUpdated = isNpm
+    ? (npmDetail?.last_updated ??
+      npmVersionsQuery.data?.versions.find((v) => v.version === activeVersion)?.last_updated ??
+      '')
+    : pythonUsesBuilds
+      ? (pythonVersionReleases
+          .filter((release) => release.version === activeVersion)
           .map((build) => build.created_at)
           .sort()
           .at(-1) ?? '')
-      : (pythonDetail?.last_updated ?? '');
+      : isMaven
+        ? (builds
+            .map((build) => build.created_at)
+            .sort()
+            .at(-1) ?? '')
+        : (pythonDetail?.last_updated ?? '');
 
   const detailReady = !isLoadingDetail;
-  const hasVersionsData = isMaven ? !!mavenVersionsData : !!pythonVersionsData;
+  const hasVersionsData = isNpm
+    ? !!npmVersionsQuery.data
+    : isMaven
+      ? !!mavenVersionsData
+      : !!pythonVersionsData;
   const doneLoading = detailReady && (hasVersionsData || (isErrorDetail && !isFetchingDetail));
 
   const hasDetail =
     detailReady &&
-    (isMaven
-      ? builds.length > 0 || (!hasRelease && mavenVersions.length > 0)
-      : pythonVersions.length > 0);
+    (isNpm
+      ? npmVersions.length > 0
+      : isMaven
+        ? builds.length > 0 || (!hasRelease && mavenVersions.length > 0)
+        : pythonVersions.length > 0);
 
   const showEmpty = doneLoading && !hasDetail;
 
-  const showVersionsTab = isMaven
-    ? !hasRelease
-    : isPython && !hasRelease && pythonVersions.length > 0;
+  const showVersionsTab = isNpm
+    ? npmVersions.length > 0
+    : isMaven
+      ? !hasRelease
+      : isPython && !hasRelease && pythonVersions.length > 0;
 
   const showReleasesTab = hasRelease && (isMaven || isPython);
 
@@ -601,6 +664,9 @@ const PackageDetails = () => {
                         aria-label='Overview'
                       >
                         <TabContentBody hasPadding>
+                          {isNpm && npmDetailQuery.isError && (
+                            <p role='alert'>Unable to load version metadata.</p>
+                          )}
                           <PackageOverviewTab
                             isMaven={isMaven}
                             group={packageGroup}
@@ -640,7 +706,7 @@ const PackageDetails = () => {
                               packageCoordinate={{
                                 name: packageName,
                                 group: packageGroup,
-                                isPython,
+                                ecosystem,
                               }}
                             />
                           </TabContentBody>
@@ -658,7 +724,15 @@ const PackageDetails = () => {
                             <PackageVersionsTab
                               currentVersion={selectedVersion || activeVersion}
                               versions={versionOptions}
-                              latestReleases={isPython ? pythonVersionReleases : mavenAllReleases}
+                              latestReleases={
+                                isNpm
+                                  ? (npmVersionsQuery.data?.versions.flatMap(
+                                      (v) => v.builds ?? [],
+                                    ) ?? [])
+                                  : isPython
+                                    ? pythonVersionReleases
+                                    : mavenAllReleases
+                              }
                               onVersionSelect={setSelectedVersion}
                             />
                           </TabContentBody>
@@ -683,7 +757,7 @@ const PackageDetails = () => {
                               isPlaceholderData={isPlaceholderRemediations}
                               formatCopyText={(version) =>
                                 formatReleaseCopyText(
-                                  { name: packageName, group: packageGroup, isPython },
+                                  { name: packageName, group: packageGroup, ecosystem },
                                   version,
                                 )
                               }
@@ -696,7 +770,9 @@ const PackageDetails = () => {
                   <GridItem md={4}>
                     <PackageSidebar
                       lastUpdated={lastUpdated}
-                      groupId={packageGroup}
+                      groupId={isMaven ? packageGroup : undefined}
+                      scope={isNpm ? packageGroup : undefined}
+                      tarball={isNpm ? npmDetail?.tarball : undefined}
                       upstreamVersion={upstreamVersion}
                       allVersions={
                         isMaven && !hasRelease

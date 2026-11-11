@@ -47,6 +47,7 @@ import {
   getEcosystemIcon,
   getRepositoryDescription,
   hasBackportedFixes,
+  toLightwellEcosystem,
 } from '../helpers';
 import Hide from 'components/Hide/Hide';
 import { LIGHTWELL_USE_MOCK, lightwellPkgsPerPageKey } from '../constants';
@@ -61,6 +62,7 @@ import {
   compareReleasesDesc,
   pythonLightwellRelease,
   sortVersionsDesc,
+  sortNpmVersionsDesc,
   stripLightwellVersionSuffix,
   toLightwellRelease,
 } from './utils/versions';
@@ -113,6 +115,7 @@ type PackageColumnHeader = {
 const mapRepositoryPackage = (
   pkg: RepositoryPackageItem,
   isPythonWithFixes: boolean,
+  isNpm: boolean,
 ): MappedPackage => {
   const latestCreatedAt = pkg.latest_releases
     .map((release) => release.created_at)
@@ -138,14 +141,18 @@ const mapRepositoryPackage = (
     return true;
   });
 
-  const sortedVersions =
-    latestReleasePerVersion.length > 0
-      ? latestReleasePerVersion.map((release) => release.version)
-      : sortVersionsDesc(
-          isPythonWithFixes
-            ? [...new Set(pkg.versions.map(stripLightwellVersionSuffix))]
-            : pkg.versions,
-        );
+  const releaseVersions = latestReleasePerVersion.map((release) => release.version);
+  const rawVersions = isPythonWithFixes
+    ? [...new Set(pkg.versions.map(stripLightwellVersionSuffix))]
+    : pkg.versions;
+
+  // npm ranks by SemVer precedence. Maven and Python keep release order when releases
+  // exist, and fall back to the dotted-numeric comparator when they do not.
+  const sortedVersions = isNpm
+    ? sortNpmVersionsDesc(releaseVersions.length > 0 ? releaseVersions : rawVersions)
+    : releaseVersions.length > 0
+      ? releaseVersions
+      : sortVersionsDesc(rawVersions);
 
   return {
     group_id: pkg.group,
@@ -277,17 +284,30 @@ const PackagesTable = () => {
       return {
         packages: mockPackages
           .slice(offset, offset + perPage)
-          .map((pkg) => mapRepositoryPackage(pkg, isPythonWithFixes)),
+          .map((pkg) =>
+            mapRepositoryPackage(pkg, isPythonWithFixes, repository?.content_type === 'npm'),
+          ),
         packageCount: mockPackages.length,
       };
     }
 
     const results = packagesData?.results ?? [];
     return {
-      packages: results.map((pkg) => mapRepositoryPackage(pkg, isPythonWithFixes)),
+      packages: results.map((pkg) =>
+        mapRepositoryPackage(pkg, isPythonWithFixes, repository?.content_type === 'npm'),
+      ),
       packageCount: packagesData?.total ?? 0,
     };
-  }, [useMock, repoUUID, debouncedSearch, page, perPage, packagesData, isPythonWithFixes]);
+  }, [
+    useMock,
+    repoUUID,
+    debouncedSearch,
+    page,
+    perPage,
+    packagesData,
+    isPythonWithFixes,
+    repository?.content_type,
+  ]);
 
   const rootPath = useLightwellRootPath();
   const appBreadcrumbsEnabled = useFlag('platform.chrome.app-breadcrumbs');
@@ -365,7 +385,8 @@ const PackagesTable = () => {
   const isPredisclosure = repository.security_level === 'predisclosure';
   const showReleaseColumn = isRemediated || isPredisclosure;
   const isMaven = repository.content_type === 'maven';
-  const isPython = repository.content_type === 'python';
+  const isNpm = repository.content_type === 'npm';
+  const ecosystem = toLightwellEcosystem(repository.content_type);
 
   const columnHeaders: PackageColumnHeader[] = [
     { title: 'Package', width: 25, sortBy: 'name' },
@@ -454,8 +475,20 @@ const PackagesTable = () => {
             <ToolbarItem className={classes.filterToolbarItem}>
               <SearchInput
                 id='lightwell-package-filter'
-                aria-label={isMaven ? 'Filter by name or group ID' : 'Filter by name'}
-                placeholder={isMaven ? 'Filter by name or group ID' : 'Filter by name'}
+                aria-label={
+                  isMaven
+                    ? 'Filter by name or group ID'
+                    : isNpm
+                      ? 'Filter by name or scope'
+                      : 'Filter by name'
+                }
+                placeholder={
+                  isMaven
+                    ? 'Filter by name or group ID'
+                    : isNpm
+                      ? 'Filter by name or scope'
+                      : 'Filter by name'
+                }
                 value={searchQuery}
                 onChange={(_event, value) => setSearchQuery(value)}
                 onClear={() => setSearchQuery('')}
@@ -514,12 +547,12 @@ const PackagesTable = () => {
                         const packageCoordinate = getPackageCoordinate({
                           name,
                           group: group_id,
-                          isMaven,
+                          ecosystem,
                         });
 
                         const renderCopyLabel = (version: string) => (
                           <PackageCopyLabel
-                            packageCoordinate={{ name, group: group_id, isPython }}
+                            packageCoordinate={{ name, group: group_id, ecosystem }}
                             version={version}
                           />
                         );
@@ -536,7 +569,8 @@ const PackagesTable = () => {
                                   navigateTo('packageDetails', {
                                     repoSlug,
                                     packageName: name,
-                                    groupId: isMaven ? group_id : undefined,
+                                    groupId:
+                                      isMaven || (isNpm && group_id !== '-') ? group_id : undefined,
                                     packagesParams,
                                   })
                                 }

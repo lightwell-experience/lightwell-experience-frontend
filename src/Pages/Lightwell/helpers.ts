@@ -1,5 +1,7 @@
+import type { ContentItem } from 'services/Content/ContentApi';
+import type { LightwellEcosystem } from './Packages/types';
 import { createElement, type ReactElement } from 'react';
-import { CodeIcon, JavaIcon, PythonIcon } from '@patternfly/react-icons';
+import { CodeIcon, JavaIcon, PythonIcon, JsIcon } from '@patternfly/react-icons';
 import { capitalize } from 'lodash';
 import {
   CONTENT_TYPE_PARAMETERS,
@@ -17,11 +19,24 @@ const getContentTypeParameters = (contentType?: string) => {
 export const getEcosystemFromContentType = (contentType?: string): string | undefined =>
   getContentTypeParameters(contentType)?.ecosystem;
 
+/**
+ * Narrows an API content_type (optional, untyped) to the ecosystem discriminator used by
+ * PackageCoordinate. Unknown or missing types fall back to Maven, matching the previous
+ * `isMaven ?? !isPython` default. This is the single place that default lives.
+ */
+export const toLightwellEcosystem = (contentType?: string): LightwellEcosystem => {
+  const normalized = contentType?.toLowerCase();
+  return normalized === 'npm' || normalized === 'python' ? normalized : 'maven';
+};
+
 export const getEcosystemIcon = (ecosystemOrContentType?: string): ReactElement => {
   switch (ecosystemOrContentType?.toLowerCase()) {
     case 'java':
     case 'maven':
       return createElement(JavaIcon);
+    case 'npm':
+    case 'javascript':
+      return createElement(JsIcon);
     case 'python':
       return createElement(PythonIcon);
     default:
@@ -67,7 +82,7 @@ export const formatRepositoryName = (
   const ecosystem = getEcosystemFromContentType(contentType);
 
   if (ecosystem && securityLevel) {
-    return `${capitalize(ecosystem)} ${capitalize(securityLevel)}`;
+    return `${ecosystem} ${capitalize(securityLevel)}`;
   }
 
   return fallbackName || '—';
@@ -145,3 +160,14 @@ export const formatPythonIndexUrl = (url: string): string =>
  */
 export const formatPythonDisplayUrl = (url: string): string =>
   `${stripPythonSimpleSuffix(url)}/simple/`;
+
+export const sortLightwellRepositories = (repositories: ContentItem[]): ContentItem[] => {
+  const ecosystemOrder: Record<string, number> = { maven: 0, python: 1, npm: 2 };
+  const securityOrder: Record<string, number> = { predisclosure: 0, remediated: 1, validated: 2 };
+  return [...repositories].sort(
+    (a, b) =>
+      (ecosystemOrder[a.content_type ?? ''] ?? 3) - (ecosystemOrder[b.content_type ?? ''] ?? 3) ||
+      (securityOrder[a.security_level ?? ''] ?? 3) - (securityOrder[b.security_level ?? ''] ?? 3) ||
+      a.name.localeCompare(b.name),
+  );
+};

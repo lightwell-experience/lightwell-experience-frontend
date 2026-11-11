@@ -2,6 +2,7 @@ import {
   compareReleasesDesc,
   compareVersionsDesc,
   lightwellReleaseNum,
+  sortNpmVersionsDesc,
   sortVersionsDesc,
   stripLightwellVersionSuffix,
   toLightwellRelease,
@@ -107,5 +108,34 @@ describe('toLightwellRelease', () => {
     expect(toLightwellRelease({ version: '5.3.18', release: '.rhlw-00007' })).toBe(
       '5.3.18.rhlw-00007',
     );
+  });
+});
+
+describe('sortNpmVersionsDesc', () => {
+  it('ranks stable above prerelease and orders prerelease identifiers by SemVer precedence', () => {
+    expect(
+      sortNpmVersionsDesc([
+        '1.0.0-alpha.2',
+        '1.0.0-beta',
+        '1.0.0',
+        '1.0.0-alpha.10',
+        '1.0.0-alpha',
+        '2.0.0',
+      ]),
+    ).toEqual(['2.0.0', '1.0.0', '1.0.0-beta', '1.0.0-alpha.10', '1.0.0-alpha.2', '1.0.0-alpha']);
+  });
+
+  it('ranks numeric prerelease identifiers below alphanumeric ones', () => {
+    expect(sortNpmVersionsDesc(['1.0.0-1', '1.0.0-alpha'])).toEqual(['1.0.0-alpha', '1.0.0-1']);
+  });
+
+  it('ignores build metadata when ranking', () => {
+    // SemVer 11.2 excludes build metadata from precedence, so 1.0.0 and 1.0.0+build tie.
+    // Only assert placement against versions they do not tie with.
+    expect(sortNpmVersionsDesc(['1.0.0-rc.1', '1.0.0+build', '2.0.0'])).toEqual([
+      '2.0.0',
+      '1.0.0+build',
+      '1.0.0-rc.1',
+    ]);
   });
 });

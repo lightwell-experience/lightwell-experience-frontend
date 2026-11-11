@@ -314,8 +314,52 @@ default = true`,
   ];
 };
 
+// TODO: add docsUrl to each tab once the JavaScript build tool docs page is published.
+const getNpmSnippetTabs = (repository: RepositoryContext): ConnectSnippetTab[] => {
+  const registryUrl = formatDistributionUrl(repository.published_distribution_url || '');
+  // npm keys per-registry auth on the protocol-less registry URL.
+  const authScope = `${registryUrl.replace(/^https?:/, '').replace(/\/+$/, '')}/`;
+
+  return [
+    {
+      eventKey: 'npm',
+      title: 'npm',
+      snippets: [
+        {
+          label: 'Add credentials to ~/.npmrc:',
+          code: `${authScope}:username=<service_account_username>
+${authScope}:_password=<base64_service_account_token>`,
+          description:
+            'Username format: XXXXXXX|service-account-name. npm requires _password to be base64 encoded.',
+        },
+        {
+          label: 'Set as default registry:',
+          code: `npm config set registry ${registryUrl}`,
+        },
+      ],
+    },
+    {
+      eventKey: 'yarn',
+      title: 'Yarn',
+      snippets: [
+        {
+          label: 'Add credentials and registry to .yarnrc.yml:',
+          code: `npmRegistryServer: "${registryUrl}"
+npmAlwaysAuth: true
+npmAuthIdent: "<service_account_username>:<service_account_token>"`,
+          description:
+            'Username format: XXXXXXX|service-account-name. Yarn encodes npmAuthIdent itself, so the token is not base64 encoded. Yarn Classic (1.x) reads ~/.npmrc instead — use the npm tab.',
+        },
+      ],
+    },
+  ];
+};
+
 export const getConnectSnippetTabs = (repository: RepositoryContext): ConnectSnippetTab[] => {
   const contentType = repository.content_type;
+  if (contentType === 'npm') {
+    return getNpmSnippetTabs(repository);
+  }
 
   if (contentType === 'maven') {
     return getMavenSnippetTabs(repository);

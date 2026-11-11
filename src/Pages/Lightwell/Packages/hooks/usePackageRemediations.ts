@@ -5,6 +5,7 @@ import { getMockAdvisoriesForLatestRelease } from 'Pages/Lightwell/mockAdvisorie
 import { usePackageAdvisoriesQuery } from 'services/Lightwell/AdvisoriesQueries';
 import { summarizePackageRemediations, toPackageRemediations } from '../utils/advisories';
 import { getPackageCoordinate } from '../utils/format';
+import type { LightwellEcosystem } from '../types';
 
 type UsePackageRemediationsOptions = {
   enabled?: boolean;
@@ -13,7 +14,7 @@ type UsePackageRemediationsOptions = {
 type UsePackageRemediationsParams = {
   name: string;
   group?: string;
-  isPython: boolean;
+  ecosystem: LightwellEcosystem;
   version: string;
   repository: string;
   latestPackageRelease?: string;
@@ -23,8 +24,8 @@ export const usePackageRemediations = (
   params: UsePackageRemediationsParams,
   { enabled = true }: UsePackageRemediationsOptions = {},
 ) => {
-  const { name, group, isPython, version, repository, latestPackageRelease } = params;
-  const packageCoordinate = getPackageCoordinate({ name, group, isPython });
+  const { name, group, ecosystem, version, repository, latestPackageRelease } = params;
+  const packageCoordinate = getPackageCoordinate({ name, group, ecosystem });
 
   const query = usePackageAdvisoriesQuery(
     { repository, package_name: packageCoordinate, package_version: version },

@@ -186,23 +186,28 @@ it('renders the beacon page with status summary and vulnerability table', async 
   await waitFor(() => {
     expect(screen.getByText('Status Summary')).toBeInTheDocument();
   });
-  expect(screen.getAllByText('No remediation')).toHaveLength(2);
-  expect(screen.getAllByText('On Hold')).toHaveLength(2);
 
-  const summary = document.querySelector('.lw-c-metrics-card');
-  expect(summary).toBeTruthy();
-  const summaryCritical = within(summary as HTMLElement).getByText('Critical');
-  const summaryOnHold = within(summary as HTMLElement).getByText('On Hold');
-  const summaryNoRemediation = within(summary as HTMLElement).getByText('No remediation');
-  expect(
-    summaryCritical.compareDocumentPosition(summaryOnHold) & Node.DOCUMENT_POSITION_FOLLOWING,
-  ).toBeTruthy();
-  expect(
-    summaryOnHold.compareDocumentPosition(summaryNoRemediation) & Node.DOCUMENT_POSITION_FOLLOWING,
-  ).toBeTruthy();
-  expect(summaryOnHold.closest('.lw-c-metrics-count')).toHaveStyle({
-    '--lw-metrics-count-bar-color': 'var(--lw-color--match-status--none)',
+  const summaryDonut = document.querySelector('.lw-c-metrics-donut-chart') as HTMLElement;
+  expect(summaryDonut).toBeInTheDocument();
+  expect(within(summaryDonut).getByText(String(mockBeaconData.meta.count))).toBeInTheDocument();
+  expect(within(summaryDonut).getByText('Total')).toBeInTheDocument();
+
+  const countOf = (status: string) => mockVulnerabilities.filter((v) => v.status === status).length;
+  const onHold = countOf('On Hold');
+  const noRemediation = countOf('Unremediated');
+  const inPipeline = mockVulnerabilities.length - onHold - noRemediation;
+  const summaryLegend = within(summaryDonut).getByRole('list', {
+    name: 'Vulnerability status summary',
   });
+  expect(
+    within(summaryLegend)
+      .getAllByRole('listitem')
+      .map((row) => row.textContent),
+  ).toEqual([
+    `On Hold: ${onHold}`,
+    `No remediation: ${noRemediation}`,
+    `In Pipeline: ${inPipeline}`,
+  ]);
 
   const filters = screen.getByRole('form', { name: 'Filter categories' });
   const filterNetwork = within(filters as HTMLElement).getByText('Available in Lightwell Network');
@@ -305,7 +310,8 @@ it('keeps the status summary card header while metrics are loading', async () =>
   expect(document.querySelector('.lw-c-metrics-card')).toBeInTheDocument();
   expect(document.querySelector('.lw-c-loaded.lw-m-loading')).toBeInTheDocument();
   expect(document.querySelectorAll('.pf-v6-c-skeleton').length).toBeGreaterThan(0);
-  expect(document.querySelector('.pf-m-text-3xl')).toBeInTheDocument();
+  expect(screen.getByText('Loading status summary')).toBeInTheDocument();
+  expect(document.querySelector('.lw-c-metrics-donut-chart')).not.toBeInTheDocument();
   expect(screen.queryByText('Total')).not.toBeInTheDocument();
   expect(screen.getByText('Beacon')).toBeInTheDocument();
   expect(screen.getByText('Customer ID')).toBeInTheDocument();

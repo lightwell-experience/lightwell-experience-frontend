@@ -11,7 +11,7 @@ import {
   Stack,
   Switch,
 } from '@patternfly/react-core';
-import { CodeIcon, BellIcon, InfoCircleIcon } from '@patternfly/react-icons';
+import { CodeIcon, BellIcon } from '@patternfly/react-icons';
 import { useRemoteHook } from '@scalprum/react-core';
 import { useFlag } from '@unleash/proxy-client-react';
 import { SkeletonTable } from '@patternfly/react-component-groups';
@@ -56,6 +56,7 @@ import {
   getSlugFromRepositoryName,
   sortLightwellRepositories,
   isTechPreviewContentType,
+  getSecurityLevelLabelStatus,
 } from '../helpers';
 import ConnectRepositoryModal from './components/ConnectRepositoryModal';
 import { techPreviewPopoverContent } from '../techPreview';
@@ -72,7 +73,7 @@ import {
   PageChromeSlots,
   PageTitleStack,
 } from 'kit/components/assemblies';
-import { LwButton, LwCard, LwLabel, LwPopover } from 'kit/components/primitives';
+import { LwButton, LwCard, LwLabel } from 'kit/components/primitives';
 import { useLightwellNotificationPrefs } from './hooks/useLightwellNotificationPrefs';
 import {
   mapSeveritiesToApi,
@@ -309,6 +310,7 @@ const RepositoriesTable = () => {
                         } = repo;
 
                         const eventType = getRepositoryPathSlug(content_type, security_level);
+                        const securityLevelStatus = getSecurityLevelLabelStatus(security_level);
 
                         return (
                           <Tr key={uuid}>
@@ -333,21 +335,13 @@ const RepositoriesTable = () => {
                                     {formatRepositoryName(content_type, security_level, name)}
                                   </LwButton>
                                   {isTechPreviewContentType(content_type) ? (
-                                    <LwPopover
-                                      {...techPreviewPopoverContent}
-                                      hasTrigger={
-                                        // onClick renders the Label as a focusable button;
-                                        // LwPopover owns the open/close state.
-                                        <LwLabel
-                                          color='purple'
-                                          icon={<InfoCircleIcon />}
-                                          isCompact
-                                          onClick={() => undefined}
-                                        >
-                                          {TECH_PREVIEW_LABEL_TEXT}
-                                        </LwLabel>
-                                      }
-                                    />
+                                    <LwLabel
+                                      status='techPreview'
+                                      isCompact
+                                      popover={techPreviewPopoverContent}
+                                    >
+                                      {TECH_PREVIEW_LABEL_TEXT}
+                                    </LwLabel>
                                   ) : null}
                                 </Flex>
                                 <FlexItem>
@@ -382,16 +376,10 @@ const RepositoriesTable = () => {
                               {getEcosystemFromContentType(content_type)}
                             </Td>
                             <Td dataLabel={columnHeaders[2].title}>
-                              {security_level === 'validated' ? (
-                                <Label variant='outline' color='purple'>
+                              {securityLevelStatus ? (
+                                <LwLabel status={securityLevelStatus}>
                                   {capitalize(security_level)}
-                                </Label>
-                              ) : security_level === 'remediated' ? (
-                                <Label variant='outline' color='orange'>
-                                  {capitalize(security_level)}
-                                </Label>
-                              ) : security_level === 'predisclosure' ? (
-                                <Label color='orange'>{capitalize(security_level)}</Label>
+                                </LwLabel>
                               ) : (
                                 '—'
                               )}

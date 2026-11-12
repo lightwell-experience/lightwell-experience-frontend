@@ -33,6 +33,16 @@ export const toLightwellEcosystem = (contentType?: string): LightwellEcosystem =
 export const isTechPreviewContentType = (contentType?: string): boolean =>
   !!contentType && TECH_PREVIEW_CONTENT_TYPES.includes(contentType.toLowerCase());
 
+const SECURITY_LEVEL_LABEL_STATUSES = ['validated', 'remediated', 'predisclosure'] as const;
+
+/** Security level → kit label status; undefined for levels that show no label. */
+export const getSecurityLevelLabelStatus = (
+  securityLevel?: string,
+): (typeof SECURITY_LEVEL_LABEL_STATUSES)[number] | undefined => {
+  const level = securityLevel?.toLowerCase();
+  return SECURITY_LEVEL_LABEL_STATUSES.find((status) => status === level);
+};
+
 export const getEcosystemIcon = (ecosystemOrContentType?: string): ReactElement => {
   switch (ecosystemOrContentType?.toLowerCase()) {
     case 'java':

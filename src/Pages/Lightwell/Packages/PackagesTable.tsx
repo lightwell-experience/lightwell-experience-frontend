@@ -16,7 +16,7 @@ import {
 } from '@patternfly/react-core';
 import { useRemoteHook } from '@scalprum/react-core';
 import { useFlag } from '@unleash/proxy-client-react';
-import { CodeIcon, InfoCircleIcon } from '@patternfly/react-icons';
+import { CodeIcon } from '@patternfly/react-icons';
 import { SkeletonTable } from '@patternfly/react-component-groups';
 import spacing from '@patternfly/react-styles/css/utilities/Spacing/spacing';
 import text from '@patternfly/react-styles/css/utilities/Text/text';
@@ -91,14 +91,8 @@ import {
   PageChromeSlots,
   PageTitleStack,
 } from 'kit/components/assemblies';
-import {
-  LwAlert,
-  LwButton,
-  LwCard,
-  LwClipboardCopy,
-  LwLabel,
-  LwPopover,
-} from 'kit/components/primitives';
+import { LwAlert, LwButton, LwCard, LwClipboardCopy, LwLabel } from 'kit/components/primitives';
+import { useTechPreviewAlertDismissal } from './hooks/useTechPreviewAlertDismissal';
 
 const useStyles = createUseStyles({
   filterToolbarItem: {
@@ -264,7 +258,6 @@ const PackagesTable = () => {
   const [perPage, setPerPage] = useState(storedPerPage);
 
   const [expandedPackages, setExpandedPackages] = useState<Set<string>>(new Set());
-  const [isTechPreviewAlertDismissed, setIsTechPreviewAlertDismissed] = useState(false);
   const useMock = LIGHTWELL_USE_MOCK;
 
   const {
@@ -274,6 +267,9 @@ const PackagesTable = () => {
     isError,
     error,
   } = useLightwellRepository(repoSlug);
+
+  const isTechPreviewRepository = isTechPreviewContentType(repository?.content_type);
+  const techPreviewAlert = useTechPreviewAlertDismissal(isTechPreviewRepository);
 
   const apiPackagesQuery = useLightwellRepositoryPackagesQuery(
     repoUUID,
@@ -453,17 +449,10 @@ const PackagesTable = () => {
               title={repositoryName}
               icon={getEcosystemIcon(repository?.content_type)}
               labels={
-                isTechPreviewContentType(repository.content_type) ? (
-                  <LwPopover
-                    {...techPreviewPopoverContent}
-                    hasTrigger={
-                      // onClick renders the Label as a focusable button;
-                      // LwPopover owns the open/close state.
-                      <LwLabel color='purple' icon={<InfoCircleIcon />} onClick={() => undefined}>
-                        {TECH_PREVIEW_LABEL_TEXT}
-                      </LwLabel>
-                    }
-                  />
+                isTechPreviewRepository ? (
+                  <LwLabel status='techPreview' popover={techPreviewPopoverContent}>
+                    {TECH_PREVIEW_LABEL_TEXT}
+                  </LwLabel>
                 ) : undefined
               }
               description={getRepositoryDescription(
@@ -494,21 +483,16 @@ const PackagesTable = () => {
                     : formatDistributionUrl(repository.published_distribution_url || '')}
                 </LwClipboardCopy>
               </LwButtonGroup>
-              {isTechPreviewContentType(repository.content_type) &&
-                !isTechPreviewAlertDismissed && (
-                  <LwAlert
-                    variant='info'
-                    actionClose={
-                      <AlertActionCloseButton
-                        onClose={() => setIsTechPreviewAlertDismissed(true)}
-                      />
-                    }
-                    title={TECH_PREVIEW_TITLE}
-                    actionLinks={techPreviewLearnMoreLink}
-                  >
-                    {TECH_PREVIEW_DESCRIPTION}
-                  </LwAlert>
-                )}
+              {isTechPreviewRepository && !techPreviewAlert.isDismissed && (
+                <LwAlert
+                  variant='info'
+                  actionClose={<AlertActionCloseButton onClose={techPreviewAlert.dismiss} />}
+                  title={TECH_PREVIEW_TITLE}
+                  actionLinks={techPreviewLearnMoreLink}
+                >
+                  {TECH_PREVIEW_DESCRIPTION}
+                </LwAlert>
+              )}
               {(isRemediated || isPredisclosure) && <LwAlert />}
             </PageChromeSlotFooter>
           </PageChromeSlot>

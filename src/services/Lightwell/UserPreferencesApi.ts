@@ -9,6 +9,9 @@ export type UserPreferencesResponse = UserPreference[];
 
 export const LIGHTWELL_NOTIFICATION_ENABLED_LABEL = 'lightwell-notification-enabled';
 export const LIGHTWELL_NOTIFICATION_MINIMUM_LABEL = 'lightwell-notification-minimum';
+/** `'true'` once the user dismisses the Technology Preview alert on JavaScript repositories. */
+export const LIGHTWELL_TECH_PREVIEW_ALERT_DISMISSED_LABEL =
+  'lightwell-tech-preview-alert-dismissed';
 export const LIGHTWELL_NOTIFICATION_SEVERITIES = ['critical', 'high', 'medium', 'low'] as const;
 
 export type LightwellNotificationSeverity = (typeof LIGHTWELL_NOTIFICATION_SEVERITIES)[number];

@@ -13,12 +13,24 @@ import {
   defaultPythonValidatedContentItem,
   defaultPythonValidatedPackageItem,
   pythonValidatedPipCommand,
+  queryClient,
   ReactQueryTestWrapper,
 } from 'testingHelpers';
+import {
+  getUserPreferences,
+  LIGHTWELL_TECH_PREVIEW_ALERT_DISMISSED_LABEL,
+  setUserPreference,
+} from 'services/Lightwell/UserPreferencesApi';
 import { ContentItem, RepositoryPackageItem } from 'services/Content/ContentApi';
 import { getRepositoryPathSlug } from '../helpers';
 import useLightwellRepository from '../../../Hooks/Lightwell/useLightwellRepository';
 import { useLightwellNavigateTo } from '../../../Hooks/Lightwell/navigation/useLightwellNavigateTo';
+
+jest.mock('services/Lightwell/UserPreferencesApi', () => ({
+  ...jest.requireActual('services/Lightwell/UserPreferencesApi'),
+  getUserPreferences: jest.fn(),
+  setUserPreference: jest.fn(),
+}));
 
 jest.mock('services/Content/ContentQueries', () => ({
   useLightwellRepositoryPackagesQuery: jest.fn(),
@@ -133,7 +145,17 @@ const clickCopyButton = async (label: string) => {
 
 const javaValidatedTableCopyCommand = `${defaultLightwellRepositoryPackageItem.group}:${defaultLightwellRepositoryPackageItem.name}:3.14.0`;
 
+afterEach(() => {
+  // The test wrapper shares one QueryClient; drop cached preferences between tests.
+  queryClient.clear();
+});
+
 beforeEach(() => {
+  (getUserPreferences as jest.Mock).mockResolvedValue([]);
+  (setUserPreference as jest.Mock).mockImplementation(async (label: string, value: string) => ({
+    label,
+    value,
+  }));
   searchParams = new URLSearchParams();
   mockSetSearchParams.mockClear();
   mockNavigateTo.mockClear();
@@ -271,6 +293,29 @@ it('dismisses the Technology Preview alert', async () => {
   const alert = title.closest('.pf-v6-c-alert') as HTMLElement;
   fireEvent.click(within(alert).getByRole('button', { name: /close/i }));
 
+  expect(screen.queryByText('This repository is in Technology Preview')).not.toBeInTheDocument();
+  await waitFor(() =>
+    expect(setUserPreference).toHaveBeenCalledWith(
+      LIGHTWELL_TECH_PREVIEW_ALERT_DISMISSED_LABEL,
+      'true',
+    ),
+  );
+});
+
+it('hides the Technology Preview alert when the user already dismissed it', async () => {
+  (getUserPreferences as jest.Mock).mockResolvedValue([
+    { label: LIGHTWELL_TECH_PREVIEW_ALERT_DISMISSED_LABEL, value: 'true' },
+  ]);
+  mockRepository({
+    ...defaultLightwellContentItem,
+    name: 'lightwell/npm/validated',
+    content_type: 'npm',
+  });
+
+  renderPackagesTable();
+
+  expect(await screen.findByRole('button', { name: 'Technology Preview' })).toBeInTheDocument();
+  await waitFor(() => expect(getUserPreferences).toHaveBeenCalled());
   expect(screen.queryByText('This repository is in Technology Preview')).not.toBeInTheDocument();
 });
 

@@ -14,7 +14,7 @@ import type {
 } from 'services/Lightwell/CoverageReportsApi';
 import { formatDistributionUrl, formatPythonIndexUrl } from './Pages/Lightwell/helpers';
 
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   logger: {

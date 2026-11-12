@@ -209,7 +209,12 @@ const CoveragePdfTemplate = ({ asyncData, additionalData }: CoveragePdfTemplateP
           text-align: left;
         }
         .coverage-pdf td { padding: 6px 8px; }
-        .coverage-pdf .coverage-pdf-table tbody tr:nth-child(even) td {
+        /* PatternFly positions every cell, and Chrome prints each positioned box as its own
+           layer. Body cells are unpositioned here. The zebra stripe moves to the row, which
+           stays positioned so the stripe still paints over the row borders as before. */
+        .coverage-pdf .coverage-pdf-table tbody td { position: static; }
+        .coverage-pdf .coverage-pdf-table tbody tr:nth-child(even) {
+          position: relative;
           background-color: #fafafa;
         }
         .coverage-pdf .coverage-pdf-col-package {

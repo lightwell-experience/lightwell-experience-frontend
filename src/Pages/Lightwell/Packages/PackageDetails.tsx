@@ -559,6 +559,7 @@ const PackageDetails = () => {
                       repository.published_distribution_url || '',
                     ),
                     content_type: repository.content_type,
+                    security_level: repository.security_level,
                   }}
                 >
                   <LwButton variant='secondary' icon={<CodeIcon />}>

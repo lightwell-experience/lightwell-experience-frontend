@@ -3,9 +3,12 @@ import type { AxiosRequestConfig } from 'axios';
 import {
   buildCoveragePackagesQueryParams,
   buildCoveragePdfPayload,
+  COVERAGE_PDF_MAX_SLICE_SIZE,
   COVERAGE_PDF_PAGE_SIZE,
+  COVERAGE_PDF_SLICE_THRESHOLD,
   fetchData,
   formatCoveragePdfGeneratedAt,
+  getCoveragePdfSlices,
 } from './coveragePdf';
 import { defaultCoverageReportItem } from 'testingHelpers';
 
@@ -236,6 +239,74 @@ describe('fetchData', () => {
     );
   });
 
+  it('stops at the end of its slice instead of reading to the last row', async () => {
+    const start = 1600;
+    const count = 6400;
+    const createAsyncRequest = mockBackend({
+      pages: {
+        [start]: packagesPage(start, COVERAGE_PDF_PAGE_SIZE, count),
+        [start + COVERAGE_PDF_PAGE_SIZE]: packagesPage(start + COVERAGE_PDF_PAGE_SIZE, 600, count),
+      },
+    });
+
+    const result = await fetchData(createAsyncRequest, {
+      uuid: 'report-uuid',
+      offset: start,
+      limit: 1600,
+    });
+
+    expect(createAsyncRequest).toHaveBeenCalledTimes(2);
+    expect(createAsyncRequest).toHaveBeenCalledWith('content-sources-backend', {
+      method: 'GET',
+      url: PACKAGES_URL,
+      params: { limit: '600', offset: String(start + COVERAGE_PDF_PAGE_SIZE) },
+    });
+    expect(result.packages.map(({ name }) => name)).toEqual(
+      Array.from({ length: 1600 }, (_, index) => `pkg-${start + index}`),
+    );
+  });
+
+  it('loads a slice of one API page in a single request', async () => {
+    const createAsyncRequest = mockBackend({
+      pages: { 1000: packagesPage(1000, COVERAGE_PDF_MAX_SLICE_SIZE, 4000) },
+    });
+
+    const result = await fetchData(createAsyncRequest, {
+      uuid: 'report-uuid',
+      offset: 1000,
+      limit: COVERAGE_PDF_MAX_SLICE_SIZE,
+    });
+
+    expect(createAsyncRequest).toHaveBeenCalledTimes(1);
+    expect(createAsyncRequest).toHaveBeenCalledWith('content-sources-backend', {
+      method: 'GET',
+      url: PACKAGES_URL,
+      params: { limit: '1000', offset: '1000' },
+    });
+    expect(result.packages).toHaveLength(1000);
+  });
+
+  it('pages a slice by the served limit when the backend clamps the requested size', async () => {
+    const servedLimit = 200;
+    const createAsyncRequest = mockBackend({
+      pages: {
+        800: packagesPage(800, servedLimit, 6400, servedLimit),
+        1000: packagesPage(1000, servedLimit, 6400, servedLimit),
+      },
+    });
+
+    const result = await fetchData(createAsyncRequest, {
+      uuid: 'report-uuid',
+      offset: 800,
+      limit: 400,
+    });
+
+    expect(createAsyncRequest).toHaveBeenCalledTimes(2);
+    expect(result.packages.map(({ name }) => name)).toEqual(
+      Array.from({ length: 400 }, (_, index) => `pkg-${800 + index}`),
+    );
+  });
+
   it('does not leak a rejection when a later page and the report both fail', async () => {
     const unhandled = jest.fn();
     process.on('unhandledRejection', unhandled);
@@ -282,13 +353,46 @@ describe('fetchData', () => {
   });
 });
 
+describe('getCoveragePdfSlices', () => {
+  it('keeps a report whole up to the slice threshold or when its size is unknown', () => {
+    expect(getCoveragePdfSlices()).toEqual([{ offset: 0 }]);
+    expect(getCoveragePdfSlices(0)).toEqual([{ offset: 0 }]);
+    expect(getCoveragePdfSlices(COVERAGE_PDF_SLICE_THRESHOLD)).toEqual([{ offset: 0 }]);
+  });
+
+  it('splits a larger report into even slices and leaves the last one open-ended', () => {
+    expect(getCoveragePdfSlices(COVERAGE_PDF_SLICE_THRESHOLD + 1)).toEqual([
+      { offset: 0, limit: 834 },
+      { offset: 834, limit: 834 },
+      { offset: 1668, limit: undefined },
+    ]);
+    expect(getCoveragePdfSlices(8000)).toEqual([
+      ...[0, 1000, 2000, 3000, 4000, 5000, 6000].map((offset) => ({ offset, limit: 1000 })),
+      { offset: 7000, limit: undefined },
+    ]);
+  });
+
+  it('never plans a slice above the maximum size', () => {
+    for (const count of [2501, 4801, 9999, 25000]) {
+      const slices = getCoveragePdfSlices(count);
+      const sizes = slices.map(({ offset, limit }) => limit ?? count - offset);
+      expect(Math.max(...sizes)).toBeLessThanOrEqual(COVERAGE_PDF_MAX_SLICE_SIZE);
+      expect(sizes.reduce((sum, size) => sum + size, 0)).toBe(count);
+    }
+  });
+});
+
 describe('buildCoveragePdfPayload', () => {
-  it('renders the report as one document so the package table is continuous', () => {
+  it('renders a report up to the slice threshold as one document so the package table is continuous', () => {
     const payload = buildCoveragePdfPayload({
       uuid: 'report-uuid',
       filename: 'sbom.json',
       generatedAt: '25 Aug 2026',
+      packageCount: COVERAGE_PDF_SLICE_THRESHOLD,
     });
+
+    expect(payload[0].fetchDataParams).not.toHaveProperty('offset');
+    expect(payload[0].fetchDataParams).not.toHaveProperty('limit');
 
     expect(payload).toHaveLength(1);
     expect(payload[0]).toMatchObject({
@@ -325,6 +429,50 @@ describe('buildCoveragePdfPayload', () => {
       includePackages: false,
     });
     expect(payload[0].additionalData).toMatchObject({
+      includeSummary: true,
+      includePackages: false,
+    });
+  });
+
+  it('slices a larger report, with the cover page on the first slice only', () => {
+    const payload = buildCoveragePdfPayload({
+      uuid: 'report-uuid',
+      filename: 'sbom.json',
+      filters: { match_status: ['exact'] },
+      generatedAt: '25 Aug 2026',
+      packageCount: 4000,
+    });
+
+    expect(payload.map(({ fetchDataParams }) => fetchDataParams)).toEqual(
+      [0, 1000, 2000, 3000].map((offset, index) => ({
+        uuid: 'report-uuid',
+        filters: { match_status: ['exact'] },
+        includeSummary: index === 0,
+        includePackages: true,
+        offset,
+        limit: index === 3 ? undefined : 1000,
+      })),
+    );
+    expect(
+      payload.map(
+        ({ additionalData }) => (additionalData as { includeSummary: boolean }).includeSummary,
+      ),
+    ).toEqual([true, false, false, false]);
+    for (const { module, additionalData } of payload) {
+      expect(module).toBe('./CoveragePdfEntry');
+      expect(additionalData).toMatchObject({ filename: 'sbom.json', headerBrand: 'lightwell' });
+    }
+  });
+
+  it('does not slice an overview-only export of a large report', () => {
+    const payload = buildCoveragePdfPayload({
+      uuid: 'report-uuid',
+      includePackages: false,
+      packageCount: 6400,
+    });
+
+    expect(payload).toHaveLength(1);
+    expect(payload[0].fetchDataParams).toMatchObject({
       includeSummary: true,
       includePackages: false,
     });

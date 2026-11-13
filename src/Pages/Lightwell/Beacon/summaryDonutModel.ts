@@ -12,8 +12,8 @@ export const IN_PIPELINE_LABEL = 'In Pipeline';
 
 type StatusCounts = Record<string, number> | undefined;
 
-// TODO(LWLP-4894, design): these reuse the Lens match-status palette as a placeholder
-// from the mockup. Confirm with design, or define a Beacon status palette.
+// Colors follow the approved design mockup. They reuse the Lens match-status palette on
+// purpose; design accepts the difference from what those colors mean in Lens.
 const SLICE_COLOR: Record<'onHold' | 'noRemediation' | 'inPipeline', LwMatchStatusColorKey> = {
   onHold: 'partial',
   noRemediation: 'none',
@@ -29,7 +29,9 @@ export const getNoRemediationCount = (statusCounts: StatusCounts): number =>
 /**
  * Everything that is neither On Hold nor Unremediated, so the three slices always add up
  * to the Total.
- * TODO(LWLP-4894, design): this folds Upstreaming / Published into In Pipeline. Confirm.
+ * TODO(LWLP-4894, Matej): Upstreaming / Published are folded into In Pipeline for now.
+ * Open product question: do they join the pipeline (and does Lightwell Network get
+ * replaced or renamed, e.g. "pre-disclose")? Revisit once that is decided.
  */
 export const getInPipelineCount = (statusCounts: StatusCounts): number =>
   Object.entries(statusCounts ?? {}).reduce(

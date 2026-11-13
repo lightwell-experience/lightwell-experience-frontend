@@ -8,6 +8,7 @@ import {
   LIGHTWELL_ORIGIN,
   PACKAGE_DESCRIPTIONS,
   REPOSITORY_DESCRIPTIONS,
+  TECH_PREVIEW_CONTENT_TYPES,
 } from './constants';
 
 const getContentTypeParameters = (contentType?: string) => {
@@ -27,6 +28,19 @@ export const getEcosystemFromContentType = (contentType?: string): string | unde
 export const toLightwellEcosystem = (contentType?: string): LightwellEcosystem => {
   const normalized = contentType?.toLowerCase();
   return normalized === 'npm' || normalized === 'python' ? normalized : 'maven';
+};
+
+export const isTechPreviewContentType = (contentType?: string): boolean =>
+  !!contentType && TECH_PREVIEW_CONTENT_TYPES.includes(contentType.toLowerCase());
+
+const SECURITY_LEVEL_LABEL_STATUSES = ['validated', 'remediated', 'predisclosure'] as const;
+
+/** Security level → kit label status; undefined for levels that show no label. */
+export const getSecurityLevelLabelStatus = (
+  securityLevel?: string,
+): (typeof SECURITY_LEVEL_LABEL_STATUSES)[number] | undefined => {
+  const level = securityLevel?.toLowerCase();
+  return SECURITY_LEVEL_LABEL_STATUSES.find((status) => status === level);
 };
 
 export const getEcosystemIcon = (ecosystemOrContentType?: string): ReactElement => {

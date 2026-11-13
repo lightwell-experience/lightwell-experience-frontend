@@ -88,4 +88,44 @@ export const useSetUserPreferencesMutation = () => {
   });
 };
 
+export type SetUserPreferenceRequest = { label: string; value: string };
+
+/**
+ * Generic single-preference write with an optimistic cache update. Silent on success (callers
+ * own any confirmation UI); rolls back and reports on failure.
+ */
+export const useSetUserPreferenceMutation = () => {
+  const queryClient = useQueryClient();
+  const errorNotifier = useErrorNotification();
+
+  return useMutation({
+    mutationFn: ({ label, value }: SetUserPreferenceRequest) => setUserPreference(label, value),
+    onMutate: async ({ label, value }) => {
+      await queryClient.cancelQueries({ queryKey: [USER_PREFERENCES_KEY] });
+      const previousData = queryClient.getQueryData<UserPreferencesResponse>([
+        USER_PREFERENCES_KEY,
+      ]);
+      queryClient.setQueryData<UserPreferencesResponse>([USER_PREFERENCES_KEY], (current) => [
+        ...(current ?? []).filter((preference) => preference.label !== label),
+        { label, value },
+      ]);
+      return { previousData };
+    },
+    onError: (err: unknown, _variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData([USER_PREFERENCES_KEY], context.previousData);
+      }
+      errorNotifier(
+        'Error saving preference',
+        'An error occurred',
+        err,
+        'set-user-preference-error',
+      );
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: [USER_PREFERENCES_KEY] });
+    },
+  });
+};
+
 export type { UserPreference, UserPreferencesResponse };

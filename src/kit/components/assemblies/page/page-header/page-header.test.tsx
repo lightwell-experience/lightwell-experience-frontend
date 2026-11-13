@@ -80,6 +80,16 @@ it('hero surface uses Hero host and both page-header classes', () => {
   expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();
 });
 
+it('PageTitleStack appends labels in the title row after the heading', () => {
+  render(<PageTitleStack title={title} labels={<span>Status label</span>} />);
+
+  const heading = screen.getByRole('heading', { name: title });
+  const row = heading.closest('.lw-c-page-title-stack__title');
+  expect(row).toHaveClass('lw-m-has-labels');
+  expect(heading.nextElementSibling).toHaveClass('lw-c-page-title-stack__labels');
+  expect(heading.nextElementSibling).toHaveTextContent('Status label');
+});
+
 it('hero passthrough composes PageChromeSlots children', () => {
   const { container } = render(
     <LwPageHeader hero bodyWidth='100%'>

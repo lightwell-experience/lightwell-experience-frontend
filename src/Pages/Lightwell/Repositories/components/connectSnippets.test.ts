@@ -76,7 +76,7 @@ it('omits Renovate for validated Maven repositories', () => {
   expect(tabs.find((tab) => tab.eventKey === 'renovate')).toBeUndefined();
 });
 
-it('offers npm and Yarn tabs for JavaScript repositories', () => {
+it('offers npm, Yarn, Artifactory, and Nexus tabs for JavaScript repositories', () => {
   const registryUrl = 'https://packages.redhat.com/lightwell/javascript/validated/';
   const tabs = getConnectSnippetTabs({
     name: 'lightwell/javascript/validated',
@@ -85,7 +85,13 @@ it('offers npm and Yarn tabs for JavaScript repositories', () => {
       'https://packages.redhat.com/api/pulp-content/lightwell/javascript/validated/',
   });
 
-  expect(tabs.map((tab) => tab.eventKey)).toEqual(['npm', 'yarn']);
+  expect(tabs.map((tab) => tab.eventKey)).toEqual([
+    'npm',
+    'yarnv1',
+    'yarnv2',
+    'artifactory',
+    'nexus',
+  ]);
 
   expect(tabs.find((tab) => tab.eventKey === 'npm')?.snippets[0].code)
     .toBe(`//packages.redhat.com/lightwell/javascript/validated/:username=<service_account_username>
@@ -93,9 +99,15 @@ it('offers npm and Yarn tabs for JavaScript repositories', () => {
   expect(tabs.find((tab) => tab.eventKey === 'npm')?.snippets[1].code).toBe(
     `npm config set registry ${registryUrl}`,
   );
-  expect(tabs.find((tab) => tab.eventKey === 'yarn')?.snippets[0].code).toBe(
+  expect(tabs.find((tab) => tab.eventKey === 'yarnv1')?.snippets[0].code).toBe(
+    `//packages.redhat.com/lightwell/javascript/validated/:_auth=<base64(service_account_username:service_account_token)>
+//packages.redhat.com/lightwell/javascript/validated/:always-auth=true`,
+  );
+  expect(tabs.find((tab) => tab.eventKey === 'yarnv2')?.snippets[0].code).toBe(
     `npmRegistryServer: "${registryUrl}"
 npmAlwaysAuth: true
 npmAuthIdent: "<service_account_username>:<service_account_token>"`,
   );
+  expect(tabs.find((tab) => tab.eventKey === 'artifactory')?.snippets[0].code).toBe(registryUrl);
+  expect(tabs.find((tab) => tab.eventKey === 'nexus')?.snippets[0].code).toBe(registryUrl);
 });

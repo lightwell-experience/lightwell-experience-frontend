@@ -20,8 +20,7 @@ import {
   LwDataView,
   LwLoaded,
   LwMetricsCard,
-  LwMetricsCount,
-  LwMetricsCountSlots,
+  LwMetricsDonutChart,
   LwMetricsStepper,
   LwPageHeader,
   PageChromeSlot,
@@ -40,21 +39,20 @@ import {
   LwList,
   LwMenu,
   LwPopover,
+  LwSkeleton,
   LwTitle,
 } from 'kit/components/primitives';
 
 import { lightwellBeaconPerPageKey } from 'Pages/Lightwell/constants';
 import {
   FILTER_STATUSES,
-  NO_REMEDIATION_LABEL,
-  ON_HOLD_STATUS,
   SEVERITIES,
   severityLabel,
   SLA_POLICY_HEADER,
   statusLabel,
-  UNREMEDIATED_STATUS,
 } from './constants';
 import { buildPipelineMetricSteps } from './pipeline';
+import { formatSummarySlice, getBeaconSummaryDonutModel } from './summaryDonutModel';
 import { SLA_POLICY_ITEMS } from './slaPolicyItems';
 import type { Severity, Status, Vulnerability } from './types';
 import { useBeaconExport } from './hooks/useBeaconExport';
@@ -76,6 +74,10 @@ import {
 } from './utils/vulnerabilityTableColumns';
 
 import '../../../../styles/lightwell-beacon.scss';
+
+// Fixed ring size (px) for the status summary donut. No measuring: the card never needs
+// the ring to scale.
+const SUMMARY_DONUT_SIZE = 220;
 
 const DROP_LAST_CHROME_SEGMENT_OPTIONS = { dropLastChromeSegment: true };
 
@@ -277,6 +279,8 @@ const Beacon = () => {
 
   const filteredVulns = displayData?.vulnerabilities ?? [];
   const displayMeta = displayData?.meta;
+  const summaryTotal = displayMeta?.count ?? filteredVulns.length;
+  const summaryDonut = getBeaconSummaryDonutModel(displayMeta?.statusCounts);
 
   const { isBusy: isExportBusy, items: exportItems } = useBeaconExport({
     customerId: selectedCustomerId,
@@ -455,34 +459,26 @@ const Beacon = () => {
                 <LwLoaded
                   isLoaded={!isLoading}
                   fallback={
-                    <LwMetricsCountSlots>
-                      <LwMetricsCount isLoading loadingScreenReaderText='Loading status summary' />
-                      <LwMetricsCount isLoading />
-                      <LwMetricsCount isLoading />
-                      <LwMetricsCount isLoading />
-                    </LwMetricsCountSlots>
+                    <LwSkeleton
+                      width={`${SUMMARY_DONUT_SIZE}px`}
+                      height={`${SUMMARY_DONUT_SIZE}px`}
+                      screenreaderText='Loading status summary'
+                    />
                   }
                 >
-                  <LwMetricsCountSlots>
-                    <LwMetricsCount
-                      value={displayMeta?.count ?? filteredVulns.length}
-                      label='Total'
-                    />
-                    <LwMetricsCount
-                      value={displayMeta?.criticalCount ?? 0}
-                      label='Critical'
-                      color='red'
-                    />
-                    <LwMetricsCount
-                      value={displayMeta?.statusCounts?.[ON_HOLD_STATUS] ?? 0}
-                      label={ON_HOLD_STATUS}
-                      color='none'
-                    />
-                    <LwMetricsCount
-                      value={displayMeta?.statusCounts?.[UNREMEDIATED_STATUS] ?? 0}
-                      label={NO_REMEDIATION_LABEL}
-                    />
-                  </LwMetricsCountSlots>
+                  <LwMetricsDonutChart
+                    data={summaryDonut.data}
+                    colorScale={summaryDonut.colorScale}
+                    getLabel={formatSummarySlice}
+                    width={SUMMARY_DONUT_SIZE}
+                    height={SUMMARY_DONUT_SIZE}
+                    title={String(summaryTotal)}
+                    subTitle='Total'
+                    ariaDesc='Donut chart of vulnerabilities by status'
+                    legendAriaLabel='Vulnerability status summary'
+                    showLegend
+                    legendPosition='responsive'
+                  />
                 </LwLoaded>
               </LwMetricsCard>
             </PageChromeSlot>

@@ -20,12 +20,6 @@ const SLICE_COLOR: Record<'onHold' | 'noRemediation' | 'inPipeline', LwMatchStat
   inPipeline: 'exact',
 };
 
-export const getOnHoldCount = (statusCounts: StatusCounts): number =>
-  statusCounts?.[ON_HOLD_STATUS] ?? 0;
-
-export const getNoRemediationCount = (statusCounts: StatusCounts): number =>
-  statusCounts?.[UNREMEDIATED_STATUS] ?? 0;
-
 /**
  * Everything that is neither On Hold nor Unremediated, so the three slices always add up
  * to the Total.
@@ -40,7 +34,10 @@ export const getInPipelineCount = (statusCounts: StatusCounts): number =>
     0,
   );
 
-/** One text for the tooltip and the legend row: `On Hold: 3`. */
+/**
+ * Tooltip text: `On Hold: 3`. The kit has no default tooltip text, so Beacon passes this as
+ * `getLabel`. It matches the kit's default legend row text, which Beacon does not override.
+ */
 export const formatSummarySlice = ({ datum }: { datum: LwMetricsDonutDatum }): string =>
   `${datum.x}: ${datum.y}`;
 
@@ -54,8 +51,8 @@ export const getBeaconSummaryDonutModel = (statusCounts: StatusCounts): BeaconSu
 
   return {
     data: [
-      { x: statusLabel(ON_HOLD_STATUS), y: getOnHoldCount(statusCounts) },
-      { x: NO_REMEDIATION_LABEL, y: getNoRemediationCount(statusCounts) },
+      { x: statusLabel(ON_HOLD_STATUS), y: statusCounts?.[ON_HOLD_STATUS] ?? 0 },
+      { x: NO_REMEDIATION_LABEL, y: statusCounts?.[UNREMEDIATED_STATUS] ?? 0 },
       { x: IN_PIPELINE_LABEL, y: getInPipelineCount(statusCounts) },
     ],
     colorScale: [

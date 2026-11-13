@@ -470,7 +470,6 @@ const Beacon = () => {
                     data={summaryDonut.data}
                     colorScale={summaryDonut.colorScale}
                     getLabel={formatSummarySlice}
-                    formatLegendLabel={formatSummarySlice}
                     width={SUMMARY_DONUT_SIZE}
                     height={SUMMARY_DONUT_SIZE}
                     title={String(summaryTotal)}

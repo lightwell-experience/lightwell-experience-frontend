@@ -1,3 +1,5 @@
+import { lightwellConfig } from 'kit/lightwell.config';
+
 import { NO_REMEDIATION_LABEL, UNREMEDIATED_STATUS } from './constants';
 import {
   formatSummarySlice,
@@ -40,11 +42,19 @@ describe('Beacon summary donut model', () => {
     ]);
   });
 
-  it('gives each slice its own color', () => {
+  it('pairs each slice with its approved color, so swapping two slices fails', () => {
     const { data, colorScale } = getBeaconSummaryDonutModel(statusCounts);
+    const { matchStatus } = lightwellConfig.colors;
 
-    expect(colorScale).toHaveLength(data.length);
-    expect(new Set(colorScale).size).toBe(data.length);
+    const colorBySlice = Object.fromEntries(
+      data.map((slice, index) => [slice.x, colorScale[index]]),
+    );
+
+    expect(colorBySlice).toEqual({
+      'On Hold': matchStatus.partial,
+      [NO_REMEDIATION_LABEL]: matchStatus.none,
+      [IN_PIPELINE_LABEL]: matchStatus.exact,
+    });
   });
 
   it('defaults missing counts to zero', () => {

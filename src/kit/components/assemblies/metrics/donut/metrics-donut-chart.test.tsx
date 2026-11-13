@@ -47,7 +47,7 @@ describe('legend', () => {
   it('renders one row per slice as "label: count"', () => {
     render(<LwMetricsDonutChart {...baseProps} showLegend />);
 
-    const rows = within(screen.getByRole('list', { name: 'Status donut' })).getAllByRole(
+    const rows = within(screen.getByRole('list', { name: 'Status donut legend' })).getAllByRole(
       'listitem',
     );
     expect(rows.map((row) => row.textContent)).toEqual([
@@ -55,6 +55,13 @@ describe('legend', () => {
       'No remediation: 7',
       'In Pipeline: 13',
     ]);
+  });
+
+  it('keeps list semantics explicit and names the list apart from the chart description', () => {
+    render(<LwMetricsDonutChart {...baseProps} showLegend />);
+
+    const legend = screen.getByRole('list', { name: 'Status donut legend' });
+    expect(legend).toHaveAttribute('role', 'list');
   });
 
   it('paints each swatch from the matching color', () => {

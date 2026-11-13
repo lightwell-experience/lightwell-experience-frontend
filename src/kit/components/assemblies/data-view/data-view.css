@@ -64,9 +64,19 @@
  * don't opt into sticky/scrollable columns. `min-width: 100%` keeps it
  * filling the available width when content is narrower than the container.
  */
-.lw-c-data-view .pf-v6-c-scroll-inner-wrapper .pf-v6-c-table {
+.lw-c-data-view .pf-v6-c-scroll-inner-wrapper > .pf-v6-c-table {
   width: max-content;
   min-width: 100%;
+}
+
+/*
+ * Header cell paired with the row-expansion toggle PF adds to the body only
+ * (see `isExpandable` in data-view.tsx). Sized to the toggle button so the
+ * header and the toggle column stay aligned; the header itself is empty, its
+ * name comes from `screenReaderText`.
+ */
+.lw-c-data-view__expand-header {
+  width: 3rem;
 }
 
 /*

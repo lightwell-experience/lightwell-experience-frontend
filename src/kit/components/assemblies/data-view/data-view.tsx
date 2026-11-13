@@ -285,8 +285,24 @@ type LwDataViewOwnedProps = {
    * server-paginated data that must refetch). The top pagination renders
    * compact by default; bottom pagination (see `showBottomPagination`) is
    * full-size.
+   *
+   * `itemCount` is required for server-paginated data (only the caller knows
+   * the total); omit it under `isResident`, where the assembly derives it.
    */
-  pagination?: LwDataViewPaginationProps;
+  pagination?: Omit<LwDataViewPaginationProps, 'itemCount'> & { itemCount?: number };
+  /**
+   * Declares `rows` to be the **complete** result set, not one server page.
+   * The assembly then owns paging: it sorts across every row and slices the
+   * requested page out of the sorted set, and derives `pagination.itemCount`
+   * from `rows.length`.
+   *
+   * Default `false` — rows are assumed to be a single server page, so they are
+   * sorted and rendered as given. Slicing resident rows at the call site is the
+   * bug this prop exists to prevent: the assembly would only ever see one page
+   * and sort within it, so a sort would silently reorder the current page
+   * instead of the whole set.
+   */
+  isResident?: boolean;
   /**
    * Panel toggle button for the built-in toolbar — opens/closes the `panel` drawer.
    * Pass `{}` for uncontrolled behavior: `LwDataView` owns expanded state, seeded
@@ -479,6 +495,7 @@ export function LwDataView({
   onSortChange,
   search,
   pagination,
+  isResident,
   panelToggle,
   toolbarSlot,
   showBottomPagination,
@@ -713,12 +730,19 @@ export function LwDataView({
   // know when the page changes to refetch (e.g. Beacon).
   const [internalPage, setInternalPage] = useState(1);
   const [internalPerPage, setInternalPerPage] = useState(defaultPerPage ?? 10);
+  const requestedPage = pagination?.page ?? internalPage;
+  const resolvedPerPage = pagination?.perPage ?? internalPerPage;
 
   const resolvedPagination: LwDataViewPaginationProps | undefined = pagination
     ? {
         ...pagination,
-        page: pagination.page ?? internalPage,
-        perPage: pagination.perPage ?? internalPerPage,
+        // Resident rows are the whole result set, so the assembly knows the
+        // total — a call site has nothing to say about it.
+        itemCount: isResident ? rows.length : (pagination.itemCount ?? 0),
+        page: isResident
+          ? Math.max(1, Math.min(requestedPage, Math.ceil(rows.length / resolvedPerPage)))
+          : requestedPage,
+        perPage: resolvedPerPage,
         onSetPage: pagination.onSetPage ?? ((_event, newPage) => setInternalPage(newPage)),
         onPerPageSelect:
           pagination.onPerPageSelect ??
@@ -728,6 +752,19 @@ export function LwDataView({
           }),
       }
     : undefined;
+
+  // ─── Resident paging ──────────────────────────────────────────────────────
+  // Slice *after* the sort above, never before: sorting a pre-sliced page
+  // reorders that page only, leaving the rest of the set where it was. Pages
+  // that slice their own resident rows reintroduce exactly that bug, which is
+  // why `isResident` hands the whole set over instead.
+  const residentPage = resolvedPagination?.page;
+  const residentPerPage = resolvedPagination?.perPage;
+  const pagedRows: DataViewTr[] = useMemo(() => {
+    if (!isResident || !residentPage || !residentPerPage) return sortedRows;
+    const start = (residentPage - 1) * residentPerPage;
+    return sortedRows.slice(start, start + residentPerPage);
+  }, [sortedRows, isResident, residentPage, residentPerPage]);
 
   // ─── Default loading skeleton ─────────────────────────────────────────────
   // When loading and no caller override, render SkeletonTableBody with sensible
@@ -810,8 +847,19 @@ export function LwDataView({
   const tableProps = mergeComponentProps(pfDefaults, {
     ...rest,
     variant: compact ? ('compact' as const) : undefined,
-    columns: processedColumns,
-    rows: sortedRows,
+    // PF adds the row toggle to the body only; supply its matching header.
+    columns:
+      rest.isExpandable &&
+      !(rest.expandedRows?.length && rest.expandedRows.every((row) => row.columnId !== undefined))
+        ? [
+            {
+              cell: '',
+              props: { screenReaderText: 'Expand row', className: 'lw-c-data-view__expand-header' },
+            },
+            ...processedColumns,
+          ]
+        : processedColumns,
+    rows: pagedRows,
     bodyStates: mergedBodyStates,
     headStates,
   });

@@ -1305,3 +1305,174 @@ describe('focus when the toolbar unmounts into true empty', () => {
     expect(screen.getByRole('button', { name: 'Elsewhere' })).toHaveFocus();
   });
 });
+
+it('aligns the expansion header with the row toggle and keeps data-column sorting aligned', async () => {
+  const user = userEvent.setup();
+  render(
+    <LwDataView
+      aria-label='Expandable table'
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
+      rows={[
+        { id: 'b', row: ['Beta', 'OK'] },
+        { id: 'a', row: ['Alpha', 'OK'] },
+      ]}
+      isExpandable
+      indexBy='id'
+      expandedRows={[
+        { rowId: 'a', content: 'Alpha details' },
+        { rowId: 'b', content: 'Beta details' },
+      ]}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Expandable table' });
+  const headers = within(table).getAllByRole('columnheader');
+  expect(headers).toHaveLength(3);
+  expect(headers[0]).toHaveAccessibleName('Expand row');
+  expect(headers[0]).toHaveClass('lw-c-data-view__expand-header');
+  expect(headers[1]).toHaveTextContent('Name');
+  const dataRows = () => within(table).getAllByRole('row').slice(1);
+  expect(within(dataRows()[0]).getAllByRole('cell')).toHaveLength(3);
+  await user.click(within(headers[1]).getByRole('button'));
+  expect(within(dataRows()[0]).getByText('Alpha')).toBeInTheDocument();
+  await user.click(within(dataRows()[0]).getByRole('button', { name: 'Details' }));
+  expect(within(table).getByText('Alpha details')).toBeVisible();
+  expect(within(table).queryByText('Beta details')).not.toBeVisible();
+});
+
+// Compound expansion is the branch that can break: PF puts the toggle inside a
+// data cell rather than a leading one, so adding the toggle header there would
+// leave the headers one ahead of every body row.
+it('adds no toggle header when every expansion is compound', async () => {
+  const user = userEvent.setup();
+  render(
+    <LwDataView
+      aria-label='Compound expansions'
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
+      rows={[{ id: 'a', row: ['Alpha', 'OK'] }]}
+      isExpandable
+      indexBy='id'
+      expandedRows={[{ rowId: 'a', columnId: 1, content: 'Status detail' }]}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Compound expansions' });
+  const headers = within(table).getAllByRole('columnheader');
+
+  expect(headers).toHaveLength(2);
+  expect(headers[0]).toHaveTextContent('Name');
+  expect(within(table).queryByRole('columnheader', { name: 'Expand row' })).not.toBeInTheDocument();
+
+  const controlRow = within(table).getAllByRole('row')[1];
+  expect(within(controlRow).getAllByRole('cell')).toHaveLength(2);
+
+  await user.click(within(controlRow).getByRole('button'));
+  expect(within(table).getByText('Status detail')).toBeVisible();
+});
+
+it('reserves the toggle header when expandable content is empty', () => {
+  render(
+    <LwDataView
+      aria-label='Empty expansions'
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
+      rows={rows}
+      isExpandable
+      expandedRows={[]}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Empty expansions' });
+
+  // PF still renders a leading placeholder cell per row, so the header count
+  // has to match it even with nothing to expand.
+  expect(within(table).getAllByRole('columnheader')).toHaveLength(3);
+  expect(within(within(table).getAllByRole('row')[1]).getAllByRole('cell')).toHaveLength(3);
+});
+
+// ─── Resident paging ───────────────────────────────────────────────────────────
+
+const residentRows = ['delta', 'bravo', 'charlie', 'alpha'].map((name) => [
+  { cell: name },
+  { cell: 'OK' },
+]);
+
+it('sorts across every resident row before slicing the requested page', async () => {
+  const user = userEvent.setup();
+  render(
+    <LwDataView
+      aria-label='Resident table'
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
+      rows={residentRows}
+      isResident
+      pagination={{ perPage: 2 }}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Resident table' });
+  const names = () =>
+    within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => within(row).getAllByRole('cell')[0].textContent);
+
+  expect(names()).toEqual(['delta', 'bravo']);
+
+  await user.click(within(within(table).getAllByRole('columnheader')[0]).getByRole('button'));
+
+  // Sorting a pre-sliced page would leave 'bravo'/'delta' here; sorting the
+  // whole set first puts the globally smallest two on page one.
+  expect(names()).toEqual(['alpha', 'bravo']);
+});
+
+it('derives pagination itemCount from the full resident set', () => {
+  render(
+    <LwDataView
+      aria-label='Resident count'
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
+      rows={residentRows}
+      isResident
+      pagination={{ perPage: 2 }}
+    />,
+  );
+
+  // 4 resident rows at perPage 2 — two pages, with no itemCount from the caller.
+  expect(screen.getAllByLabelText('Current page')[0]).toHaveAttribute('max', '2');
+});
+
+it.each([false, true])(
+  'keeps resident rows and pagination aligned when results shrink (controlled: %s)',
+  async (controlled) => {
+    const user = userEvent.setup();
+    const props = {
+      'aria-label': 'Shrinking resident table',
+      columns,
+      isResident: true,
+      pagination: { perPage: 2, ...(controlled ? { page: 2 } : {}) },
+    };
+    const { rerender } = render(<LwDataView {...props} rows={residentRows} />);
+    if (!controlled) {
+      await user.click(screen.getAllByLabelText('Go to next page')[0]);
+    }
+    const table = screen.getByRole('grid', { name: 'Shrinking resident table' });
+    expect(within(table).getByText('charlie')).toBeInTheDocument();
+
+    rerender(<LwDataView {...props} rows={residentRows.slice(0, 1)} />);
+
+    expect(within(table).getByText('delta')).toBeInTheDocument();
+    for (const input of screen.getAllByLabelText('Current page')) {
+      expect(input).toHaveValue(1);
+    }
+  },
+);
+
+it('leaves rows untouched when they are a single server page', () => {
+  render(
+    <LwDataView
+      aria-label='Server paged'
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
+      rows={residentRows}
+      pagination={{ itemCount: 97, perPage: 2 }}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Server paged' });
+
+  expect(within(table).getAllByRole('row').slice(1)).toHaveLength(4);
+  // The caller's itemCount stands — 97 items at perPage 2 is 49 pages.
+  expect(screen.getAllByLabelText('Current page')[0]).toHaveAttribute('max', '49');
+});

@@ -1,7 +1,9 @@
+import type { ReactElement } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import Beacon from './Beacon';
+import { buildPackageRows, PACKAGE_COLUMNS } from './utils/packageTableRows';
 import { ReactQueryTestWrapper } from 'testingHelpers';
 
 jest.mock('@scalprum/react-core', () => ({
@@ -57,12 +59,17 @@ jest.mock('services/Lightwell/CustomerQueries', () => ({
 
 jest.mock('services/Lightwell/BeaconQueries', () => ({
   useBeaconStatusQuery: jest.fn(),
+  useBeaconVulnerabilitiesQuery: jest.fn(),
   useLtwlsuptTicketIdsQuery: jest.fn(),
 }));
 
 import { useBeaconData } from './hooks/useBeaconData';
 import { useCustomerIdsQuery } from 'services/Lightwell/CustomerQueries';
-import { useBeaconStatusQuery, useLtwlsuptTicketIdsQuery } from 'services/Lightwell/BeaconQueries';
+import {
+  useBeaconStatusQuery,
+  useBeaconVulnerabilitiesQuery,
+  useLtwlsuptTicketIdsQuery,
+} from 'services/Lightwell/BeaconQueries';
 import { mockVulnerabilities } from '../mockVulnerabilities';
 
 const mockBeaconData = {
@@ -125,6 +132,8 @@ beforeEach(() => {
     isLoading: false,
     data: ['batch-1', 'batch-2'],
   });
+
+  (useBeaconVulnerabilitiesQuery as jest.Mock).mockReturnValue({ data: mockBeaconData });
 
   (useBeaconStatusQuery as jest.Mock).mockReturnValue({
     data: '10-02-2026 08:00',
@@ -526,5 +535,357 @@ describe('clearing a search-only filter that returned zero rows', () => {
     });
     expect(await screen.findByText(mockVulnerabilities[0].vulnerabilityId)).toBeInTheDocument();
     expect(screen.queryByText('No submissions yet')).not.toBeInTheDocument();
+  });
+});
+
+it('toggles to packages using the complete filtered collection and returns to vulnerabilities', async () => {
+  const first = mockVulnerabilities[0];
+  (useBeaconData as jest.Mock).mockReturnValue({
+    isLoading: false,
+    isError: false,
+    data: {
+      ...mockBeaconData,
+      vulnerabilities: [
+        first,
+        { ...first, uuid: 'second', vulnerabilityId: 'CVE-SECOND', severity: 'Critical' },
+        { ...first, uuid: 'other-version', componentVersion: 'another-version' },
+      ],
+    },
+  });
+  renderBeacon();
+  const user = await selectCustomer('CID-01');
+  await user.click(screen.getByRole('button', { name: 'Packages' }));
+
+  const table = screen.getByRole('grid', { name: 'Package tracking table' });
+  expect(table.closest('.pf-v6-c-scroll-inner-wrapper')).toBeNull();
+  expect(within(table).getAllByRole('row')).toHaveLength(3);
+  expect(within(table).getByRole('cell', { name: '2' })).toBeInTheDocument();
+  expect(within(table).getByText('another-version')).toBeInTheDocument();
+  expect(
+    within(table).queryByRole('columnheader', { name: 'Vulnerability IDs' }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Packages' })).toHaveAttribute('aria-pressed', 'true');
+  expect(useBeaconData).toHaveBeenLastCalledWith('CID-01', undefined, undefined);
+
+  await user.click(screen.getByRole('button', { name: 'Vulnerabilities', pressed: false }));
+  expect(screen.getByRole('grid', { name: 'Vulnerability tracking table' })).toBeInTheDocument();
+  expect(useBeaconData).toHaveBeenLastCalledWith(
+    'CID-01',
+    undefined,
+    expect.objectContaining({ offset: 0 }),
+  );
+});
+
+it('keeps ecosystems distinct and counts unique vulnerability IDs per package version', () => {
+  const first = mockVulnerabilities[0];
+  const rows = buildPackageRows([
+    { ...first, severity: 'Minor' },
+    { ...first, uuid: 'duplicate', severity: 'Critical' },
+    { ...first, uuid: 'second-id', vulnerabilityId: 'CVE-SECOND', publishedVersions: ['fixed'] },
+    { ...first, uuid: 'other-ecosystem', ecosystem: 'different-ecosystem' },
+  ]);
+  expect(rows).toHaveLength(2);
+  expect(rows[0]).toMatchObject({
+    row: expect.arrayContaining([
+      2,
+      expect.objectContaining({ cell: 'Critical', props: { sortValue: 0 } }),
+    ]),
+  });
+});
+
+it('summarises a package with its highest published version', () => {
+  const first = mockVulnerabilities[0];
+  const group = [
+    { ...first, publishedVersions: ['1.9.0', '1.11.0'] },
+    { ...first, uuid: 'second', vulnerabilityId: 'CVE-SECOND', publishedVersions: ['1.10.0'] },
+  ];
+  const [summaryRow] = buildPackageRows(group) as { row: { cell: ReactElement }[] }[];
+  const summaryCell =
+    summaryRow.row[PACKAGE_COLUMNS.findIndex((column) => column.key === 'publishedVersions')];
+
+  render(summaryCell.cell);
+  expect(screen.getByText('1.11.0')).toBeInTheDocument();
+  expect(screen.queryByText('1.10.0')).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: /more published versions/i }),
+  ).not.toBeInTheDocument();
+});
+
+it('manages package columns independently and preserves the selection across views', async () => {
+  renderBeacon();
+  const user = await selectCustomer('CID-01');
+  await user.click(screen.getByRole('button', { name: 'Packages' }));
+  await user.click(screen.getByRole('button', { name: 'Manage columns' }));
+  const dialog = screen.getByRole('dialog', { name: /manage columns/i });
+  expect(
+    within(dialog).queryByRole('checkbox', { name: 'Vulnerability IDs' }),
+  ).not.toBeInTheDocument();
+  await user.click(within(dialog).getByRole('checkbox', { name: 'CVEs by severity' }));
+  await user.click(within(dialog).getByRole('button', { name: /save/i }));
+  expect(screen.queryByRole('columnheader', { name: 'CVEs by severity' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Vulnerabilities', pressed: false }));
+  expect(screen.getByRole('columnheader', { name: /Last Updated/ })).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Packages' }));
+  expect(screen.queryByRole('columnheader', { name: 'CVEs by severity' })).not.toBeInTheDocument();
+  expect(screen.getByRole('columnheader', { name: /Statuses/ })).toBeInTheDocument();
+});
+
+it('counts each CVE once at its highest severity and includes zero counts', () => {
+  const first = mockVulnerabilities[0];
+  const rows = buildPackageRows([
+    { ...first, severity: 'Minor' },
+    { ...first, uuid: 'duplicate', severity: 'Critical' },
+    { ...first, uuid: 'second', vulnerabilityId: 'CVE-SECOND', severity: 'Moderate' },
+  ]);
+  const row = rows[0] as { row: ReactElement[] };
+  render(row.row[PACKAGE_COLUMNS.findIndex((column) => column.key === 'severityCounts')]);
+  for (const label of ['Critical: 1', 'Important: 0', 'Moderate: 1', 'Low: 0']) {
+    const severityCount = screen.getByLabelText(label);
+    expect(severityCount).toHaveTextContent(label.split(': ')[1]);
+    expect(severityCount.querySelector('svg')).toBeInTheDocument();
+  }
+});
+
+/**
+ * One package carrying a vulnerability in every status, plus a second package
+ * so assertions can prove the expansion is scoped to the row it belongs to.
+ */
+const renderPackageView = async () => {
+  const first = mockVulnerabilities[0];
+  const statuses = [
+    'Published',
+    'Validation',
+    'On Hold',
+    'Submitted',
+    'Unremediated',
+    'Classified',
+    'Lightwell Network',
+    'Fix in Progress',
+    'Upstreaming',
+  ] as const;
+  (useBeaconData as jest.Mock).mockReturnValue({
+    isLoading: false,
+    isError: false,
+    data: {
+      ...mockBeaconData,
+      vulnerabilities: [
+        ...statuses.map((status, index) => ({
+          ...first,
+          uuid: `detail-${index}`,
+          vulnerabilityId: `CVE-DETAIL-${index}`,
+          status,
+          title: `Vulnerability ${index}`,
+          description: `Description ${index}`,
+          resolutionReason:
+            status === 'On Hold'
+              ? 'Waiting for customer input'
+              : status === 'Unremediated'
+                ? 'No supported fix available'
+                : undefined,
+        })),
+        {
+          ...first,
+          uuid: 'other-package',
+          componentName: 'other-package',
+          vulnerabilityId: 'CVE-OTHER',
+        },
+      ],
+    },
+  });
+  renderBeacon();
+  const user = await selectCustomer('CID-01');
+  await user.click(screen.getByRole('button', { name: 'Packages' }));
+  const table = screen.getByRole('grid', { name: 'Package tracking table' });
+
+  return { user, table, toggles: within(table).getAllByRole('button', { name: 'Details' }) };
+};
+
+it('expands one package at a time into details grouped in pipeline order', async () => {
+  const { user, table, toggles } = await renderPackageView();
+  expect(toggles).toHaveLength(2);
+  expect(toggles[0]).toHaveAttribute('aria-expanded', 'false');
+
+  await user.click(toggles[0]);
+
+  expect(toggles[0]).toHaveAttribute('aria-expanded', 'true');
+  expect(toggles[1]).toHaveAttribute('aria-expanded', 'false');
+  expect(
+    within(table)
+      .getAllByRole('region')
+      .map((region) => region.getAttribute('aria-label')),
+  ).toEqual([
+    'Submitted vulnerabilities',
+    'Classified vulnerabilities',
+    'Fix in progress vulnerabilities',
+    'Validating vulnerabilities',
+    'Available in Lightwell Network vulnerabilities',
+    'Upstreaming vulnerabilities',
+    'Published vulnerabilities',
+    'On Hold vulnerabilities',
+    'No remediation vulnerabilities',
+  ]);
+
+  await user.click(toggles[0]);
+
+  expect(toggles[0]).toHaveAttribute('aria-expanded', 'false');
+  expect(within(table).queryByRole('region')).not.toBeInTheDocument();
+});
+
+it('lists each CVE in its own status group and excludes other packages', async () => {
+  const { user, table, toggles } = await renderPackageView();
+  await user.click(toggles[0]);
+  const submitted = within(table).getAllByRole('region')[0];
+
+  expect(within(submitted).getByText('CVE-DETAIL-3')).toBeInTheDocument();
+  expect(within(submitted).getByText('Vulnerability 3')).toBeInTheDocument();
+  expect(within(submitted).queryByText('Description 3')).not.toBeInTheDocument();
+  expect(within(submitted).queryByText('CVE-OTHER')).not.toBeInTheDocument();
+});
+
+it('swaps published versions for the status reason on On Hold and No remediation', async () => {
+  const { user, table, toggles } = await renderPackageView();
+  await user.click(toggles[0]);
+  const regions = within(table).getAllByRole('region');
+
+  // Pipeline groups keep the published-versions column…
+  expect(
+    within(regions[0]).getByRole('columnheader', { name: 'Published versions' }),
+  ).toBeInTheDocument();
+  expect(
+    within(regions[0]).queryByRole('columnheader', { name: 'Reason' }),
+  ).not.toBeInTheDocument();
+
+  // …the two terminal groups trade it for the reason.
+  for (const [region, reason] of [
+    [regions[7], 'Waiting for customer input'],
+    [regions[8], 'No supported fix available'],
+  ] as const) {
+    const headers = within(region).getAllByRole('columnheader');
+    expect(headers).toHaveLength(6);
+    expect(headers[headers.length - 1]).toHaveTextContent('Reason');
+    expect(
+      within(region).queryByRole('columnheader', { name: 'Published versions' }),
+    ).not.toBeInTheDocument();
+
+    const reasonCell = within(region).getByText(reason).closest('td');
+    expect(reasonCell).toHaveAttribute('data-label', 'Reason');
+    // The section heading already names the status — the cell is the reason
+    // alone, not the status label with the reason appended underneath.
+    expect(reasonCell?.textContent).toBe(reason);
+    expect(within(region).getAllByText(reason)).toHaveLength(1);
+  }
+});
+
+it('shows distinct CVE counts with status icons in workflow order', () => {
+  const first = mockVulnerabilities[0];
+  const rows = buildPackageRows([
+    { ...first, status: 'Unremediated' },
+    { ...first, uuid: 'submitted', status: 'Submitted', vulnerabilityId: 'CVE-SUBMITTED' },
+    { ...first, uuid: 'duplicate', status: 'Submitted', vulnerabilityId: 'CVE-SUBMITTED' },
+    { ...first, uuid: 'validating', status: 'Validation', vulnerabilityId: 'CVE-VALIDATING' },
+    { ...first, uuid: 'on-hold', status: 'On Hold', vulnerabilityId: 'CVE-ON-HOLD' },
+  ]);
+  const row = rows[0] as { row: ReactElement[] };
+  const { container } = render(
+    row.row[PACKAGE_COLUMNS.findIndex((column) => column.key === 'statuses')],
+  );
+  const labels = ['Submitted: 1', 'Validating: 1', 'On Hold: 1', 'No remediation: 1'];
+  expect(
+    [...container.querySelectorAll('[aria-label]')].map((item) => item.getAttribute('aria-label')),
+  ).toEqual(labels);
+  for (const label of labels) {
+    const count = screen.getByLabelText(label);
+    expect(count).toHaveTextContent('1');
+    expect(count.querySelector('svg')).toBeInTheDocument();
+  }
+  expect(screen.queryByLabelText('Classified: 0')).not.toBeInTheDocument();
+});
+
+it('filters only package rows using complete statuses and leaves the vulnerability view unchanged', async () => {
+  const first = mockVulnerabilities[0];
+  const addressed = { ...first, componentName: 'addressed', status: 'Lightwell Network' };
+  const mixed = { ...addressed, componentName: 'mixed' };
+  const displayed = [addressed, mixed];
+  (useBeaconData as jest.Mock).mockReturnValue({
+    data: { ...mockBeaconData, vulnerabilities: displayed },
+  });
+  (useBeaconVulnerabilitiesQuery as jest.Mock).mockReturnValue({
+    data: { vulnerabilities: [...displayed, { ...mixed, uuid: 'hidden', status: 'On Hold' }] },
+  });
+  renderBeacon();
+  const user = await selectCustomer('CID-01');
+  expect(screen.queryByRole('checkbox', { name: 'All addressed' })).not.toBeInTheDocument();
+  expect(useBeaconVulnerabilitiesQuery).toHaveBeenLastCalledWith('CID-01', undefined, undefined, {
+    enabled: false,
+  });
+  await user.click(screen.getByRole('button', { name: 'Packages' }));
+  await user.click(screen.getByRole('checkbox', { name: 'All addressed' }));
+  const table = screen.getByRole('grid', { name: 'Package tracking table' });
+  expect(within(table).getByText('addressed')).toBeInTheDocument();
+  expect(within(table).queryByText('mixed')).not.toBeInTheDocument();
+  expect(useBeaconVulnerabilitiesQuery).toHaveBeenLastCalledWith('CID-01', undefined, undefined, {
+    enabled: true,
+  });
+  expect(screen.getByRole('heading', { name: 'Filters (1)' })).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Reset' }));
+  expect(screen.getByRole('checkbox', { name: 'All addressed' })).not.toBeChecked();
+  expect(within(table).getByText('mixed')).toBeInTheDocument();
+  await user.click(screen.getByRole('checkbox', { name: 'All addressed' }));
+  await user.click(screen.getByRole('button', { name: 'Vulnerabilities', pressed: false }));
+  expect(screen.queryByRole('checkbox', { name: 'All addressed' })).not.toBeInTheDocument();
+  const vulnerabilities = screen.getByRole('grid', { name: 'Vulnerability tracking table' });
+  expect(within(vulnerabilities).getByText(/mixed/)).toBeInTheDocument();
+  expect(useBeaconData).toHaveBeenLastCalledWith(
+    'CID-01',
+    undefined,
+    expect.objectContaining({ offset: 0 }),
+  );
+  expect(useBeaconVulnerabilitiesQuery).toHaveBeenLastCalledWith('CID-01', undefined, undefined, {
+    enabled: false,
+  });
+});
+
+it('shows a filtered empty state when All addressed excludes every package', async () => {
+  (useBeaconVulnerabilitiesQuery as jest.Mock).mockReturnValue({ data: { vulnerabilities: [] } });
+  renderBeacon();
+  const user = await selectCustomer('CID-01');
+  await user.click(screen.getByRole('button', { name: 'Packages' }));
+  await user.click(screen.getByRole('checkbox', { name: 'All addressed' }));
+  expect(screen.getByText('No results match the current filters')).toBeInTheDocument();
+  expect(screen.queryByText('No submissions yet')).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Reset filters' }));
+  expect(screen.getByRole('checkbox', { name: 'All addressed' })).not.toBeChecked();
+});
+
+it('waits for the complete collection before showing addressed packages', async () => {
+  (useBeaconVulnerabilitiesQuery as jest.Mock).mockReturnValue({
+    data: mockBeaconData,
+    isPlaceholderData: true,
+  });
+  const { rerender } = renderBeacon();
+  const user = await selectCustomer('CID-01');
+  await user.click(screen.getByRole('button', { name: 'Packages' }));
+  await user.click(screen.getByRole('checkbox', { name: 'All addressed' }));
+  expect(screen.queryByText('No results match the current filters')).not.toBeInTheDocument();
+  expect(screen.queryByText('No submissions yet')).not.toBeInTheDocument();
+  (useBeaconVulnerabilitiesQuery as jest.Mock).mockReturnValue({ data: { vulnerabilities: [] } });
+  rerender(
+    <ReactQueryTestWrapper>
+      <Beacon />
+    </ReactQueryTestWrapper>,
+  );
+  expect(screen.getByText('No results match the current filters')).toBeInTheDocument();
+});
+
+it('resets All addressed when the customer changes', async () => {
+  renderBeacon();
+  const user = await selectCustomer('CID-01');
+  await user.click(screen.getByRole('button', { name: 'Packages' }));
+  await user.click(screen.getByRole('checkbox', { name: 'All addressed' }));
+  await user.click(screen.getByRole('button', { name: 'CID-01' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'CID-214' }));
+  expect(screen.getByRole('checkbox', { name: 'All addressed' })).not.toBeChecked();
+  expect(useBeaconVulnerabilitiesQuery).toHaveBeenLastCalledWith('CID-214', undefined, undefined, {
+    enabled: false,
   });
 });

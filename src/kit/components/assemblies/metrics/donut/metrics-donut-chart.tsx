@@ -52,9 +52,9 @@ const DEFAULT_COLOR_SCALE = [
 ];
 
 /**
- * Where the HTML legend sits. `responsive` is beside the ring below `lg` (62rem) and
- * under it from `lg` up — the page-chrome-slot breakpoint (slots stack, then sit side
- * by side). See the unit ROADMAP § Legend.
+ * Where the HTML legend sits. `right` and `bottom` are fixed. `responsive` is beside the
+ * ring while there is room and wraps under it when there is not. See the unit ROADMAP
+ * § Legend.
  */
 export type LwMetricsDonutLegendPosition = 'right' | 'bottom' | 'responsive';
 

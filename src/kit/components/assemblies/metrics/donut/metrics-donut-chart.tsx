@@ -73,7 +73,7 @@ export type LwMetricsDonutChartProps = {
   legendPosition?: LwMetricsDonutLegendPosition;
   /** Row text. Default `${x}: ${y}`. Pass the same formatter as `getLabel` to keep tooltips in step. */
   formatLegendLabel?: (args: { datum: LwMetricsDonutDatum }) => string;
-  /** Accessible name of the legend list. Defaults to `ariaDesc`. */
+  /** Accessible name of the legend list. Defaults to `${ariaDesc} legend`, so it never repeats the chart's description. */
   legendAriaLabel?: string;
   containerRef?: Ref<HTMLDivElement>;
   padding?: { bottom?: number; left?: number; right?: number; top?: number };
@@ -144,7 +144,12 @@ export function LwMetricsDonutChart({
     >
       {chart}
       {showLegend ? (
-        <ul className='lw-c-metrics-donut-chart__legend' aria-label={legendAriaLabel ?? ariaDesc}>
+        // role='list': Safari / VoiceOver drop list semantics when `list-style: none`.
+        <ul
+          className='lw-c-metrics-donut-chart__legend'
+          role='list'
+          aria-label={legendAriaLabel ?? `${ariaDesc} legend`}
+        >
           {data.map((datum, index) => (
             <li
               key={datum.x}

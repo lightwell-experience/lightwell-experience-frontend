@@ -21,6 +21,10 @@ export const COVERAGE_PDF_MAX_PACKAGES = 1500;
 // and fetchData pages by the limit the server reports, so either way is complete.
 export const COVERAGE_PDF_PAGE_SIZE = 1000;
 
+// Above COVERAGE_PDF_MAX_PACKAGES, so nothing is sliced until that limit is raised.
+export const COVERAGE_PDF_SLICE_THRESHOLD = 2500;
+export const COVERAGE_PDF_MAX_SLICE_SIZE = COVERAGE_PDF_PAGE_SIZE;
+
 export function formatCoveragePdfGeneratedAt(date: Date = new Date()): string {
   const day = date.getUTCDate();
   const month = date.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
@@ -31,6 +35,7 @@ export function formatCoveragePdfGeneratedAt(date: Date = new Date()): string {
 export type CoveragePdfFetchParams = {
   uuid: string;
   offset?: number;
+  limit?: number;
   filters?: CoverageReportPackageFilters;
   includeSummary?: boolean;
   // When false, the package table is omitted and only the report summary is loaded.
@@ -121,13 +126,14 @@ export const fetchData = async (
   }
 
   const startOffset = options?.offset ?? 0;
+  const sliceEnd = options?.limit ? startOffset + options.limit : Number.POSITIVE_INFINITY;
 
   const packagesRequest = (offset: number) =>
     createAsyncRequest('content-sources-backend', {
       method: 'GET',
       url: `${COVERAGE_REPORTS_PATH}${encodeURIComponent(uuid)}/packages`,
       params: buildCoveragePackagesQueryParams(options?.filters, {
-        limit: COVERAGE_PDF_PAGE_SIZE,
+        limit: Math.min(COVERAGE_PDF_PAGE_SIZE, sliceEnd - offset),
         offset,
       }),
     });
@@ -155,15 +161,16 @@ export const fetchData = async (
   }
   const meta = firstResponse.meta;
 
-  // One printed document, so the table flows across PDF pages instead of
-  // leaving a gap where a separate slice would start. Pages are stepped by the
+  // Every row of this request prints as one document, so the table flows across
+  // PDF pages; a gap is left only where a new slice starts. Pages are stepped by the
   // limit the server actually served, which can be below the requested size when
   // the backend clamps it; stepping by the request would skip rows. A short final
   // page (fewer rows than the served limit) means there is nothing left to fetch.
   const pageSize = meta.limit > 0 ? meta.limit : firstResponse.data.length;
   const remainingOffsets: number[] = [];
   if (pageSize > 0 && firstResponse.data.length === pageSize) {
-    for (let offset = startOffset + pageSize; offset < meta.count; offset += pageSize) {
+    const end = Math.min(meta.count, sliceEnd);
+    for (let offset = startOffset + pageSize; offset < end; offset += pageSize) {
       remainingOffsets.push(offset);
     }
   }
@@ -190,12 +197,28 @@ export const fetchData = async (
   };
 };
 
+export type CoveragePdfSlice = { offset: number; limit?: number };
+
+export function getCoveragePdfSlices(packageCount?: number): CoveragePdfSlice[] {
+  if (!packageCount || packageCount <= COVERAGE_PDF_SLICE_THRESHOLD) {
+    return [{ offset: 0 }];
+  }
+  const sliceCount = Math.ceil(packageCount / COVERAGE_PDF_MAX_SLICE_SIZE);
+  const sliceSize = Math.ceil(packageCount / sliceCount);
+  return Array.from({ length: sliceCount }, (_, index) => ({
+    offset: index * sliceSize,
+    // Open-ended, so the last slice reaches the final row even if the count is stale.
+    limit: index === sliceCount - 1 ? undefined : sliceSize,
+  }));
+}
+
 export function buildCoveragePdfPayload({
   uuid,
   filename,
   filters,
   includeCveData = true,
   includePackages = true,
+  packageCount,
   generatedAt = formatCoveragePdfGeneratedAt(),
 }: {
   uuid: string;
@@ -203,27 +226,32 @@ export function buildCoveragePdfPayload({
   filters?: CoverageReportPackageFilters;
   includeCveData?: boolean;
   includePackages?: boolean;
+  packageCount?: number;
   generatedAt?: string;
 }): PDFRequestPayload[] {
-  return [
-    {
+  const slices = includePackages ? getCoveragePdfSlices(packageCount) : [{ offset: 0 }];
+
+  return slices.map(({ offset, limit }, index) => {
+    const includeSummary = index === 0;
+    return {
       manifestLocation: COVERAGE_PDF_MANIFEST,
       scope: COVERAGE_PDF_SCOPE,
       module: COVERAGE_PDF_MODULE,
       fetchDataParams: {
         uuid,
         filters,
-        includeSummary: true,
+        includeSummary,
         includePackages,
+        ...(slices.length > 1 ? { offset, limit } : {}),
       },
       additionalData: {
         filename,
         generatedAt,
-        includeSummary: true,
+        includeSummary,
         includeCveData,
         includePackages,
         headerBrand: 'lightwell',
       } satisfies CoveragePdfAdditionalData,
-    },
-  ];
+    };
+  });
 }

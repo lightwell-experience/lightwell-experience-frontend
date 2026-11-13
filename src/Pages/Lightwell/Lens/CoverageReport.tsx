@@ -186,6 +186,7 @@ const CoverageReport = () => {
     const exportFilters = table.debouncedFilters;
     try {
       if (format === 'pdf') {
+        let packageCount: number | undefined;
         if (!overviewOnly) {
           // Count against the export's own filters, not the table's loaded page.
           const { meta } = await getCoverageReportPackages(exportUuid, 1, 1, exportFilters);
@@ -193,6 +194,7 @@ const CoverageReport = () => {
             setPdfLimitReportUuid(exportUuid);
             return;
           }
+          packageCount = meta.count;
         }
         notify(PDF_GENERATING_NOTIFICATION);
         const payload = buildCoveragePdfPayload({
@@ -201,6 +203,7 @@ const CoverageReport = () => {
           filters: exportFilters,
           includeCveData: hasCveData,
           includePackages: !overviewOnly,
+          packageCount,
         }) as unknown as PDFRequestPayload;
         await requestPdf({ filename: `lightwell-match-analysis-${exportUuid}.pdf`, payload });
         notify(PDF_READY_NOTIFICATION);

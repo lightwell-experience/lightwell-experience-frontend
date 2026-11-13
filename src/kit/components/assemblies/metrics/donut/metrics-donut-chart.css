@@ -26,13 +26,13 @@
   gap: var(--pf-t--global--spacer--sm);
 }
 
-/* responsive: beside the ring until lg, under it from lg up. lg = 62rem
- * (page-chrome-slot breakpoint; rem from the components.config.css map). */
-@media (min-width: 62rem) /* lg */ {
-  .lw-c-metrics-donut-chart.lw-m-legend-responsive {
-    flex-direction: column;
-    gap: var(--pf-t--global--spacer--sm);
-  }
+/* responsive: same row, but it wraps. The legend sits beside the ring while the host is
+ * wide enough and drops under it when it is not. Follows the host's real width (no
+ * breakpoint), so it is correct wherever the donut is placed. */
+.lw-c-metrics-donut-chart.lw-m-legend-responsive {
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: var(--pf-t--global--spacer--sm);
 }
 
 .lw-c-metrics-donut-chart__legend {

@@ -1,4 +1,5 @@
 import {
+  AlertActionCloseButton,
   Flex,
   Grid,
   Pagination,
@@ -48,9 +49,17 @@ import {
   getRepositoryDescription,
   hasBackportedFixes,
   toLightwellEcosystem,
+  isTechPreviewContentType,
 } from '../helpers';
 import Hide from 'components/Hide/Hide';
-import { LIGHTWELL_USE_MOCK, lightwellPkgsPerPageKey } from '../constants';
+import {
+  LIGHTWELL_USE_MOCK,
+  lightwellPkgsPerPageKey,
+  TECH_PREVIEW_DESCRIPTION,
+  TECH_PREVIEW_LABEL_TEXT,
+  TECH_PREVIEW_TITLE,
+} from '../constants';
+import { techPreviewLearnMoreLink, techPreviewPopoverContent } from '../techPreview';
 import EmptyTableState from 'components/EmptyTableState/EmptyTableState';
 import Loader from 'components/Loader';
 import LightwellNotFound from '../components/LightwellNotFound';
@@ -82,7 +91,8 @@ import {
   PageChromeSlots,
   PageTitleStack,
 } from 'kit/components/assemblies';
-import { LwAlert, LwButton, LwCard, LwClipboardCopy } from 'kit/components/primitives';
+import { LwAlert, LwButton, LwCard, LwClipboardCopy, LwLabel } from 'kit/components/primitives';
+import { useTechPreviewAlertDismissal } from './hooks/useTechPreviewAlertDismissal';
 
 const useStyles = createUseStyles({
   filterToolbarItem: {
@@ -257,6 +267,9 @@ const PackagesTable = () => {
     isError,
     error,
   } = useLightwellRepository(repoSlug);
+
+  const isTechPreviewRepository = isTechPreviewContentType(repository?.content_type);
+  const techPreviewAlert = useTechPreviewAlertDismissal(isTechPreviewRepository);
 
   const apiPackagesQuery = useLightwellRepositoryPackagesQuery(
     repoUUID,
@@ -435,6 +448,13 @@ const PackagesTable = () => {
             <PageTitleStack
               title={repositoryName}
               icon={getEcosystemIcon(repository?.content_type)}
+              labels={
+                isTechPreviewRepository ? (
+                  <LwLabel status='techPreview' popover={techPreviewPopoverContent}>
+                    {TECH_PREVIEW_LABEL_TEXT}
+                  </LwLabel>
+                ) : undefined
+              }
               description={getRepositoryDescription(
                 repository.content_type,
                 repository.security_level,
@@ -464,6 +484,16 @@ const PackagesTable = () => {
                     : formatDistributionUrl(repository.published_distribution_url || '')}
                 </LwClipboardCopy>
               </LwButtonGroup>
+              {isTechPreviewRepository && !techPreviewAlert.isDismissed && (
+                <LwAlert
+                  variant='info'
+                  actionClose={<AlertActionCloseButton onClose={techPreviewAlert.dismiss} />}
+                  title={TECH_PREVIEW_TITLE}
+                  actionLinks={techPreviewLearnMoreLink}
+                >
+                  {TECH_PREVIEW_DESCRIPTION}
+                </LwAlert>
+              )}
               {(isRemediated || isPredisclosure) && <LwAlert />}
             </PageChromeSlotFooter>
           </PageChromeSlot>

@@ -63,16 +63,18 @@ not PF's SVG legend. Rows come from the same `data` / `colorScale` the ring uses
 there is no second series to keep in sync. A semantic list reads and reflows better
 than SVG text, and the unit CSS owns layout (plain CSS, no `Flex` / `FlexItem`).
 
-| `legendPosition` | Layout                                                      |
-| ---------------- | ----------------------------------------------------------- |
-| `right`          | Legend beside the ring                                      |
-| `bottom`         | Legend under the ring                                       |
-| `responsive`     | Beside the ring below `lg` (62rem), under it at `lg` and up |
+| `legendPosition` | Layout                                                         |
+| ---------------- | -------------------------------------------------------------- |
+| `right`          | Legend beside the ring                                         |
+| `bottom`         | Legend under the ring                                          |
+| `responsive`     | Beside the ring while it fits; wraps under it when it does not |
 
-`responsive` is a viewport `@media` rule. It matches the page-chrome-slot `lg`
-breakpoint: below it the slots stack and the card is full width; at it and above the
-slots sit side by side and the card narrows. The rem comes from the map in
-`components.config.css`.
+`responsive` is `flex-wrap`, not a media or container query. It follows the host's real
+width, so it needs no breakpoint and no knowledge of where the donut is placed. A
+container query was tried and rejected: an element cannot be restyled by its own
+container query, and an inline-size container collapses a shrink-wrapped parent to its
+minimum width, so it would never leave the "under the ring" layout in a card that sizes
+itself from its content.
 
 Legend and tooltips both show the same text. Pass one formatter to `getLabel` and
 `formatLegendLabel` when you override it.

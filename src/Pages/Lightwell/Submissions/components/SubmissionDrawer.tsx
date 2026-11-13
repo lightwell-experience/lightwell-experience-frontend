@@ -46,7 +46,8 @@ type SubmissionDrawerProps = PropsWithChildren;
  */
 const SubmissionDrawer = ({ children }: SubmissionDrawerProps) => {
   const classes = useStyles();
-  const { openUuid, isDrawerExpanded, closeDrawer } = useSubmissionDrawerParams();
+  const { openUuid, isDrawerExpanded, closeDrawer, openTab, setOpenTab } =
+    useSubmissionDrawerParams();
 
   const { isOverlayMounted, isOverlayExpanded, onOverlayTransitionEnd, onEscape } =
     useDrawerOverlay({
@@ -78,7 +79,13 @@ const SubmissionDrawer = ({ children }: SubmissionDrawerProps) => {
         </DrawerActions>
       </DrawerHead>
       {openUuid ? (
-        <SubmissionDetails uuid={openUuid} onDeleted={closeDrawer} onSubmitted={closeDrawer} />
+        <SubmissionDetails
+          uuid={openUuid}
+          onDeleted={closeDrawer}
+          onSubmitted={closeDrawer}
+          activeTab={openTab}
+          onTabChange={setOpenTab}
+        />
       ) : null}
     </DrawerPanelContent>
   );

@@ -6,13 +6,16 @@ import {
   deleteSubmission,
   deleteSubmissionFile,
   getSubmission,
+  listSubmissionPackages,
   listSubmissions,
+  type ClearinghouseSubmissionPackageFilters,
   submitSubmission,
   processSubmission,
 } from './ClearinghouseApi';
 
 export const CLEARINGHOUSE_SUBMISSIONS_KEY = 'CLEARINGHOUSE_SUBMISSIONS_KEY';
 export const CLEARINGHOUSE_SUBMISSION_KEY = 'CLEARINGHOUSE_SUBMISSION_KEY';
+export const CLEARINGHOUSE_SUBMISSION_PACKAGES_KEY = 'CLEARINGHOUSE_SUBMISSION_PACKAGES_KEY';
 
 // No `meta` error toast: SubmissionsTable rethrows to the error boundary,
 // so adding the global meta toast would double-report the same failure.
@@ -30,6 +33,22 @@ export const useSubmissionQuery = (uuid: string) =>
   useQuery({
     queryKey: [CLEARINGHOUSE_SUBMISSION_KEY, uuid],
     queryFn: () => getSubmission(uuid),
+    enabled: !!uuid,
+  });
+
+// No `meta` error toast: SubmissionPackagesTable renders an inline error state.
+// The package list is fixed once the submission is created, so it never goes stale.
+export const useSubmissionPackagesQuery = (
+  uuid: string,
+  page: number,
+  perPage: number,
+  filters: ClearinghouseSubmissionPackageFilters,
+) =>
+  useQuery({
+    queryKey: [CLEARINGHOUSE_SUBMISSION_PACKAGES_KEY, uuid, page, perPage, filters],
+    queryFn: () => listSubmissionPackages(uuid, perPage, (page - 1) * perPage, filters),
+    placeholderData: keepPreviousData,
+    staleTime: Infinity,
     enabled: !!uuid,
   });
 

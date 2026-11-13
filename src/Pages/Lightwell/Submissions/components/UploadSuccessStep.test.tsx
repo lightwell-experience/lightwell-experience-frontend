@@ -67,9 +67,9 @@ describe('UploadSuccessStep', () => {
   });
 
   it('stashes selected reproducers, opens the drawer, and notifies the parent', async () => {
-    const onReproducersUploaded = jest.fn();
+    const onOpenedInDrawer = jest.fn();
     const user = userEvent.setup();
-    render(<UploadSuccessStep uuid='sub-1' onReproducersUploaded={onReproducersUploaded} />);
+    render(<UploadSuccessStep uuid='sub-1' onOpenedInDrawer={onOpenedInDrawer} />);
 
     const file = new File(['a'], 'extra.png', { type: 'image/png' });
     await user.upload(screen.getByTestId('reproducer-file-input'), file);
@@ -77,7 +77,7 @@ describe('UploadSuccessStep', () => {
     // The upload itself now happens in the drawer; here we only hand off the files.
     expect(mockSetPending).toHaveBeenCalledWith('sub-1', [file]);
     expect(mockOpenSubmission).toHaveBeenCalledWith('sub-1');
-    expect(onReproducersUploaded).toHaveBeenCalledTimes(1);
+    expect(onOpenedInDrawer).toHaveBeenCalledTimes(1);
   });
 
   it('submits for validation only after confirming', async () => {
@@ -107,5 +107,57 @@ describe('UploadSuccessStep', () => {
     render(<UploadSuccessStep uuid='sub-1' />);
 
     expect(screen.getByText(/Could not load the submission/i)).toBeInTheDocument();
+  });
+});
+
+describe('UploadSuccessStep package summary', () => {
+  const withSummary = (invalid_purls: number) =>
+    mockedHook.mockReturnValue(
+      buildHook({
+        submission: {
+          uuid: 'sub-1',
+          name: 'RHOSE-4.9.json',
+          package_summary: {
+            total: 128,
+            invalid_purls,
+            ecosystems: [{ ecosystem: 'Java', total: 128 }],
+          },
+        },
+      }),
+    );
+
+  it('shows the package total and invalid count', () => {
+    withSummary(7);
+    render(<UploadSuccessStep uuid='sub-1' />);
+
+    expect(screen.getByText('128 packages found')).toBeInTheDocument();
+    expect(screen.getByText('7 invalid')).toBeInTheDocument();
+  });
+
+  it('omits the invalid count when every package is valid', () => {
+    withSummary(0);
+    render(<UploadSuccessStep uuid='sub-1' />);
+
+    expect(screen.getByText('128 packages found')).toBeInTheDocument();
+    expect(screen.queryByText(/invalid/)).not.toBeInTheDocument();
+  });
+
+  it('opens the drawer on the Packages tab from the Details link and resets the hero', async () => {
+    const user = userEvent.setup();
+    const onOpenedInDrawer = jest.fn();
+    withSummary(7);
+    render(<UploadSuccessStep uuid='sub-1' onOpenedInDrawer={onOpenedInDrawer} />);
+
+    await user.click(screen.getByRole('button', { name: 'Details' }));
+
+    expect(mockOpenSubmission).toHaveBeenCalledWith('sub-1', 'packages');
+    expect(onOpenedInDrawer).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows no package summary for submissions without one', () => {
+    render(<UploadSuccessStep uuid='sub-1' />);
+
+    expect(screen.queryByText(/packages found/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Details' })).not.toBeInTheDocument();
   });
 });

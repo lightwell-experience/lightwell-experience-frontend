@@ -78,3 +78,57 @@ it('removes the submission uuid from search on close while preserving other para
   expect(updater(currentParams).toString()).toBe('page=2');
   expect(currentParams.toString()).toBe('submission=sub-1&page=2');
 });
+
+describe('drawer tab', () => {
+  const lastUpdater = () =>
+    mockSetSearchParams.mock.calls.at(-1)![0] as (params: URLSearchParams) => URLSearchParams;
+
+  it('defaults to the reproducers tab', () => {
+    mockSearchParams('submission=sub-1');
+    const { result } = renderHook(() => useSubmissionDrawerParams());
+    expect(result.current.openTab).toBe('reproducers');
+  });
+
+  it('reads the packages tab from the URL', () => {
+    mockSearchParams('submission=sub-1&submissionTab=packages');
+    const { result } = renderHook(() => useSubmissionDrawerParams());
+    expect(result.current.openTab).toBe('packages');
+  });
+
+  it('opens a submission on a given tab', () => {
+    const { result } = renderHook(() => useSubmissionDrawerParams());
+    act(() => result.current.openSubmission('sub-9', 'packages'));
+    expect(lastUpdater()(new URLSearchParams()).toString()).toBe(
+      'submission=sub-9&submissionTab=packages',
+    );
+  });
+
+  it('drops a stale tab when opening a submission on the default tab', () => {
+    const { result } = renderHook(() => useSubmissionDrawerParams());
+    act(() => result.current.openSubmission('sub-9'));
+    expect(lastUpdater()(new URLSearchParams('submissionTab=packages')).toString()).toBe(
+      'submission=sub-9',
+    );
+  });
+
+  it('switches tabs replacing history', () => {
+    const { result } = renderHook(() => useSubmissionDrawerParams());
+    act(() => result.current.setOpenTab('packages'));
+    expect(mockSetSearchParams).toHaveBeenLastCalledWith(expect.any(Function), { replace: true });
+    expect(lastUpdater()(new URLSearchParams('submission=sub-1')).toString()).toBe(
+      'submission=sub-1&submissionTab=packages',
+    );
+    act(() => result.current.setOpenTab('reproducers'));
+    expect(
+      lastUpdater()(new URLSearchParams('submission=sub-1&submissionTab=packages')).toString(),
+    ).toBe('submission=sub-1');
+  });
+
+  it('clears the tab when closing or linking to another submission', () => {
+    const searchParams = mockSearchParams('submission=sub-1&submissionTab=packages');
+    const { result } = renderHook(() => useSubmissionDrawerParams());
+    expect(result.current.getSubmissionSearch('sub-2')).toBe('?submission=sub-2');
+    act(() => result.current.closeDrawer());
+    expect(lastUpdater()(searchParams).toString()).toBe('');
+  });
+});

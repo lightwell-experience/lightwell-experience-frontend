@@ -52,7 +52,7 @@ resize-observer call sites (ref on container).
 | `showLegend?`         | HTML legend built from `data` + `colorScale`        |
 | `legendPosition?`     | `'right'` (default) \| `'bottom'` \| `'responsive'` |
 | `formatLegendLabel?`  | Row text override; default `${x}: ${y}`             |
-| `legendAriaLabel?`    | Legend list name; defaults to `ariaDesc`            |
+| `legendAriaLabel?`    | Legend list name; defaults to `${ariaDesc} legend`  |
 | `containerRef?`       | Web measure host                                    |
 | `ariaDesc?`           | A11y                                                |
 

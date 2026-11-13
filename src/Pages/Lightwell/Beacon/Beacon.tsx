@@ -475,7 +475,8 @@ const Beacon = () => {
                     height={SUMMARY_DONUT_SIZE}
                     title={String(summaryTotal)}
                     subTitle='Total'
-                    ariaDesc='Vulnerability status summary'
+                    ariaDesc='Donut chart of vulnerabilities by status'
+                    legendAriaLabel='Vulnerability status summary'
                     showLegend
                     legendPosition='responsive'
                   />

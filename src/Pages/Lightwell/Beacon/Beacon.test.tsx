@@ -284,6 +284,21 @@ it('clears every filter when the customer changes', async () => {
   ).toBe(true);
 });
 
+it('sorts by Last Updated through the API and leaves unsupported columns unsortable', async () => {
+  renderBeacon();
+  const user = await selectCustomer('CID-01');
+  const lastSort = () => (useBeaconData as jest.Mock).mock.lastCall?.[3];
+
+  expect(lastSort()).toBeUndefined();
+  expect(screen.queryByRole('button', { name: 'Title' })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: 'Last Updated' }));
+  expect(lastSort()).toEqual({ sortBy: 'last_updated', direction: 'asc' });
+
+  await user.click(screen.getByRole('button', { name: 'Last Updated' }));
+  expect(lastSort()).toEqual({ sortBy: 'last_updated', direction: 'desc' });
+});
+
 it('keeps the status summary card header while metrics are loading', async () => {
   (useCustomerIdsQuery as jest.Mock).mockReturnValue({
     isLoading: false,

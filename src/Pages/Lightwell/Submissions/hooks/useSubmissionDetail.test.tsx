@@ -369,7 +369,7 @@ describe('useSubmissionDetail', () => {
       expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ variant: 'success' }));
     });
 
-    it('rejects a non-JSON file without calling the backend', () => {
+    it('rejects a non-JSON/CSV file without calling the backend', () => {
       const { result } = render({ uuid: 'sub-1' });
 
       act(() => result.current.resend(new File(['x'], 'report.txt')));
@@ -378,7 +378,7 @@ describe('useSubmissionDetail', () => {
       expect(mockNotify).toHaveBeenCalledWith(
         expect.objectContaining({
           variant: 'danger',
-          description: 'Only .json files are accepted.',
+          description: 'Only .json or .csv files are accepted.',
         }),
       );
     });

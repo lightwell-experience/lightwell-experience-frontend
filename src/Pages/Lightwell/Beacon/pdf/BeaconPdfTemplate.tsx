@@ -1,5 +1,4 @@
 import { Content, Title } from '@patternfly/react-core';
-import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import type { AsyncState } from '@redhat-cloud-services/types';
 import { t_global_border_color_nonstatus_blue_default } from '@patternfly/react-tokens/dist/esm/t_global_border_color_nonstatus_blue_default';
 import { t_global_border_color_nonstatus_gray_default } from '@patternfly/react-tokens/dist/esm/t_global_border_color_nonstatus_gray_default';
@@ -291,29 +290,35 @@ const BeaconPdfTemplate = ({ asyncData, additionalData }: BeaconPdfTemplateProps
           Vulnerabilities (continued)
         </Title>
       )}
-      <Table
-        variant='compact'
-        className='beacon-pdf-vuln-table'
+      {/* The PDF is never interactive, so the table is written as plain elements that carry
+          PatternFly's class names. PatternFly's stylesheet still styles them, and none of its
+          per-cell hooks run for the rows of a report. */}
+      <table
         aria-label='Lightwell vulnerabilities'
-        gridBreakPoint=''
+        role='grid'
+        className='beacon-pdf-vuln-table pf-v6-c-table pf-m-compact'
       >
-        <Thead>
-          <Tr>
+        <thead className='pf-v6-c-table__thead'>
+          <tr className='pf-v6-c-table__tr'>
             {columns.map((column) => (
-              <Th key={column.key} className={`beacon-pdf-col-${column.key}`}>
+              <th
+                key={column.key}
+                scope='col'
+                className={`pf-v6-c-table__th beacon-pdf-col-${column.key}`}
+              >
                 {column.title}
-              </Th>
+              </th>
             ))}
-          </Tr>
-        </Thead>
-        <Tbody>
+          </tr>
+        </thead>
+        <tbody role='rowgroup' className='pf-v6-c-table__tbody'>
           {vulnerabilities.map((vulnerability) => (
-            <Tr key={vulnerability.uuid}>
+            <tr key={vulnerability.uuid} className='pf-v6-c-table__tr'>
               {columns.map((column) => (
-                <Td
+                <td
                   key={column.key}
-                  dataLabel={column.title}
-                  className={`beacon-pdf-col-${column.key}`}
+                  data-label={column.title}
+                  className={`pf-v6-c-table__td beacon-pdf-col-${column.key}`}
                 >
                   {column.key === 'status' ? (
                     <>
@@ -327,12 +332,12 @@ const BeaconPdfTemplate = ({ asyncData, additionalData }: BeaconPdfTemplateProps
                   ) : (
                     getVulnerabilityColumnValue(column.key, vulnerability)
                   )}
-                </Td>
+                </td>
               ))}
-            </Tr>
+            </tr>
           ))}
-        </Tbody>
-      </Table>
+        </tbody>
+      </table>
     </div>
   );
 };

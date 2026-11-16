@@ -98,7 +98,7 @@ jobs:
       ### End of pull request specific steps ###
 
       - name: Run Playwright tests
-        run: yarn playwright test
+        run: CURRENTS_PROJECT_ID=aPXDo2 CURRENTS_RECORD_KEY=$CURRENTS_RECORD_KEY CURRENTS_CI_BUILD_ID="${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}" yarn playwright test
 
       - name: Publish test report
         uses: ctrf-io/github-test-reporter@v1

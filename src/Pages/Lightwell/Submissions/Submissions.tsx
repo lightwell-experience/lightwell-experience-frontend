@@ -39,8 +39,9 @@ const SubmissionsHelpPopover = () => (
     hasBody={
       <Content>
         <p>
-          Upload a single findings report that follows the shared JSON / OpenAPI intake contract.
-          The report is stored under its original filename.
+          Upload a single findings report that follows the shared JSON / OpenAPI intake contract, or
+          a CSV file whose header row uses the same field names (one vulnerability per row). The
+          report is stored under its original filename.
         </p>
         <p>You can attach reproducer files to the submission after it is created.</p>
       </Content>
@@ -118,8 +119,8 @@ const Submissions = () => {
               <FileUploadCard
                 title='Select vulnerability report to upload'
                 action={<SubmissionsHelpPopover />}
-                dropzoneTitle='Drag and drop findings JSON file'
-                infoText='.json required · attach reproducers after selection'
+                dropzoneTitle='Drag and drop findings JSON or CSV file'
+                infoText='.json or .csv required · attach reproducers after selection'
                 file={file}
                 fileError={fileError}
                 onDropAccepted={onDropAccepted}

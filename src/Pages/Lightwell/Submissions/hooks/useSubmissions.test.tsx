@@ -30,7 +30,7 @@ beforeEach(() => {
 });
 
 describe('useSubmissions', () => {
-  it('rejects a non-json file on selection without calling the API', async () => {
+  it('rejects a file that is not json or csv on selection without calling the API', async () => {
     const post = jest.spyOn(axios, 'post');
     const { result } = renderSubmissions();
 
@@ -39,7 +39,7 @@ describe('useSubmissions', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.fileError).toBe('Only .json files are accepted.');
+      expect(result.current.fileError).toBe('Only .json or .csv files are accepted.');
     });
     expect(result.current.step).toBe('select');
     expect(post).not.toHaveBeenCalled();

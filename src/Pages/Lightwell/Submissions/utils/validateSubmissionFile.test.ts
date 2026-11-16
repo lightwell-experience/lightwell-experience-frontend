@@ -19,9 +19,21 @@ describe('validateSubmissionFile', () => {
     expect(validateSubmissionFile(fileOfSize('Submission.JSON', 1024))).toBeUndefined();
   });
 
-  it('rejects a file that is not .json', () => {
+  it('accepts a .csv file regardless of letter case', () => {
+    expect(validateSubmissionFile(fileOfSize('findings.csv', 1024))).toBeUndefined();
+    expect(validateSubmissionFile(fileOfSize('Findings.CSV', 1024))).toBeUndefined();
+  });
+
+  it('rejects a file that is not .json or .csv', () => {
     expect(validateSubmissionFile(fileOfSize('report.yaml', 1024))).toBe(
-      'Only .json files are accepted.',
+      'Only .json or .csv files are accepted.',
+    );
+  });
+
+  it('rejects a .csv file that exceeds the size limit', () => {
+    const tooBig = fileOfSize('findings.csv', toBytes(MAX_SUBMISSION_FILE_SIZE_MIB) + 1);
+    expect(validateSubmissionFile(tooBig)).toBe(
+      `File exceeds the ${MAX_SUBMISSION_FILE_SIZE_MIB} MiB size limit. Please try a smaller file.`,
     );
   });
 

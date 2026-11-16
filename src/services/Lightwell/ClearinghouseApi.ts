@@ -25,7 +25,7 @@ export type ClearinghouseSubmission = {
   created_at: string;
   // Author of the submission (backend field `username`).
   username: string;
-  // Original uploaded report name (e.g. "RHOSE-4.9.json"); stored as submission.json.
+  // Original uploaded report name (e.g. "RHOSE-4.9.json" or "RHOSE-4.9.csv"); stored as submission.json.
   name?: string;
   org_id?: string;
   files?: ClearinghouseSubmissionFile[];
@@ -63,12 +63,29 @@ const readFileAsText = (file: File): Promise<string> =>
   });
 
 /**
- * Create a pending submission from a single JSON file. The file's contents are
- * posted as the JSON request body with the uploaded filename added as a top-level
- * `name`; the backend returns the new submission's metadata, including the author's
+ * Create a pending submission from a single JSON or CSV file.
+ *
+ * - JSON: the file's contents are posted as the JSON request body with the uploaded
+ *   filename added as a top-level `name`.
+ * - CSV: the file is posted as multipart form data (`file` + `name`) to `/create/csv`;
+ *   the backend converts it to the same intake JSON and stores it as submission.json.
+ *
+ * Either way the backend returns the new submission's metadata, including the author's
  * username.
  */
 export const createSubmission = async (file: File): Promise<ClearinghouseSubmission> => {
+  if (file.name.toLowerCase().endsWith('.csv')) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', file.name);
+
+    const { data } = await axios.post<ClearinghouseSubmission>(
+      `${CLEARINGHOUSE_SUBMISSIONS_PATH}/create/csv`,
+      formData,
+    );
+    return data;
+  }
+
   const contents = await readFileAsText(file);
   const payload = { ...JSON.parse(contents), name: file.name };
 

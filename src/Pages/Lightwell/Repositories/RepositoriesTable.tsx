@@ -40,6 +40,7 @@ import {
   LIGHTWELL_FEATURE_NAME,
   LIGHTWELL_USE_MOCK,
   lightwellReposPerPageKey,
+  TECH_PREVIEW_LABEL_TEXT,
 } from '../constants';
 import { useLightwellDemo } from '../LightwellDemoContext';
 import {
@@ -54,8 +55,11 @@ import {
   getRepositoryPathSlug,
   getSlugFromRepositoryName,
   sortLightwellRepositories,
+  isTechPreviewContentType,
+  getSecurityLevelLabelStatus,
 } from '../helpers';
 import ConnectRepositoryModal from './components/ConnectRepositoryModal';
+import { techPreviewPopoverContent } from '../techPreview';
 import { capitalize } from 'lodash';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useLightwellNavigateTo } from 'Hooks/Lightwell/navigation/useLightwellNavigateTo';
@@ -69,7 +73,7 @@ import {
   PageChromeSlots,
   PageTitleStack,
 } from 'kit/components/assemblies';
-import { LwButton, LwCard } from 'kit/components/primitives';
+import { LwButton, LwCard, LwLabel } from 'kit/components/primitives';
 import { useLightwellNotificationPrefs } from './hooks/useLightwellNotificationPrefs';
 import {
   mapSeveritiesToApi,
@@ -306,6 +310,7 @@ const RepositoriesTable = () => {
                         } = repo;
 
                         const eventType = getRepositoryPathSlug(content_type, security_level);
+                        const securityLevelStatus = getSecurityLevelLabelStatus(security_level);
 
                         return (
                           <Tr key={uuid}>
@@ -329,6 +334,15 @@ const RepositoriesTable = () => {
                                   >
                                     {formatRepositoryName(content_type, security_level, name)}
                                   </LwButton>
+                                  {isTechPreviewContentType(content_type) ? (
+                                    <LwLabel
+                                      status='techPreview'
+                                      isCompact
+                                      popover={techPreviewPopoverContent}
+                                    >
+                                      {TECH_PREVIEW_LABEL_TEXT}
+                                    </LwLabel>
+                                  ) : null}
                                 </Flex>
                                 <FlexItem>
                                   <Content component='small'>
@@ -362,14 +376,10 @@ const RepositoriesTable = () => {
                               {getEcosystemFromContentType(content_type)}
                             </Td>
                             <Td dataLabel={columnHeaders[2].title}>
-                              {security_level === 'validated' ? (
-                                <Label variant='outline' color='purple'>
+                              {securityLevelStatus ? (
+                                <LwLabel status={securityLevelStatus}>
                                   {capitalize(security_level)}
-                                </Label>
-                              ) : security_level === 'remediated' ? (
-                                <Label color='purple'>{capitalize(security_level)}</Label>
-                              ) : security_level === 'predisclosure' ? (
-                                <Label color='orange'>{capitalize(security_level)}</Label>
+                                </LwLabel>
                               ) : (
                                 '—'
                               )}

@@ -18,6 +18,12 @@ export type PageTitleStackProps = {
    * when `title` is a string. Ignored when `title` is a custom node.
    */
   icon?: ReactNode;
+  /**
+   * Labels appended after the heading in the title row (e.g. `LwLabel` status),
+   * vertically centered on the heading. The heading never wraps to make room.
+   * Ignored when `title` is a custom node.
+   */
+  labels?: ReactNode;
   ouiaId?: string;
   className?: string;
 };
@@ -26,7 +32,8 @@ export type PageTitleStackProps = {
  * Shared title + description stack for LwPageHeader.
  * Page-family internal — also exported from the assemblies barrel for composition.
  *
- * String title → `LwTitle` (config-sized h1); optional `icon` → `LwIcon` beside it.
+ * String title → `LwTitle` (config-sized h1); optional `icon` → `LwIcon` beside it;
+ * optional `labels` → appended after the heading.
  * String description → `Content` paragraph.
  * Non-string nodes render as-is (caller owns heading / copy structure).
  */
@@ -34,6 +41,7 @@ export function PageTitleStack({
   title,
   description,
   icon,
+  labels,
   ouiaId,
   className,
 }: PageTitleStackProps) {
@@ -46,10 +54,18 @@ export function PageTitleStack({
         </LwTitle>
       );
       titleNode =
-        icon != null ? (
-          <div className='lw-c-page-title-stack__title'>
-            <LwIcon size={PAGE_TITLE_ICON_SIZE}>{icon}</LwIcon>
+        icon != null || labels != null ? (
+          <div
+            className={mergeClassNames(
+              'lw-c-page-title-stack__title',
+              labels != null ? 'lw-m-has-labels' : undefined,
+            )}
+          >
+            {icon != null ? <LwIcon size={PAGE_TITLE_ICON_SIZE}>{icon}</LwIcon> : null}
             {heading}
+            {labels != null ? (
+              <span className='lw-c-page-title-stack__labels'>{labels}</span>
+            ) : null}
           </div>
         ) : (
           heading

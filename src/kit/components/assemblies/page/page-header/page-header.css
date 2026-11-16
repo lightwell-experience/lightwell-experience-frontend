@@ -31,6 +31,28 @@
   display: flex;
   align-items: start;
   gap: var(--pf-t--global--spacer--lg);
+
+  /* With labels: the title row is not capped by the stack's --lw-base-max-width, so
+   * labels append without wrapping or shifting the icon / heading. The description
+   * below keeps the stack's max width. Narrow viewports wrap labels instead. */
+  &.lw-m-has-labels {
+    flex-wrap: wrap;
+
+    @media (min-width: 48rem) {
+      /* md */
+      flex-wrap: nowrap;
+      width: max-content;
+    }
+  }
+}
+
+/* Labels centered on the heading line; several labels keep their own gap. */
+.lw-c-page-title-stack__labels {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  align-self: center;
+  gap: var(--pf-t--global--spacer--sm);
 }
 
 .lw-c-page-header {

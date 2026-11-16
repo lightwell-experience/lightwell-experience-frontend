@@ -191,6 +191,7 @@ const PackageOverviewTab = ({
                   name: repository.name,
                   published_distribution_url: sourceUrl,
                   content_type: repository.content_type,
+                  security_level: repository.security_level,
                 }}
               >
                 <Button variant='link' isInline>

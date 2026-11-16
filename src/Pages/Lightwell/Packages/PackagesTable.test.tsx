@@ -13,12 +13,24 @@ import {
   defaultPythonValidatedContentItem,
   defaultPythonValidatedPackageItem,
   pythonValidatedPipCommand,
+  queryClient,
   ReactQueryTestWrapper,
 } from 'testingHelpers';
+import {
+  getUserPreferences,
+  LIGHTWELL_TECH_PREVIEW_ALERT_DISMISSED_LABEL,
+  setUserPreference,
+} from 'services/Lightwell/UserPreferencesApi';
 import { ContentItem, RepositoryPackageItem } from 'services/Content/ContentApi';
 import { getRepositoryPathSlug } from '../helpers';
 import useLightwellRepository from '../../../Hooks/Lightwell/useLightwellRepository';
 import { useLightwellNavigateTo } from '../../../Hooks/Lightwell/navigation/useLightwellNavigateTo';
+
+jest.mock('services/Lightwell/UserPreferencesApi', () => ({
+  ...jest.requireActual('services/Lightwell/UserPreferencesApi'),
+  getUserPreferences: jest.fn(),
+  setUserPreference: jest.fn(),
+}));
 
 jest.mock('services/Content/ContentQueries', () => ({
   useLightwellRepositoryPackagesQuery: jest.fn(),
@@ -133,7 +145,17 @@ const clickCopyButton = async (label: string) => {
 
 const javaValidatedTableCopyCommand = `${defaultLightwellRepositoryPackageItem.group}:${defaultLightwellRepositoryPackageItem.name}:3.14.0`;
 
+afterEach(() => {
+  // The test wrapper shares one QueryClient; drop cached preferences between tests.
+  queryClient.clear();
+});
+
 beforeEach(() => {
+  (getUserPreferences as jest.Mock).mockResolvedValue([]);
+  (setUserPreference as jest.Mock).mockImplementation(async (label: string, value: string) => ({
+    label,
+    value,
+  }));
   searchParams = new URLSearchParams();
   mockSetSearchParams.mockClear();
   mockNavigateTo.mockClear();
@@ -230,6 +252,99 @@ it('shows a loading skeleton instead of the empty state while a search refetch h
     screen.queryByText('No packages available yet in this repository.'),
   ).not.toBeInTheDocument();
   expect(screen.queryByText('No packages match the filter criteria')).not.toBeInTheDocument();
+});
+
+it('shows an info Technology Preview alert on JavaScript repositories', async () => {
+  mockRepository({
+    ...defaultLightwellContentItem,
+    name: 'lightwell/npm/remediated',
+    content_type: 'npm',
+    security_level: 'remediated',
+  });
+
+  renderPackagesTable();
+
+  const title = await screen.findByText('This repository is in Technology Preview');
+  const alert = title.closest('.pf-v6-c-alert');
+  expect(alert).toHaveClass('lw-c-alert', 'pf-m-info', 'pf-m-inline');
+  expect(screen.getByText(/Some packages may be removed or rebuilt/)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /Learn more/ })).toHaveAttribute(
+    'href',
+    'https://access.redhat.com/support/offerings/techpreview',
+  );
+
+  // Sits above the sensitive-data (yellow) alert.
+  const sensitive = screen
+    .getByText('This data is sensitive. Do not share or capture screenshots.')
+    .closest('.pf-v6-c-alert') as HTMLElement;
+  expect(alert?.compareDocumentPosition(sensitive)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+});
+
+it('dismisses the Technology Preview alert', async () => {
+  mockRepository({
+    ...defaultLightwellContentItem,
+    name: 'lightwell/npm/validated',
+    content_type: 'npm',
+  });
+
+  renderPackagesTable();
+
+  const title = await screen.findByText('This repository is in Technology Preview');
+  const alert = title.closest('.pf-v6-c-alert') as HTMLElement;
+  fireEvent.click(within(alert).getByRole('button', { name: /close/i }));
+
+  expect(screen.queryByText('This repository is in Technology Preview')).not.toBeInTheDocument();
+  await waitFor(() =>
+    expect(setUserPreference).toHaveBeenCalledWith(
+      LIGHTWELL_TECH_PREVIEW_ALERT_DISMISSED_LABEL,
+      'true',
+    ),
+  );
+});
+
+it('hides the Technology Preview alert when the user already dismissed it', async () => {
+  (getUserPreferences as jest.Mock).mockResolvedValue([
+    { label: LIGHTWELL_TECH_PREVIEW_ALERT_DISMISSED_LABEL, value: 'true' },
+  ]);
+  mockRepository({
+    ...defaultLightwellContentItem,
+    name: 'lightwell/npm/validated',
+    content_type: 'npm',
+  });
+
+  renderPackagesTable();
+
+  expect(await screen.findByRole('button', { name: 'Technology Preview' })).toBeInTheDocument();
+  await waitFor(() => expect(getUserPreferences).toHaveBeenCalled());
+  expect(screen.queryByText('This repository is in Technology Preview')).not.toBeInTheDocument();
+});
+
+it('shows a standard-size Technology Preview label after the title of a JavaScript repository', async () => {
+  mockRepository({
+    ...defaultLightwellContentItem,
+    name: 'lightwell/npm/validated',
+    content_type: 'npm',
+  });
+
+  renderPackagesTable();
+
+  const trigger = await screen.findByRole('button', { name: 'Technology Preview' });
+  const label = trigger.closest('.pf-v6-c-label');
+  expect(label).toHaveClass('lw-c-label', 'pf-m-purple');
+  expect(label).not.toHaveClass('pf-m-compact');
+  expect(label?.closest('.lw-c-page-title-stack__labels')).toBeInTheDocument();
+
+  fireEvent.click(trigger);
+  expect(await screen.findByText('Technology Preview repository')).toBeInTheDocument();
+});
+
+it('shows no Technology Preview alert on non-JavaScript repositories', async () => {
+  renderPackagesTable();
+
+  expect(
+    await screen.findByText('https://example.com/lightwell/java/validated'),
+  ).toBeInTheDocument();
+  expect(screen.queryByText('This repository is in Technology Preview')).not.toBeInTheDocument();
 });
 
 it('shows loader while the repository is resolving', () => {

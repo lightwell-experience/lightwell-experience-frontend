@@ -32,7 +32,7 @@ export { LwIcon } from './icon/icon';
 export type { LwIconProps } from './icon/icon';
 
 export { LwLabel } from './label/label';
-export type { LwLabelProps } from './label/label';
+export type { LwLabelProps, LwLabelStatus } from './label/label';
 
 export { LwList } from './list/list';
 export type { LwListProps, LwListItem } from './list/list';

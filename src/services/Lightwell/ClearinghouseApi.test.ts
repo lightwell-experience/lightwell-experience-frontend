@@ -39,6 +39,26 @@ describe('createSubmission', () => {
     post.mockRestore();
   });
 
+  it('posts a .csv file as multipart form data (file + name) to the csv create endpoint', async () => {
+    const post = jest.spyOn(axios, 'post').mockResolvedValue({ data: submission });
+
+    const file = new File(['vulnerability_id,packageurl,title,description\n'], 'Findings.CSV', {
+      type: 'text/csv',
+    });
+    await expect(createSubmission(file)).resolves.toEqual(submission);
+
+    expect(post).toHaveBeenCalledTimes(1);
+    const [url, body] = post.mock.calls[0];
+    expect(url).toBe(`${CLEARINGHOUSE_SUBMISSIONS_PATH}/create/csv`);
+    expect(body).toBeInstanceOf(FormData);
+    const formData = body as FormData;
+    expect(formData.get('file')).toBeInstanceOf(File);
+    expect((formData.get('file') as File).name).toBe('Findings.CSV');
+    expect(formData.get('name')).toBe('Findings.CSV');
+
+    post.mockRestore();
+  });
+
   it('targets the lightwell clearinghouse submissions path', () => {
     expect(CLEARINGHOUSE_SUBMISSIONS_PATH).toBe('/api/lightwell/v0.1/clearinghouse/submissions');
   });

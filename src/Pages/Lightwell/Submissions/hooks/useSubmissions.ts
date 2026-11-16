@@ -10,7 +10,7 @@ import { useCurrentUsername } from './useCurrentUsername';
 export type SubmissionsStep = 'select' | 'uploading' | 'detail';
 
 /**
- * Drives the clearinghouse intake flow. Selecting a valid JSON file validates it
+ * Drives the clearinghouse intake flow. Selecting a valid JSON or CSV file validates it
  * and immediately creates the submission (Lens-style auto-upload); on success the
  * view moves to `detail` with the new submission's uuid. On failure it returns to
  * `select` with the selection cleared; the error toast explains why.

@@ -19,9 +19,14 @@ export type PageTitleStackProps = {
    */
   icon?: ReactNode;
   /**
-   * Labels appended after the heading in the title row (e.g. `LwLabel` status),
-   * vertically centered on the heading. The heading never wraps to make room.
+   * Control rendered beside a string `title` (e.g. a circle help trigger).
    * Ignored when `title` is a custom node.
+   */
+  titleAction?: ReactNode;
+  /**
+   * Labels appended after the heading (and `titleAction`) in the title row (e.g.
+   * `LwLabel` status), vertically centered on the heading. The heading never wraps
+   * to make room. Ignored when `title` is a custom node.
    */
   labels?: ReactNode;
   ouiaId?: string;
@@ -32,8 +37,8 @@ export type PageTitleStackProps = {
  * Shared title + description stack for LwPageHeader.
  * Page-family internal — also exported from the assemblies barrel for composition.
  *
- * String title → `LwTitle` (config-sized h1); optional `icon` → `LwIcon` beside it;
- * optional `labels` → appended after the heading.
+ * String title → `LwTitle` (config-sized h1); optional `icon` → `LwIcon` before it,
+ * optional `titleAction` after it; optional `labels` → appended last.
  * String description → `Content` paragraph.
  * Non-string nodes render as-is (caller owns heading / copy structure).
  */
@@ -41,6 +46,7 @@ export function PageTitleStack({
   title,
   description,
   icon,
+  titleAction,
   labels,
   ouiaId,
   className,
@@ -54,7 +60,7 @@ export function PageTitleStack({
         </LwTitle>
       );
       titleNode =
-        icon != null || labels != null ? (
+        icon != null || titleAction != null || labels != null ? (
           <div
             className={mergeClassNames(
               'lw-c-page-title-stack__title',
@@ -63,6 +69,7 @@ export function PageTitleStack({
           >
             {icon != null ? <LwIcon size={PAGE_TITLE_ICON_SIZE}>{icon}</LwIcon> : null}
             {heading}
+            {titleAction}
             {labels != null ? (
               <span className='lw-c-page-title-stack__labels'>{labels}</span>
             ) : null}

@@ -14,7 +14,8 @@ import type { VulnerabilityTableColumn } from '../utils/vulnerabilityTableColumn
 export const BEACON_PDF_MANIFEST = '/apps/lightwell-experience/fed-mods.json';
 export const BEACON_PDF_SCOPE = 'lightwellExperience';
 export const BEACON_PDF_MODULE = './BeaconPdfEntry';
-export const BEACON_PDF_PAGE_SIZE = 50;
+// One full page of the vulnerabilities endpoint, so each slice is a single request.
+export const BEACON_PDF_PAGE_SIZE = 200;
 
 export function formatBeaconPdfGeneratedAt(date: Date = new Date()): string {
   const day = date.getUTCDate();

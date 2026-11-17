@@ -83,21 +83,22 @@ describe('fetchData', () => {
 describe('buildBeaconPdfPayload', () => {
   const visibleColumns = getVisibleVulnerabilityColumns(createDefaultVulnerabilityColumns());
 
-  it('splits large reports into paginated tasks of 50 rows', () => {
+  it('splits large reports into one task per API page of rows', () => {
     const payload = buildBeaconPdfPayload({
       customerId: 'CID-01',
       visibleColumns,
-      itemCount: 120,
+      itemCount: 500,
       generatedAt: '25 Aug 2026',
     });
 
-    expect(payload).toHaveLength(Math.ceil(120 / BEACON_PDF_PAGE_SIZE));
+    expect(BEACON_PDF_PAGE_SIZE).toBe(200);
+    expect(payload).toHaveLength(3);
     expect(payload[0]).toMatchObject({
       manifestLocation: '/apps/lightwell-experience/fed-mods.json',
       scope: 'lightwellExperience',
       module: './BeaconPdfEntry',
       landscape: false,
-      fetchDataParams: { customerId: 'CID-01', limit: 50, offset: 0 },
+      fetchDataParams: { customerId: 'CID-01', limit: 200, offset: 0 },
       additionalData: {
         includeSummary: true,
         generatedAt: '25 Aug 2026',
@@ -107,9 +108,9 @@ describe('buildBeaconPdfPayload', () => {
         isFiltered: false,
       },
     });
-    expect(payload[1].fetchDataParams).toMatchObject({ offset: 50 });
+    expect(payload[1].fetchDataParams).toMatchObject({ offset: 200 });
     expect(payload[1].additionalData).toMatchObject({ includeSummary: false });
-    expect(payload[2].fetchDataParams).toMatchObject({ offset: 100 });
+    expect(payload[2].fetchDataParams).toMatchObject({ offset: 400 });
   });
 
   it('emits a single task when the filtered set is empty', () => {
@@ -120,7 +121,7 @@ describe('buildBeaconPdfPayload', () => {
     });
 
     expect(payload).toHaveLength(1);
-    expect(payload[0].fetchDataParams).toMatchObject({ offset: 0, limit: 50 });
+    expect(payload[0].fetchDataParams).toMatchObject({ offset: 0, limit: 200 });
   });
 
   it('marks the status summary filtered for side-panel filters, not search', () => {

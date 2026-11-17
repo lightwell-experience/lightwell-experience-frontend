@@ -49,7 +49,7 @@ describe('ExportMenu PDF', () => {
       <ExportMenu
         customerId='CID-01'
         visibleColumns={[{ key: 'vulnerabilityId', title: 'Vulnerability ID' }]}
-        itemCount={120}
+        itemCount={500}
       />,
     );
 
@@ -66,11 +66,11 @@ describe('ExportMenu PDF', () => {
     expect(pdfRequest.payload[0]).toMatchObject({
       module: './BeaconPdfEntry',
       landscape: false,
-      fetchDataParams: { customerId: 'CID-01', limit: 50, offset: 0 },
+      fetchDataParams: { customerId: 'CID-01', limit: 200, offset: 0 },
       additionalData: { includeSummary: true, customerId: 'CID-01', headerBrand: 'lightwell' },
     });
-    expect(pdfRequest.payload[1].fetchDataParams.offset).toBe(50);
-    expect(pdfRequest.payload[2].fetchDataParams.offset).toBe(100);
+    expect(pdfRequest.payload[1].fetchDataParams.offset).toBe(200);
+    expect(pdfRequest.payload[2].fetchDataParams.offset).toBe(400);
   });
 
   it('closes the menu and shows generating feedback while the PDF is in progress', async () => {

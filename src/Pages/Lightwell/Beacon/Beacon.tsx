@@ -19,12 +19,10 @@ import {
   LwButtonGroup,
   LwDataView,
   LwLoaded,
-  LwMetricsCard,
   LwMetricsDonutChart,
   LwMetricsStepper,
   LwPageHeader,
   PageChromeSlot,
-  PageChromeSlotFooter,
   PageChromeSlots,
   PageTitleStack,
   type LwDataViewManageColumn,
@@ -75,8 +73,8 @@ import {
 
 import '../../../../styles/lightwell-beacon.scss';
 
-// Fixed ring size (px) for the status summary donut. No measuring: the card never needs
-// the ring to scale.
+// Fixed ring size (px) for the status summary donut. No measuring: the donut slot never
+// needs the ring to scale.
 const SUMMARY_DONUT_SIZE = 220;
 
 const DROP_LAST_CHROME_SEGMENT_OPTIONS = { dropLastChromeSegment: true };
@@ -391,6 +389,17 @@ const Beacon = () => {
           <PageChromeSlot>
             <PageTitleStack
               title='Beacon'
+              titleAction={
+                <LwPopover
+                  hasHeader={SLA_POLICY_HEADER}
+                  hasBody={slaPolicyBody}
+                  hasTrigger={
+                    <LwButton isCircle variant='plain' aria-label='SLA help'>
+                      <HelpIcon />
+                    </LwButton>
+                  }
+                />
+              }
               description={
                 <>
                   Track your Lightwell submissions from initial review to fix availability.
@@ -404,14 +413,6 @@ const Beacon = () => {
               }
               ouiaId='lightwell-beacon-header'
             />
-            <PageChromeSlotFooter>
-              <LwMetricsStepper
-                isHorizontal
-                aria-label='Submission pipeline metrics'
-                isHydrated={isPipelineHydrated}
-                steps={pipelineMetricSteps}
-              />
-            </PageChromeSlotFooter>
           </PageChromeSlot>
           {showCustomerEmpty ? (
             <PageChromeSlot>
@@ -440,49 +441,50 @@ const Beacon = () => {
                 </EmptyStateBody>
               </LwEmptyState>
             </PageChromeSlot>
-          ) : selectedCustomerId ? (
-            <PageChromeSlot>
-              <LwMetricsCard
-                hasHeader={`Status Summary${activeFilterCount > 0 ? ' (filtered)' : ''}`}
-                hasAction={
-                  <LwPopover
-                    hasHeader={SLA_POLICY_HEADER}
-                    hasBody={slaPolicyBody}
-                    hasTrigger={
-                      <LwButton isCircle variant='plain' aria-label='SLA help'>
-                        <HelpIcon />
-                      </LwButton>
-                    }
+          ) : null}
+        </PageChromeSlots>
+        <PageChromeSlots>
+          {/* TODO(LWLP-5615): replace inline slot sizing and the donut's end margin with an
+              explicit PageChromeSlot prop. The margin adds one extra chrome gap, standing in for
+              the stepper's trailing step margin that no longer pads the donut-to-stepper gap. */}
+          {selectedCustomerId ? (
+            <PageChromeSlot
+              style={{ flex: 'none', marginInlineEnd: 'var(--lw-space--page-chrome-gap)' }}
+            >
+              <LwLoaded
+                isLoaded={!isLoading}
+                fallback={
+                  <LwSkeleton
+                    width={`${SUMMARY_DONUT_SIZE}px`}
+                    height={`${SUMMARY_DONUT_SIZE}px`}
+                    screenreaderText='Loading status summary'
                   />
                 }
               >
-                <LwLoaded
-                  isLoaded={!isLoading}
-                  fallback={
-                    <LwSkeleton
-                      width={`${SUMMARY_DONUT_SIZE}px`}
-                      height={`${SUMMARY_DONUT_SIZE}px`}
-                      screenreaderText='Loading status summary'
-                    />
-                  }
-                >
-                  <LwMetricsDonutChart
-                    data={summaryDonut.data}
-                    colorScale={summaryDonut.colorScale}
-                    getLabel={formatSummarySlice}
-                    width={SUMMARY_DONUT_SIZE}
-                    height={SUMMARY_DONUT_SIZE}
-                    title={String(summaryTotal)}
-                    subTitle='Total'
-                    ariaDesc='Donut chart of vulnerabilities by status'
-                    legendAriaLabel='Vulnerability status summary'
-                    showLegend
-                    legendPosition='responsive'
-                  />
-                </LwLoaded>
-              </LwMetricsCard>
+                <LwMetricsDonutChart
+                  data={summaryDonut.data}
+                  colorScale={summaryDonut.colorScale}
+                  getLabel={formatSummarySlice}
+                  width={SUMMARY_DONUT_SIZE}
+                  height={SUMMARY_DONUT_SIZE}
+                  title={String(summaryTotal)}
+                  subTitle='Total'
+                  ariaDesc='Donut chart of vulnerabilities by status'
+                  legendAriaLabel='Vulnerability status summary'
+                  showLegend
+                  legendPosition='responsive'
+                />
+              </LwLoaded>
             </PageChromeSlot>
           ) : null}
+          <PageChromeSlot style={{ flex: 1, alignItems: 'start', justifyContent: 'center' }}>
+            <LwMetricsStepper
+              isHorizontal
+              aria-label='Submission pipeline metrics'
+              isHydrated={isPipelineHydrated}
+              steps={pipelineMetricSteps}
+            />
+          </PageChromeSlot>
         </PageChromeSlots>
       </LwPageHeader>
       <PageSection data-ouia-component-id='lightwell-beacon-controls'>

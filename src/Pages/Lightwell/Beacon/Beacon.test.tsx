@@ -159,7 +159,10 @@ it('shows an empty state until a customer is selected', async () => {
     ).toBeInTheDocument();
   });
 
-  expect(screen.queryByText('Status Summary')).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('list', { name: 'Vulnerability status summary' }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByText('Loading status summary')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Select customer ID' })).toBeInTheDocument();
 });
 
@@ -172,7 +175,7 @@ it('preselects the customer when only one is available', async () => {
   renderBeacon();
 
   await waitFor(() => {
-    expect(screen.getByText('Status Summary')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Vulnerability status summary' })).toBeInTheDocument();
   });
 
   expect(screen.getByRole('button', { name: 'CID-01' })).toBeInTheDocument();
@@ -184,7 +187,7 @@ it('renders the beacon page with status summary and vulnerability table', async 
   await selectCustomer('CID-01');
 
   await waitFor(() => {
-    expect(screen.getByText('Status Summary')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Vulnerability status summary' })).toBeInTheDocument();
   });
 
   const summaryDonut = document.querySelector('.lw-c-metrics-donut-chart') as HTMLElement;
@@ -289,7 +292,23 @@ it('clears every filter when the customer changes', async () => {
   ).toBe(true);
 });
 
-it('keeps the status summary card header while metrics are loading', async () => {
+it('puts the SLA help trigger beside the Beacon heading and opens the SLA popover', async () => {
+  (useCustomerIdsQuery as jest.Mock).mockReturnValue({
+    isLoading: false,
+    data: ['CID-01'],
+  });
+
+  renderBeacon();
+
+  const heading = await screen.findByRole('heading', { name: 'Beacon' });
+  const slaHelp = screen.getByRole('button', { name: 'SLA help' });
+  expect(heading.parentElement).toContainElement(slaHelp);
+
+  await userEvent.click(slaHelp);
+  expect(await screen.findByRole('dialog')).toBeInTheDocument();
+});
+
+it('keeps the status summary donut slot while metrics are loading', async () => {
   (useCustomerIdsQuery as jest.Mock).mockReturnValue({
     isLoading: false,
     data: ['CID-01'],
@@ -304,10 +323,9 @@ it('keeps the status summary card header while metrics are loading', async () =>
   renderBeacon();
 
   await waitFor(() => {
-    expect(screen.getByText('Status Summary')).toBeInTheDocument();
+    expect(screen.getByText('Loading status summary')).toBeInTheDocument();
   });
 
-  expect(document.querySelector('.lw-c-metrics-card')).toBeInTheDocument();
   expect(document.querySelector('.lw-c-loaded.lw-m-loading')).toBeInTheDocument();
   expect(document.querySelectorAll('.pf-v6-c-skeleton').length).toBeGreaterThan(0);
   expect(screen.getByText('Loading status summary')).toBeInTheDocument();
@@ -418,7 +436,7 @@ it('keeps the filtered view, not "No submissions yet", while Reset refetches (pl
   expect(screen.queryByRole('button', { name: 'Export' })).not.toBeInTheDocument();
 });
 
-it('does not count a 1-character search as an applied filter in the status summary badge', async () => {
+it('does not count a 1-character search as an applied filter', async () => {
   let isDatasetEmpty = false;
   (useBeaconData as jest.Mock).mockImplementation(() => ({
     isLoading: false,
@@ -432,16 +450,15 @@ it('does not count a 1-character search as an applied filter in the status summa
   const user = await selectCustomer('CID-01');
   const searchName = 'Filter vulnerabilities by ID, package, or title';
   const search = await screen.findByRole('textbox', { name: searchName });
-  expect(screen.getByText('Status Summary')).toBeInTheDocument();
+  expect(screen.getByRole('list', { name: 'Vulnerability status summary' })).toBeInTheDocument();
 
-  // A 1-character search is never sent to the API, so it is not an applied filter: no
-  // "(filtered)" badge. LwDataView still keeps the search box mounted for any non-empty value
-  // so the input can't vanish mid-typing.
+  // A 1-character search is never sent to the API, so it is not an applied filter (the
+  // Filters heading shows no count). LwDataView still keeps the search box mounted for any
+  // non-empty value so the input can't vanish mid-typing.
   isDatasetEmpty = true;
   await user.type(search, 'a');
   expect(await screen.findByRole('textbox', { name: searchName })).toHaveValue('a');
-  expect(screen.getByText('Status Summary')).toBeInTheDocument();
-  expect(screen.queryByText('Status Summary (filtered)')).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Filters' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Export' })).not.toBeInTheDocument();
 });
 

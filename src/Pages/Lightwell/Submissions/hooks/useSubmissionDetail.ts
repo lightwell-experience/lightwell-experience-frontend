@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AlertVariant } from '@patternfly/react-core';
+import { useQueryClient } from '@tanstack/react-query';
 
 import useNotification from 'Hooks/useNotification';
 import { composeErrorDescription } from 'Hooks/useErrorNotification';
@@ -8,13 +9,16 @@ import {
   downloadSubmissionFile,
 } from 'services/Lightwell/ClearinghouseApi';
 import {
+  CLEARINGHOUSE_SUBMISSIONS_KEY,
   useAddSubmissionFilesMutation,
+  useCreateSubmissionMutation,
   useDeleteSubmissionFileMutation,
   useDeleteSubmissionMutation,
   useSubmissionQuery,
   useSubmitSubmissionMutation,
   useProcessSubmissionMutation,
 } from 'services/Lightwell/ClearinghouseQueries';
+import { validateSubmissionFile } from '../utils/validateSubmissionFile';
 
 type UseSubmissionDetailOptions = {
   uuid: string;
@@ -22,6 +26,8 @@ type UseSubmissionDetailOptions = {
   onDeleted?: () => void;
   /** Called after the submission is submitted for validation. */
   onSubmitted?: () => void;
+  /** Called with the replacement submission's uuid after a successful resend. */
+  onResent?: (newUuid: string) => void;
 };
 
 /**
@@ -33,18 +39,27 @@ type UseSubmissionDetailOptions = {
  * authorization rules. They are all false until the submission loads. Per-file
  * delete / download is gated by each file's own `can_delete` / `can_download`.
  * Callers hide controls accordingly.
+ *
+ * `resend` replaces a report that has invalid packageurls with a corrected file:
+ * it creates the new submission first and only then deletes this one, so a
+ * rejected file never costs the user the original. It is offered (`canResend`)
+ * only while the report has invalid packages, no reproducers have been added
+ * yet, and the caller may delete the submission.
  */
 export const useSubmissionDetail = ({
   uuid,
   onDeleted,
   onSubmitted,
+  onResent,
 }: UseSubmissionDetailOptions) => {
   const { notify } = useNotification();
+  const queryClient = useQueryClient();
   const { data: submission, isLoading, isError } = useSubmissionQuery(uuid);
 
   const addFilesMutation = useAddSubmissionFilesMutation(uuid);
   const deleteFileMutation = useDeleteSubmissionFileMutation(uuid);
   const deleteSubmissionMutation = useDeleteSubmissionMutation();
+  const createSubmissionMutation = useCreateSubmissionMutation();
   const submitMutation = useSubmitSubmissionMutation(uuid);
   const processMutation = useProcessSubmissionMutation(uuid);
 
@@ -59,6 +74,8 @@ export const useSubmissionDetail = ({
   const canSubmit = !!submission?.can_submit;
   const canProcess = !!submission?.can_process;
   const canDownload = !!submission?.can_download;
+  const invalidPackageCount = submission?.package_summary?.invalid_purls ?? 0;
+  const canResend = canDelete && invalidPackageCount > 0 && reproducerFiles.length === 0;
 
   // Surface the backend's reason (e.g. too many files, duplicate filename)
   // instead of a generic message; fall back to the generic text otherwise.
@@ -117,6 +134,50 @@ export const useSubmissionDetail = ({
     });
   };
 
+  // Spans both steps (create, then delete) so the action stays busy throughout.
+  const [isResending, setIsResending] = useState(false);
+  const resend = (file: File) => {
+    const fileError = validateSubmissionFile(file);
+    if (fileError) {
+      notify({
+        variant: AlertVariant.danger,
+        title: 'Could not resend report',
+        description: fileError,
+      });
+      return;
+    }
+
+    setIsResending(true);
+    createSubmissionMutation.mutate(file, {
+      onSuccess: (created) => {
+        deleteSubmissionMutation.mutate(uuid, {
+          onSuccess: () => {
+            notify({ variant: AlertVariant.success, title: 'Corrected report resent' });
+          },
+          onError: () => {
+            // The delete mutation only refreshes the list on success; the new
+            // submission must still show up in the table.
+            queryClient.invalidateQueries({ queryKey: [CLEARINGHOUSE_SUBMISSIONS_KEY] });
+            notify({
+              variant: AlertVariant.warning,
+              title: 'Corrected report uploaded',
+              description:
+                'The original submission could not be deleted. Delete it from the submissions table.',
+            });
+          },
+          onSettled: () => {
+            setIsResending(false);
+            onResent?.(created.uuid);
+          },
+        });
+      },
+      onError: (err) => {
+        setIsResending(false);
+        notifyError('Could not resend report', err);
+      },
+    });
+  };
+
   const download = (filename: string) => {
     downloadSubmissionFile(uuid, filename).catch((err) =>
       notifyError('Could not download file', err),
@@ -142,6 +203,7 @@ export const useSubmissionDetail = ({
     addFilesMutation.isPending ||
     deleteFileMutation.isPending ||
     deleteSubmissionMutation.isPending ||
+    isResending ||
     submitMutation.isPending ||
     processMutation.isPending;
 
@@ -154,6 +216,8 @@ export const useSubmissionDetail = ({
     canSubmit,
     canProcess,
     canDownload,
+    canResend,
+    invalidPackageCount,
     mainFile,
     reproducerFiles,
     addFiles,
@@ -161,6 +225,7 @@ export const useSubmissionDetail = ({
     deleteWholeSubmission,
     submit,
     process,
+    resend,
     download,
     downloadArchive,
     isAddingFiles,
@@ -168,6 +233,7 @@ export const useSubmissionDetail = ({
     isMutating,
     isSubmitting: submitMutation.isPending,
     isProcessing: processMutation.isPending,
+    isResending,
     isDownloadingArchive,
   };
 };

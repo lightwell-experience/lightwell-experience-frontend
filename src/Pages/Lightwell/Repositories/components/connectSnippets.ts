@@ -1,5 +1,6 @@
 import { ContentItem } from 'services/Content/ContentApi';
 import { formatDistributionUrl, formatPythonIndexUrl } from '../../helpers';
+import { capitalize } from 'lodash';
 
 export interface ConnectCodeSnippet {
   label: string;
@@ -68,20 +69,26 @@ const getRenovateTab = (registryUrl?: string): ConnectSnippetTab => ({
   ],
 });
 
-const getMavenRepoId = (repository: RepositoryContext): string => {
-  const securityLevel = repository.name.includes('remediated') ? 'remediated' : 'validated';
+const getMavenRepoId = (repositoryName: string): string => {
+  const securityLevel = getRepositorySecurityLevel(repositoryName);
+  if (!securityLevel) {
+    return 'lightwell';
+  }
   return `lightwell-${securityLevel}`;
 };
 
-const getMavenRepoName = (repository: RepositoryContext): string => {
-  const securityLevel = repository.name.includes('remediated') ? 'Remediated' : 'Validated';
-  return `Red Hat Lightwell Network - ${securityLevel}`;
+const getMavenRepoName = (repositoryName: string): string => {
+  const securityLevel = getRepositorySecurityLevel(repositoryName);
+  if (!securityLevel) {
+    return 'Red Hat Lightwell Network';
+  }
+  return `Red Hat Lightwell Network - ${capitalize(securityLevel)}`;
 };
 
 const getMavenSnippetTabs = (repository: RepositoryContext): ConnectSnippetTab[] => {
   const distributionUrl = formatDistributionUrl(repository.published_distribution_url || '');
-  const repoId = getMavenRepoId(repository);
-  const repoName = getMavenRepoName(repository);
+  const repoId = getMavenRepoId(repository.name);
+  const repoName = getMavenRepoName(repository.name);
   const securityLevel = getRepositorySecurityLevel(repository.name);
   const renovateTab =
     securityLevel === 'remediated'

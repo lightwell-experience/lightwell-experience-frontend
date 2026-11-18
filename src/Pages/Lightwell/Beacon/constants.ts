@@ -38,6 +38,20 @@ export function vulnerabilityStatusLabel(
   return vulnerability.duplicate ? DUPLICATE_STATUS_LABEL : statusLabel(vulnerability.status);
 }
 
+/**
+ * On Hold reasons joined in API order, or the closure reason for any other status.
+ * A row with nothing to show returns undefined.
+ */
+export function statusReason(
+  vulnerability: Pick<Vulnerability, 'status' | 'onHoldReasons' | 'resolutionReason'>,
+): string | undefined {
+  if (vulnerability.status === ON_HOLD_STATUS) {
+    return vulnerability.onHoldReasons?.join(', ') || undefined;
+  }
+
+  return vulnerability.resolutionReason;
+}
+
 export function severityLabel(severity: Severity): string {
   return severity === 'Minor' ? 'Low' : severity;
 }

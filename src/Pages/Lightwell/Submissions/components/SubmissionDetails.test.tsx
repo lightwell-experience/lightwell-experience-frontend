@@ -7,8 +7,16 @@ import { useSubmissionDetail } from '../hooks/useSubmissionDetail';
 jest.mock('../hooks/useSubmissionDetail');
 jest.mock('./SubmissionPackagesTable', () => ({
   __esModule: true,
-  default: ({ ecosystems }: { ecosystems: string[] }) => (
-    <div data-ouia-component-id='packages-table'>{ecosystems.join(',')}</div>
+  default: ({
+    ecosystems,
+    initialValidity,
+  }: {
+    ecosystems: string[];
+    initialValidity?: string[];
+  }) => (
+    <div data-ouia-component-id='packages-table' data-validity={initialValidity?.join(',') ?? ''}>
+      {ecosystems.join(',')}
+    </div>
   ),
 }));
 jest.mock('./SubmissionEcosystemChart', () => ({
@@ -503,5 +511,85 @@ describe('SubmissionDetails packages', () => {
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
     expect(screen.getByText('Reproducers (2)')).toBeInTheDocument();
     expect(screen.queryByText(/invalid/)).not.toBeInTheDocument();
+  });
+});
+
+describe('SubmissionDetails resend', () => {
+  const packageSummary = {
+    total: 128,
+    invalid_purls: 7,
+    ecosystems: [{ ecosystem: 'Java', total: 128 }],
+  };
+  const withResend = (overrides: Record<string, unknown> = {}) =>
+    mockedHook.mockReturnValue(
+      buildHook({
+        submission: { ...buildHook().submission, package_summary: packageSummary },
+        reproducerFiles: [],
+        canResend: true,
+        invalidPackageCount: 7,
+        resend: jest.fn(),
+        isResending: false,
+        ...overrides,
+      }),
+    );
+  const alert = () => screen.getByTestId('submission-invalid-packages-alert');
+
+  it('explains the invalid packages and offers a resend while it is allowed', () => {
+    withResend();
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(alert()).toHaveTextContent('7 packages have invalid package URLs');
+    expect(alert()).toHaveTextContent(/available only until you add reproducers/);
+    expect(within(alert()).getByRole('button', { name: 'Resend corrected report' })).toBeEnabled();
+  });
+
+  it('uses the singular for a single invalid package', () => {
+    withResend({ invalidPackageCount: 1 });
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(alert()).toHaveTextContent('1 package has an invalid package URL');
+  });
+
+  it('hides the alert when resend is not allowed (e.g. reproducers were added)', () => {
+    withResend({ canResend: false });
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(screen.queryByTestId('submission-invalid-packages-alert')).not.toBeInTheDocument();
+  });
+
+  it('resends the picked file only after confirming the replacement', async () => {
+    const resend = jest.fn();
+    withResend({ resend });
+    const user = userEvent.setup();
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    const file = new File(['{}'], 'fixed.json', { type: 'application/json' });
+    await user.upload(screen.getByTestId('resend-report-file-input'), file);
+    expect(resend).not.toHaveBeenCalled();
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('"fixed.json" will be uploaded as a new submission');
+    await user.click(within(dialog).getByRole('button', { name: 'Resend' }));
+
+    expect(resend).toHaveBeenCalledWith(file);
+  });
+
+  it('disables the resend action while another action runs', () => {
+    withResend({ isMutating: true, isResending: true });
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(within(alert()).getByRole('button', { name: /Resend corrected report/ })).toBeDisabled();
+  });
+
+  it('opens the Packages tab filtered to invalid packages', async () => {
+    const onTabChange = jest.fn();
+    withResend();
+    const user = userEvent.setup();
+    render(<SubmissionDetails uuid='sub-1' onTabChange={onTabChange} />);
+
+    await user.click(within(alert()).getByRole('button', { name: 'View invalid packages' }));
+
+    expect(onTabChange).toHaveBeenCalledWith('packages');
+    expect(screen.getByTestId('packages-table')).toHaveAttribute('data-validity', 'invalid');
   });
 });

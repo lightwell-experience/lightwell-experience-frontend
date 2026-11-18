@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  AlertActionLink,
   Bullseye,
   ButtonVariant,
   Content,
@@ -34,7 +35,7 @@ import { useCurrentUsername } from '../hooks/useCurrentUsername';
 import type { SubmissionDrawerTab } from '../hooks/useSubmissionDrawerParams';
 import { usePendingReproducers } from './PendingReproducersContext';
 import SubmissionEcosystemChart from './SubmissionEcosystemChart';
-import SubmissionPackageSummary from './SubmissionPackageSummary';
+import SubmissionPackageSummary, { pluralizePackages } from './SubmissionPackageSummary';
 import SubmissionPackagesTable from './SubmissionPackagesTable';
 
 export type SubmissionDetailsProps = {
@@ -44,6 +45,8 @@ export type SubmissionDetailsProps = {
   onDeleted?: () => void;
   /** Fired after the submission is submitted for validation (close the drawer). */
   onSubmitted?: () => void;
+  /** Fired with the replacement's uuid after the report is resent (open it instead). */
+  onResent?: (newUuid: string) => void;
   /** Controlled active tab (the drawer keeps it in the URL); falls back to local state. */
   activeTab?: SubmissionDrawerTab;
   onTabChange?: (tab: SubmissionDrawerTab) => void;
@@ -109,6 +112,10 @@ const useStyles = createUseStyles({
  * action is available. Per-file controls follow each file's own
  * `can_download` / `can_delete` flags.
  *
+ * When the report has invalid packageurls and no reproducers yet, a warning
+ * alert above the tabs explains the problem and offers to resend a corrected
+ * report (which replaces this submission) or jump to the invalid packages.
+ *
  * On mount it also consumes any reproducer files handed over from the Submissions hero
  * (via PendingReproducersContext) and uploads them, showing skeleton rows.
  */
@@ -116,6 +123,7 @@ const SubmissionDetails = ({
   uuid,
   onDeleted,
   onSubmitted,
+  onResent,
   activeTab,
   onTabChange,
 }: SubmissionDetailsProps) => {
@@ -128,6 +136,8 @@ const SubmissionDetails = ({
     canSubmit,
     canProcess,
     canDownload,
+    canResend,
+    invalidPackageCount,
     mainFile,
     reproducerFiles,
     addFiles,
@@ -135,6 +145,7 @@ const SubmissionDetails = ({
     deleteWholeSubmission,
     submit,
     process,
+    resend,
     download,
     downloadArchive,
     isAddingFiles,
@@ -143,12 +154,16 @@ const SubmissionDetails = ({
     isSubmitting,
     isProcessing,
     isDownloadingArchive,
-  } = useSubmissionDetail({ uuid, onDeleted, onSubmitted });
+    isResending,
+  } = useSubmissionDetail({ uuid, onDeleted, onSubmitted, onResent });
 
   const { takePending } = usePendingReproducers();
   const currentUsername = useCurrentUsername();
   const classes = useStyles();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const resendInputRef = useRef<HTMLInputElement>(null);
+  // Bumped by "View invalid packages" to remount the table filtered to invalid ones.
+  const [invalidFilterKey, setInvalidFilterKey] = useState(0);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [localTab, setLocalTab] = useState<SubmissionDrawerTab>('reproducers');
   const currentTab = activeTab ?? localTab;
@@ -184,6 +199,24 @@ const SubmissionDetails = ({
     const selected = Array.from(event.target.files ?? []);
     event.target.value = '';
     if (selected.length) addFiles(selected);
+  };
+
+  const handleResendFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const [file] = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!file) return;
+    setConfirm({
+      title: 'Replace submission?',
+      body: `"${file.name}" will be uploaded as a new submission and this one will be permanently deleted.`,
+      confirmLabel: 'Resend',
+      confirmVariant: ButtonVariant.danger,
+      action: () => resend(file),
+    });
+  };
+
+  const showInvalidPackages = () => {
+    setInvalidFilterKey((key) => key + 1);
+    handleTabSelect('packages');
   };
 
   const confirmDeleteFile = (filename: string) =>
@@ -379,6 +412,43 @@ const SubmissionDetails = ({
             </Flex>
           </StackItem>
 
+          {canResend ? (
+            <StackItem>
+              <input
+                ref={resendInputRef}
+                type='file'
+                accept='.json,application/json'
+                hidden
+                data-ouia-component-id='resend-report-file-input'
+                onChange={handleResendFileSelected}
+              />
+              <Alert
+                variant='warning'
+                isInline
+                title={`${pluralizePackages(invalidPackageCount)} ${invalidPackageCount === 1 ? 'has an invalid package URL' : 'have invalid package URLs'}`}
+                actionLinks={
+                  <>
+                    <AlertActionLink
+                      isLoading={isResending}
+                      isDisabled={isMutating}
+                      onClick={() => resendInputRef.current?.click()}
+                      ouiaId='resend-report'
+                    >
+                      Resend corrected report
+                    </AlertActionLink>
+                    <AlertActionLink onClick={showInvalidPackages} ouiaId='view-invalid-packages'>
+                      View invalid packages
+                    </AlertActionLink>
+                  </>
+                }
+                ouiaId='submission-invalid-packages-alert'
+              >
+                Fix the report and resend it. The corrected file replaces this submission. Resend is
+                available only until you add reproducers.
+              </Alert>
+            </StackItem>
+          ) : null}
+
           <StackItem>
             <Divider />
           </StackItem>
@@ -411,6 +481,8 @@ const SubmissionDetails = ({
                       <SubmissionEcosystemChart ecosystems={packageSummary.ecosystems} />
                     ) : null}
                     <SubmissionPackagesTable
+                      key={invalidFilterKey}
+                      initialValidity={invalidFilterKey ? ['invalid'] : undefined}
                       uuid={uuid}
                       ecosystems={packageSummary.ecosystems.map(({ ecosystem }) => ecosystem)}
                     />

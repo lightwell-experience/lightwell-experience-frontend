@@ -15,8 +15,16 @@ const mockDeleteFileMutate = jest.fn();
 const mockDeleteSubmissionMutate = jest.fn();
 const mockSubmitMutate = jest.fn();
 const mockProcessMutate = jest.fn();
+const mockCreateMutate = jest.fn();
+const mockInvalidateQueries = jest.fn();
+
+jest.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
+}));
 
 jest.mock('services/Lightwell/ClearinghouseQueries', () => ({
+  CLEARINGHOUSE_SUBMISSIONS_KEY: 'CLEARINGHOUSE_SUBMISSIONS_KEY',
+  useCreateSubmissionMutation: () => ({ mutate: mockCreateMutate, isPending: false }),
   useSubmissionQuery: () => ({
     data: mockSubmission,
     isLoading: mockIsLoading,
@@ -244,5 +252,111 @@ describe('useSubmissionDetail', () => {
 
     act(() => finish());
     await waitFor(() => expect(result.current.isDownloadingArchive).toBe(false));
+  });
+
+  describe('resend', () => {
+    const invalidSubmission: ClearinghouseSubmission = {
+      ...pendingSubmission,
+      files: pendingSubmission.files!.slice(0, 1),
+      package_summary: { total: 5, invalid_purls: 2, ecosystems: [] },
+    };
+    const corrected = new File(['{}'], 'fixed.json', { type: 'application/json' });
+
+    beforeEach(() => {
+      mockSubmission = invalidSubmission;
+    });
+
+    it('is offered only with invalid packages, no reproducers and delete permission', () => {
+      const { result, rerender } = render({ uuid: 'sub-1' });
+      expect(result.current.canResend).toBe(true);
+      expect(result.current.invalidPackageCount).toBe(2);
+
+      mockSubmission = { ...invalidSubmission, files: pendingSubmission.files };
+      rerender();
+      expect(result.current.canResend).toBe(false);
+
+      mockSubmission = { ...invalidSubmission, can_delete: false };
+      rerender();
+      expect(result.current.canResend).toBe(false);
+
+      mockSubmission = {
+        ...invalidSubmission,
+        package_summary: { total: 5, invalid_purls: 0, ecosystems: [] },
+      };
+      rerender();
+      expect(result.current.canResend).toBe(false);
+
+      mockSubmission = { ...invalidSubmission, package_summary: undefined };
+      rerender();
+      expect(result.current.canResend).toBe(false);
+    });
+
+    it('creates the new submission, then deletes this one and reports the new uuid', () => {
+      mockCreateMutate.mockImplementation((_file, opts) => opts?.onSuccess?.({ uuid: 'sub-2' }));
+      mockDeleteSubmissionMutate.mockImplementation((_uuid, opts) => {
+        opts?.onSuccess?.();
+        opts?.onSettled?.();
+      });
+      const onResent = jest.fn();
+      const onDeleted = jest.fn();
+      const { result } = render({ uuid: 'sub-1', onResent, onDeleted });
+
+      act(() => result.current.resend(corrected));
+
+      expect(mockCreateMutate).toHaveBeenCalledWith(corrected, expect.any(Object));
+      expect(mockDeleteSubmissionMutate).toHaveBeenCalledWith('sub-1', expect.any(Object));
+      expect(mockCreateMutate.mock.invocationCallOrder[0]).toBeLessThan(
+        mockDeleteSubmissionMutate.mock.invocationCallOrder[0],
+      );
+      expect(onResent).toHaveBeenCalledWith('sub-2');
+      expect(onDeleted).not.toHaveBeenCalled();
+      expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ variant: 'success' }));
+      expect(result.current.isResending).toBe(false);
+    });
+
+    it('keeps the original when creating the replacement fails', () => {
+      mockCreateMutate.mockImplementation((_file, opts) => opts?.onError?.(new Error('bad')));
+      const onResent = jest.fn();
+      const { result } = render({ uuid: 'sub-1', onResent });
+
+      act(() => result.current.resend(corrected));
+
+      expect(mockDeleteSubmissionMutate).not.toHaveBeenCalled();
+      expect(onResent).not.toHaveBeenCalled();
+      expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ variant: 'danger' }));
+      expect(result.current.isResending).toBe(false);
+    });
+
+    it('still opens the replacement and warns when deleting the original fails', () => {
+      mockCreateMutate.mockImplementation((_file, opts) => opts?.onSuccess?.({ uuid: 'sub-2' }));
+      mockDeleteSubmissionMutate.mockImplementation((_uuid, opts) => {
+        opts?.onError?.(new Error('x'));
+        opts?.onSettled?.();
+      });
+      const onResent = jest.fn();
+      const { result } = render({ uuid: 'sub-1', onResent });
+
+      act(() => result.current.resend(corrected));
+
+      expect(onResent).toHaveBeenCalledWith('sub-2');
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['CLEARINGHOUSE_SUBMISSIONS_KEY'],
+      });
+      expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ variant: 'warning' }));
+    });
+
+    it('rejects a non-JSON file without calling the backend', () => {
+      const { result } = render({ uuid: 'sub-1' });
+
+      act(() => result.current.resend(new File(['x'], 'report.txt')));
+
+      expect(mockCreateMutate).not.toHaveBeenCalled();
+      expect(mockNotify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          variant: 'danger',
+          description: 'Only .json files are accepted.',
+        }),
+      );
+    });
   });
 });

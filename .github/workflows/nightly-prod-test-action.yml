@@ -60,7 +60,33 @@ jobs:
           echo "✅ Environment file created successfully"
 
       - name: Run Playwright tests
+        env:
+          CURRENTS_OUTPUT_FILE: currents-summary.json
         run: CURRENTS_PROJECT_ID=aPXDo2 CURRENTS_RECORD_KEY=$CURRENTS_RECORD_KEY CURRENTS_CI_BUILD_ID="${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}" yarn playwright test
+
+      - name: Build Currents Slack button
+        id: currents
+        if: ${{ always() && !cancelled() && github.event_name == 'schedule' }}
+        shell: bash
+        run: |
+          if [[ -f currents-summary.json ]]; then
+            if button=$(jq -c '
+              .url | strings | select(startswith("https://")) |
+              {
+                type: "actions",
+                elements: [{
+                  type: "button",
+                  action_id: "currents_run",
+                  text: {type: "plain_text", text: "View results in Currents"},
+                  url: .
+                }]
+              }
+            ' currents-summary.json 2>/dev/null); then
+              if [[ -n "$button" ]]; then
+                echo "button=,$button" >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          fi
 
       - name: Publish test report
         uses: ctrf-io/github-test-reporter@v1
@@ -75,3 +101,28 @@ jobs:
           name: playwright-report
           path: ./playwright-ctrf
           retention-days: 10
+
+      - name: Notify Slack on failure
+        uses: slackapi/slack-github-action@v3.0.3
+        if: ${{ failure() && github.event_name == 'schedule' && !cancelled() }}
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "#d72839",
+                  "blocks": [
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/ | :night_with_stars: Nightly prod test run>: *FAILED* :big-sad:"
+                      }
+                    }
+                    ${{ steps.currents.outputs.button }}
+                  ]
+                }
+              ]
+            }

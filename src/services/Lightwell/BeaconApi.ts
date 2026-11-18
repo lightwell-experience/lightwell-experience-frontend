@@ -60,6 +60,7 @@ export type LightwellVulnerabilityResponse = {
   customer_priority?: string;
   status: string;
   resolution_reason?: string;
+  on_hold_reasons?: string[];
   ecosystem?: string;
   submitted_date: string;
   last_updated: string;
@@ -113,6 +114,28 @@ function mapSeverityToApi(severity: Severity): string {
   return severity === 'Minor' ? 'Low' : severity;
 }
 
+/**
+ * The API sends On Hold reasons as final customer-facing text, already in display order.
+ * Only tidy them: trim, drop blanks, and remove repeats (the first one wins). Returns
+ * undefined when nothing is left, so a row without reasons looks the same as before.
+ */
+function normalizeOnHoldReasons(reasons?: string[]): string[] | undefined {
+  if (!Array.isArray(reasons)) {
+    return undefined;
+  }
+
+  const cleaned = [
+    ...new Set(
+      reasons
+        .filter((reason): reason is string => typeof reason === 'string')
+        .map((reason) => reason.trim())
+        .filter(Boolean),
+    ),
+  ];
+
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
 export function mapLightwellVulnerability(
   vulnerability: LightwellVulnerabilityResponse,
 ): Vulnerability {
@@ -137,6 +160,7 @@ export function mapLightwellVulnerability(
     customerPriority: vulnerability.customer_priority as Vulnerability['customerPriority'],
     status,
     resolutionReason: vulnerability.resolution_reason?.trim() || undefined,
+    onHoldReasons: normalizeOnHoldReasons(vulnerability.on_hold_reasons),
     ecosystem: vulnerability.ecosystem ?? '',
     submittedDate: formatDate(vulnerability.submitted_date),
     lastUpdated: formatDateTime(vulnerability.last_updated),

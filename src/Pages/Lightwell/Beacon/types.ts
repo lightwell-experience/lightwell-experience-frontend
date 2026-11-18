@@ -67,6 +67,8 @@ export interface Vulnerability {
   customerPriority?: CustomerPriority;
   status: Status;
   resolutionReason?: string;
+  /** Customer-facing reasons an On Hold vulnerability is blocked, in display order. */
+  onHoldReasons?: string[];
   ecosystem: string;
   submittedDate: string;
   lastUpdated: string;

@@ -68,13 +68,20 @@ export function duplicateTrackingLabel(vulnerability: DuplicateTracking): string
   return status ? `Tracking under ${key} [${statusLabel(status)}]` : `Tracking under ${key}`;
 }
 
-/** Status-cell detail. A duplicate's own label is already Duplicate, so only the tracker line is added. */
+/**
+ * Status-cell detail. A duplicate's own label is already Duplicate, so only the tracker line
+ * is added. Every other row uses statusReason().
+ */
 export function statusDetail(
-  vulnerability: Pick<Vulnerability, 'duplicate' | 'resolutionReason'> & DuplicateTracking,
+  vulnerability: Pick<
+    Vulnerability,
+    'status' | 'duplicate' | 'onHoldReasons' | 'resolutionReason'
+  > &
+    DuplicateTracking,
 ): string | undefined {
   return (
     duplicateTrackingLabel(vulnerability) ??
-    (vulnerability.duplicate ? undefined : vulnerability.resolutionReason)
+    (vulnerability.duplicate ? undefined : statusReason(vulnerability))
   );
 }
 

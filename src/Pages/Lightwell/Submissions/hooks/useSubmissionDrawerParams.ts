@@ -59,13 +59,20 @@ export const useSubmissionDrawerParams = () => {
   );
 
   const openSubmission = useCallback(
-    (uuid: string, tab: SubmissionDrawerTab = DEFAULT_SUBMISSION_TAB) => {
-      setSearchParams((currentParams) => {
-        const next = new URLSearchParams(currentParams);
-        next.set(SUBMISSION_UUID_PARAM, uuid);
-        setTabParam(next, tab);
-        return next;
-      });
+    (
+      uuid: string,
+      tab: SubmissionDrawerTab = DEFAULT_SUBMISSION_TAB,
+      opts?: { replace?: boolean },
+    ) => {
+      setSearchParams(
+        (currentParams) => {
+          const next = new URLSearchParams(currentParams);
+          next.set(SUBMISSION_UUID_PARAM, uuid);
+          setTabParam(next, tab);
+          return next;
+        },
+        { replace: opts?.replace },
+      );
     },
     [setSearchParams],
   );

@@ -50,13 +50,23 @@ it('opens a submission by setting the submission uuid param (pushing history)', 
     result.current.openSubmission('sub-9');
   });
 
-  expect(mockSetSearchParams).toHaveBeenCalledWith(expect.any(Function));
+  expect(mockSetSearchParams).toHaveBeenCalledWith(expect.any(Function), { replace: undefined });
 
   const updater = mockSetSearchParams.mock.calls[0][0] as (
     params: URLSearchParams,
   ) => URLSearchParams;
 
   expect(updater(new URLSearchParams('page=2')).toString()).toBe('page=2&submission=sub-9');
+});
+
+it('can open a submission replacing history', () => {
+  const { result } = renderHook(() => useSubmissionDrawerParams());
+
+  act(() => {
+    result.current.openSubmission('sub-9', 'reproducers', { replace: true });
+  });
+
+  expect(mockSetSearchParams).toHaveBeenCalledWith(expect.any(Function), { replace: true });
 });
 
 it('removes the submission uuid from search on close while preserving other params', () => {

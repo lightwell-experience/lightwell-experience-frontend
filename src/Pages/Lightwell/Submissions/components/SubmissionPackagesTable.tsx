@@ -82,6 +82,8 @@ export type SubmissionPackagesTableProps = {
   uuid: string;
   /** Ecosystems present in the submission, for the ecosystem filter. */
   ecosystems: string[];
+  /** Validity filter to start with, e.g. `['invalid']` to open on the invalid packages. */
+  initialValidity?: Validity[];
 };
 
 /**
@@ -90,12 +92,18 @@ export type SubmissionPackagesTableProps = {
  * (hover for the backend's detail); ones that don't parse show the raw
  * packageurl as the package name.
  */
-const SubmissionPackagesTable = ({ uuid, ecosystems }: SubmissionPackagesTableProps) => {
+const SubmissionPackagesTable = ({
+  uuid,
+  ecosystems,
+  initialValidity,
+}: SubmissionPackagesTableProps) => {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(DEFAULT_PER_PAGE);
 
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<PackageTableFilters>({
-    initialFilters,
+    initialFilters: initialValidity
+      ? { ...initialFilters, validity: initialValidity }
+      : initialFilters,
   });
   const apiFilters = useMemo(() => toApiFilters(filters), [filters]);
   const isFiltered = !!filters.ecosystem.length || !!filters.validity.length;

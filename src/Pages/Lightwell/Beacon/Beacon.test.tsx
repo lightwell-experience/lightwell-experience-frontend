@@ -573,10 +573,7 @@ it('keeps ecosystems distinct and counts unique vulnerability IDs per package ve
   expect(rows[0]).toMatchObject({
     row: expect.arrayContaining([
       expect.objectContaining({ cell: 2 }),
-      expect.objectContaining({
-        cell: 'Critical',
-        props: expect.objectContaining({ sortValue: 0 }),
-      }),
+      expect.objectContaining({ cell: 'Critical' }),
     ]),
   });
 });

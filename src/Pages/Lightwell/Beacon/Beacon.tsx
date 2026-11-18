@@ -449,7 +449,6 @@ const Beacon = () => {
   const tableView = isPackageView
     ? {
         ariaLabel: 'Package tracking table',
-        className: 'beacon-package-table',
         columnKeys: visiblePackageColumns.map((column) => column.key),
         columns: visiblePackageColumns,
         rows: packageRows,
@@ -464,7 +463,6 @@ const Beacon = () => {
       }
     : {
         ariaLabel: 'Vulnerability tracking table',
-        className: undefined,
         columnKeys: visibleColumns.map((column) => column.key),
         columns: dataViewColumns,
         rows: dataViewRows,
@@ -644,7 +642,6 @@ const Beacon = () => {
             // up pointing at a different field after a column is hidden/shown.
             key={`${view}:${tableView.columnKeys.join(',')}`}
             aria-label={tableView.ariaLabel}
-            className={tableView.className}
             columns={tableView.columns}
             rows={tableView.rows}
             manageColumns={tableView.manageColumns}

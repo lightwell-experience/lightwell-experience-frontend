@@ -55,6 +55,14 @@
   overflow: auto;
 }
 
+/*
+ * The table never narrows below its scroll wrapper. Scoped to the wrapper's
+ * direct child so a table nested in an expanded row (which has its own wrapper)
+ * is sized by that wrapper, not the outer one.
+ */
+.lw-c-data-view .pf-v6-c-scroll-inner-wrapper > .pf-v6-c-table {
+  min-width: 100%;
+}
 
 /*
  * Header cell paired with the row-expansion toggle PF adds to the body only

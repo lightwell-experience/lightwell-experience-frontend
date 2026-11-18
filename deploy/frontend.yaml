@@ -11,7 +11,6 @@ objects:
       name: lightwell-experience
     spec:
       feoConfigEnabled: true
-      # TODO: add serviceTiles and searchEntries for lightwell
       API:
         versions:
           - v1
@@ -26,11 +25,37 @@ objects:
 
       module:
         manifestLocation: '/apps/lightwell-experience/fed-mods.json'
+        analytics:
+          APIKey: apRCg9V6oMXCcnTingqRYW6m1er4hkCW
+          APIKeyDev: aMINBssUhXV1okzk7ZBaqwdTgtA0ySpg
         modules:
           - id: 'lightwell-experience'
             module: './RootApp'
             routes:
               - pathname: /lightwell
+      searchEntries:
+        - id: lightwell
+          title: Lightwell
+          href: /lightwell
+          description: Remediated and validated open source libraries.
+          alt_title:
+            - backported patches
+            - CVE remediation
+            - light well
+            - lightwell
+            - lightwell clearinghouse
+            - lightwell network
+            - lightwell repositories
+            - remediated java
+            - remediated libraries
+            - remediated packages
+            - remediated python
+            - supply chain security
+            - trusted content
+            - validated libraries
+            - validated packages
+            - vulnerability remediation
+
 parameters:
   - name: ENV_NAME
     required: true

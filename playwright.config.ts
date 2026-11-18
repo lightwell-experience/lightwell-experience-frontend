@@ -42,8 +42,9 @@ export default defineConfig({
         ['html', { outputFolder: 'playwright-report' }],
         [
           'playwright-ctrf-json-reporter',
-          { outputDir: 'playwright-ctrf', outputFile: 'playwright-ctrf.json' },
+          { useDetails: true, outputDir: 'playwright-ctrf', outputFile: 'playwright-ctrf.json' },
         ],
+        ['@currents/playwright'],
       ]
     : 'list',
   globalTimeout: (process.env.INTEGRATION ? 35 : 20) * 60 * 1000,

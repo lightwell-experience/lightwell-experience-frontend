@@ -163,7 +163,15 @@ describe('buildBeaconPdfPayload', () => {
     );
   });
 
-  it('uses portrait for the default column set and landscape when columns are wide or many', () => {
+  it('uses portrait for the original five columns and landscape when columns are wide or many', () => {
+    const portraitColumns = [
+      { key: 'component', title: 'Package' },
+      { key: 'title', title: 'Title' },
+      { key: 'vulnerabilityId', title: 'Vulnerability ID' },
+      { key: 'lastUpdated', title: 'Last Updated' },
+      { key: 'status', title: 'Status' },
+    ];
+    expect(shouldUseLandscapePdf(portraitColumns)).toBe(false);
     expect(shouldUseLandscapePdf(visibleColumns)).toBe(false);
     expect(
       shouldUseLandscapePdf([
@@ -172,14 +180,14 @@ describe('buildBeaconPdfPayload', () => {
       ]),
     ).toBe(false);
 
-    // Wide path: fewer than the count threshold, but a wide extra pushes total width over.
-    const wideColumns = [...visibleColumns, { key: 'cvssVector', title: 'CVSS Vector' }];
+    // Wide path: a wide extra pushes total width over the portrait budget.
+    const wideColumns = [...portraitColumns, { key: 'cvssVector', title: 'CVSS Vector' }];
     expect(wideColumns.length).toBeLessThan(7);
     expect(shouldUseLandscapePdf(wideColumns)).toBe(true);
 
     // Count path: reaching the column-count threshold forces landscape regardless of width.
     const manyColumns = [
-      ...visibleColumns,
+      ...portraitColumns,
       { key: 'severity', title: 'Severity' },
       { key: 'cvss', title: 'CVSS' },
     ];

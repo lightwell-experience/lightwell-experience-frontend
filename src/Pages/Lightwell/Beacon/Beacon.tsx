@@ -554,8 +554,8 @@ const Beacon = () => {
             search={{
               value: searchQuery,
               onChange: setSearchQuery,
-              placeholder: 'Filter by ID, package, or title',
-              ariaLabel: 'Filter vulnerabilities by ID, package, or title',
+              placeholder: 'Filter by ID, key, package, or title',
+              ariaLabel: 'Filter vulnerabilities by ID, key, package, or title',
             }}
             pagination={{ ...paginationProps, itemCount }}
             // Uncontrolled — LwDataView owns expanded state, seeded by breakpoint (D15).

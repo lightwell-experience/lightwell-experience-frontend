@@ -7,14 +7,16 @@ import {
   LwMetricsCard,
   LwMetricsCount,
   LwMetricsCountSlots,
-  LwMetricsDonutChart,
-  LwMetricsStackChart,
   LwPageHeader,
   PageChromeSlot,
   PageChromeSlots,
   PageTitleStack,
   type LwMetricsStackSeries,
 } from 'kit/components/assemblies';
+// Victory-backed charts imported from unit paths (not the barrel) so victory stays
+// on chart routes only — see kit/components/assemblies/index.ts.
+import { LwMetricsDonutChart } from 'kit/components/assemblies/metrics/donut/metrics-donut-chart';
+import { LwMetricsStackChart } from 'kit/components/assemblies/metrics/stack/metrics-stack-chart';
 import {
   Alert,
   CardBody,

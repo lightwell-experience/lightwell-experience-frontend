@@ -33,15 +33,14 @@ jest.mock('Hooks/Lightwell/navigation/useLightwellRootPath', () => ({
   useLightwellRootPath: jest.fn(() => '/lightwell'),
 }));
 
-// Kit chart assemblies are tested in their own files; silence them here
-jest.mock('kit/components/assemblies', () => {
-  const actual = jest.requireActual('kit/components/assemblies');
-  return {
-    ...actual,
-    LwMetricsDonutChart: () => null,
-    LwMetricsStackChart: () => null,
-  };
-});
+// Kit chart assemblies are tested in their own files; silence them here.
+// They now import from unit paths (not the barrel) so victory stays off non-chart routes.
+jest.mock('kit/components/assemblies/metrics/donut/metrics-donut-chart', () => ({
+  LwMetricsDonutChart: () => null,
+}));
+jest.mock('kit/components/assemblies/metrics/stack/metrics-stack-chart', () => ({
+  LwMetricsStackChart: () => null,
+}));
 
 jest.mock('services/Lightwell/CoverageReportsQueries', () => ({
   ...jest.requireActual('services/Lightwell/CoverageReportsQueries'),

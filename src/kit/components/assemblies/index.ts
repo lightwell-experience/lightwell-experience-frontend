@@ -32,13 +32,18 @@ export type { LwMetricsCountSlotsProps } from './metrics/metrics-count-slots';
 export { LwMetricsCard } from './metrics/card/metrics-card';
 export type { LwMetricsCardProps } from './metrics/card/metrics-card';
 
-export { LwMetricsDonutChart } from './metrics/donut/metrics-donut-chart';
+// Victory-backed charts are intentionally NOT re-exported as values here.
+// Re-exporting them pulls @patternfly/react-charts/victory (~950 KB) into every
+// consumer of this barrel — including non-chart pages (Repositories landing, app
+// root) — because the chart units carry side-effect CSS imports webpack cannot
+// prune. Import the chart values directly from their unit paths on chart routes:
+//   import { LwMetricsDonutChart } from 'kit/components/assemblies/metrics/donut/metrics-donut-chart';
+//   import { LwMetricsStackChart } from 'kit/components/assemblies/metrics/stack/metrics-stack-chart';
+// Type-only re-exports stay here (erased at compile, zero runtime cost).
 export type {
   LwMetricsDonutChartProps,
   LwMetricsDonutDatum,
 } from './metrics/donut/metrics-donut-chart';
-
-export { LwMetricsStackChart } from './metrics/stack/metrics-stack-chart';
 export type {
   LwMetricsStackChartProps,
   LwMetricsStackSeries,

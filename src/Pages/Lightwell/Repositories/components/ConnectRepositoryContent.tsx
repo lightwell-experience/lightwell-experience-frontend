@@ -120,7 +120,7 @@ const ConnectRepositoryContent = ({ repository }: ConnectRepositoryContentProps)
             variant='link'
             isInline
             component='a'
-            href='https://docs.redhat.com/en/documentation/red_hat_lightwell_network/'
+            href='https://docs.redhat.com/en/documentation/lightwell_network/current/configure-configure_your_build_tool'
             target='_blank'
             rel='noopener noreferrer'
             icon={<ExternalLinkAltIcon />}

@@ -13,24 +13,26 @@ import {
 import { BEACON_WORKFLOW, type Severity, type Vulnerability } from '../types';
 import { renderVulnerabilityCell } from './vulnerabilityTableCells';
 import { SEVERITIES, severityLabel, statusLabel } from '../constants';
-import { formatEcosystem, getVulnerabilityColumnValue } from './vulnerabilityTableColumns';
+import { formatEcosystem } from './vulnerabilityTableColumns';
 import { PublishedVersions } from '../components/PublishedVersions';
 import { getPipelineStepPresentation } from '../pipeline';
 import { sortVersionsDesc } from '../../Packages/utils/versions';
 import { packageIdentity } from './addressedPackages';
 
+// Sorting is off for every package column until the API can support it
+// (LWLP-4495) — the vulnerabilities endpoint takes no sort parameter. No column
+// sets `isSortable`, so LwDataView renders the headers unsortable.
 export const PACKAGE_COLUMNS: LwDataViewManageColumn[] = [
   { key: 'package', cell: 'Package', props: { width: 15 as const } },
   { key: 'version', cell: 'Version' },
   { key: 'ecosystem', cell: 'Ecosystem' },
   { key: 'vulnerabilities', cell: 'Vulnerabilities' },
   { key: 'severity', cell: 'Highest severity' },
-  { key: 'severityCounts', cell: 'CVEs by severity', props: { isSortable: false } },
-  { key: 'statuses', cell: 'Statuses', props: { isSortable: false } },
+  { key: 'severityCounts', cell: 'CVEs by severity' },
+  { key: 'statuses', cell: 'Statuses' },
   { key: 'publishedVersions', cell: 'Published version' },
 ].map((column) => ({
   ...column,
-  props: { isSortable: true, ...column.props },
   isShown: true,
   isShownByDefault: true,
 }));
@@ -87,19 +89,6 @@ function renderDetailCell(columnKey: string, v: Vulnerability, hasStatusReason: 
   return renderVulnerabilityCell(columnKey, v);
 }
 
-function getDetailSortValue(columnKey: string, v: Vulnerability): string | number {
-  switch (columnKey) {
-    case 'severity':
-      return SEVERITIES.indexOf(v.severity);
-    case 'cvss':
-      return v.cvss;
-    case 'resolutionReason':
-      return v.resolutionReason ?? '';
-    default:
-      return getVulnerabilityColumnValue(columnKey, v);
-  }
-}
-
 /**
  * A component, not a `render*` helper: `buildPackageRows` groups every package
  * in the filtered result, but only the packages on the current page are ever
@@ -138,7 +127,6 @@ function PackageDetails({ group }: { group: Vulnerability[] }) {
             <LwDataView
               isCardless
               isCompact
-              className='beacon-package-details-table'
               aria-label={`${statusLabel(status)} vulnerabilities for ${group[0].componentName} ${group[0].componentVersion}`}
               columns={columns}
               rows={vulnerabilities.map((v) => ({
@@ -148,7 +136,6 @@ function PackageDetails({ group }: { group: Vulnerability[] }) {
                   props: {
                     dataLabel: column.cell,
                     modifier: 'breakWord' as const,
-                    sortValue: getDetailSortValue(column.key, v),
                   },
                 })),
               }))}
@@ -158,6 +145,11 @@ function PackageDetails({ group }: { group: Vulnerability[] }) {
       })}
     </div>
   );
+}
+
+/** Wrap a cell with its column name — PF shows `dataLabel` in the stacked/mobile layout. */
+function withDataLabel(cell: React.ReactNode, dataLabel: string): LwDataViewTd {
+  return { cell, props: { dataLabel } };
 }
 
 /** Group the full filtered result, never a single API page. */
@@ -201,15 +193,12 @@ export function buildPackageRows(
     // (vulnerability table, expanded package details) keep the whole list
     // behind `PublishedVersions`' overflow popover.
     const highestVersion = sortVersionsDesc(versions).slice(0, 1);
-    const cells: Record<string, LwDataViewTd> = {
+    const cells: Record<string, React.ReactNode> = {
       package: first.componentName,
       version: first.componentVersion || '—',
       ecosystem: formatEcosystem(first.ecosystem),
       vulnerabilities: cveSeverities.size,
-      severity: {
-        cell: severity ? severityLabel(severity) : '—',
-        props: { sortValue: severity ? SEVERITIES.indexOf(severity) : SEVERITIES.length },
-      },
+      severity: severity ? severityLabel(severity) : '—',
       severityCounts: (
         <span key='severityCounts' className='beacon-package-counts'>
           {CVE_SEVERITIES.map((meta) => {
@@ -258,17 +247,17 @@ export function buildPackageRows(
           })}
         </span>
       ),
-      publishedVersions: {
-        cell: <PublishedVersions versions={highestVersion} />,
-        // Sort on the version actually shown — ordering by the full joined list
-        // would order the column by a string the user can't see.
-        props: { sortValue: highestVersion[0] ?? '' },
-      },
+      publishedVersions: <PublishedVersions versions={highestVersion} />,
     };
     return {
       id,
       expandedContent: <PackageDetails group={group} />,
-      row: columns.filter((column) => column.isShown).map((column) => cells[column.key]),
+      // `dataLabel` is the column name PF shows before each cell in the stacked
+      // (mobile/narrow) layout — attach the header to every cell so the package
+      // view reads correctly there, same as the vulnerability view.
+      row: columns
+        .filter((column) => column.isShown)
+        .map((column) => withDataLabel(cells[column.key], String(column.cell))),
     };
   });
 }

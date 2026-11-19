@@ -187,6 +187,8 @@ it('renders the beacon page with status summary and vulnerability table', async 
     expect(screen.getByText('Status Summary')).toBeInTheDocument();
   });
   expect(screen.getAllByText('No remediation')).toHaveLength(2);
+  expect(screen.getByText('Duplicate')).toBeInTheDocument();
+  expect(screen.getByText('Tracking under LTWL-5717 [Submitted]')).toBeInTheDocument();
   expect(screen.getAllByText('On Hold')).toHaveLength(2);
 
   const summary = document.querySelector('.lw-c-metrics-card');

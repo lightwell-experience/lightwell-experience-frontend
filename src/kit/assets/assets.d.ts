@@ -15,3 +15,7 @@ declare module '*.svg' {
   const src: string;
   export default src;
 }
+
+// Side-effect stylesheet imports (`import './x.css'`). Needed since TS 6 enables noUncheckedSideEffectImports by default.
+declare module '*.css';
+declare module '*.scss';

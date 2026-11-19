@@ -70,6 +70,26 @@ it('renders ReactNode description without wrapping it in a paragraph', () => {
   expect(screen.getByRole('status')).toHaveTextContent('Trailing note');
 });
 
+it('renders titleAction in the same row as the title heading', () => {
+  render(<PageTitleStack title={title} titleAction={<button type='button'>Help</button>} />);
+
+  const row = screen.getByRole('heading', { name: title }).parentElement;
+  expect(row).toHaveClass('lw-c-page-title-stack__title');
+  expect(row).toContainElement(screen.getByRole('button', { name: 'Help' }));
+});
+
+it('ignores titleAction when title is a custom node', () => {
+  render(
+    <PageTitleStack
+      title={<h2>Custom title</h2>}
+      titleAction={<button type='button'>Help</button>}
+    />,
+  );
+
+  expect(screen.getByRole('heading', { name: 'Custom title' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Help' })).not.toBeInTheDocument();
+});
+
 it('hero surface uses Hero host and both page-header classes', () => {
   const { container } = render(<LwPageHeader hero title={title} />);
 

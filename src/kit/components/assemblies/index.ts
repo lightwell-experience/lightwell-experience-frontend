@@ -36,6 +36,7 @@ export { LwMetricsDonutChart } from './metrics/donut/metrics-donut-chart';
 export type {
   LwMetricsDonutChartProps,
   LwMetricsDonutDatum,
+  LwMetricsDonutLegendPosition,
 } from './metrics/donut/metrics-donut-chart';
 
 export { LwMetricsStackChart } from './metrics/stack/metrics-stack-chart';

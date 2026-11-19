@@ -1,6 +1,61 @@
-/* LwMetricsDonutChart — measure host for call-site resize observer. */
+/* LwMetricsDonutChart — measure host for call-site resize observer, plus the
+ * optional HTML legend (`showLegend`).
+ * KitCssScopePlugin already wraps — do not re-scope the theme class.
+ */
 
 .lw-c-metrics-donut-chart {
   width: auto;
   min-width: 0;
+}
+
+/* Legend on: host lays out ring + list. Ring sits beside the list by default. */
+.lw-c-metrics-donut-chart.lw-m-legend {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--lg);
+}
+
+/* The plot carries an explicit size (set in the component); never let flex shrink it. */
+.lw-c-metrics-donut-chart__plot {
+  flex: none;
+}
+
+.lw-c-metrics-donut-chart.lw-m-legend-bottom {
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--sm);
+}
+
+/* responsive: same row, but it wraps. The legend sits beside the ring while the host is
+ * wide enough and drops under it when it is not. Follows the host's real width (no
+ * breakpoint), so it is correct wherever the donut is placed. */
+.lw-c-metrics-donut-chart.lw-m-legend-responsive {
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: var(--pf-t--global--spacer--sm);
+}
+
+.lw-c-metrics-donut-chart__legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--pf-t--global--font--size--body--sm);
+}
+
+.lw-c-metrics-donut-chart__legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+}
+
+/* Swatch is a pseudo-element: no extra DOM node per row. */
+.lw-c-metrics-donut-chart__legend-item::before {
+  content: '';
+  flex: none;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--lw-metrics-donut-swatch);
 }

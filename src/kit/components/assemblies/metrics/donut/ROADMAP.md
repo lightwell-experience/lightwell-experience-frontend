@@ -1,8 +1,9 @@
 # LwMetricsDonutChart — roadmap
 
 **Scope:** this unit only — PF `ChartDonut` host, series API, colors, tooltips,
-web container ref.  
-**Not here:** Lens report types, coverage copy, stack chart, family inventory.  
+HTML legend, web container ref.  
+**Not here:** Lens report types, coverage copy, stack chart, family inventory,
+product slice catalogs (Beacon On Hold / In Pipeline, etc.).  
 **Prerequisite:** this file + [`README.md`](./README.md) before unit `*.tsx`.
 
 **Family:** [`../ROADMAP.md`](../ROADMAP.md) · Extract plan:
@@ -40,16 +41,43 @@ resize-observer call sites (ref on container).
 />
 ```
 
-| Prop                  | Role                                         |
-| --------------------- | -------------------------------------------- |
-| `data`                | `{ x, y }[]` slices                          |
-| `width` / `height`    | Chart box                                    |
-| `title` / `subTitle?` | Center labels                                |
-| `colorScale?`         | Default: match-status exact → partial → none |
-| `allowTooltip?`       | Default true                                 |
-| `getLabel?`           | Tooltip label fn                             |
-| `containerRef?`       | Web measure host                             |
-| `ariaDesc?`           | A11y                                         |
+| Prop                  | Role                                                |
+| --------------------- | --------------------------------------------------- |
+| `data`                | `{ x, y }[]` slices                                 |
+| `width` / `height`    | Chart box                                           |
+| `title` / `subTitle?` | Center labels                                       |
+| `colorScale?`         | Default: match-status exact → partial → none        |
+| `allowTooltip?`       | Default true                                        |
+| `getLabel?`           | Tooltip label fn                                    |
+| `showLegend?`         | HTML legend built from `data` + `colorScale`        |
+| `legendPosition?`     | `'right'` (default) \| `'bottom'` \| `'responsive'` |
+| `formatLegendLabel?`  | Row text override; default `${x}: ${y}`             |
+| `legendAriaLabel?`    | Legend list name; defaults to `${ariaDesc} legend`  |
+| `containerRef?`       | Web measure host                                    |
+| `ariaDesc?`           | A11y                                                |
+
+### Legend
+
+The legend is an HTML `<ul>` rendered **inside the existing host** (no extra wrapper),
+not PF's SVG legend. Rows come from the same `data` / `colorScale` the ring uses, so
+there is no second series to keep in sync. A semantic list reads and reflows better
+than SVG text, and the unit CSS owns layout (plain CSS, no `Flex` / `FlexItem`).
+
+| `legendPosition` | Layout                                                         |
+| ---------------- | -------------------------------------------------------------- |
+| `right`          | Legend beside the ring                                         |
+| `bottom`         | Legend under the ring                                          |
+| `responsive`     | Beside the ring while it fits; wraps under it when it does not |
+
+`responsive` is `flex-wrap`, not a media or container query. It follows the host's real
+width, so it needs no breakpoint and no knowledge of where the donut is placed. A
+container query was tried and rejected: an element cannot be restyled by its own
+container query, and an inline-size container collapses a shrink-wrapped parent to its
+minimum width, so it would never leave the "under the ring" layout in a card that sizes
+itself from its content.
+
+Legend and tooltips both show the same text. Pass one formatter to `getLabel` and
+`formatLegendLabel` when you override it.
 
 ---
 
@@ -60,5 +88,12 @@ resize-observer call sites (ref on container).
 | D0    | README + this roadmap                                                 | Docs      |
 | D1    | Shell + defaults + unit test                                          | Green     |
 | D2    | Barrel; Lens CoverageReport compose; thin Lens `MatchDonutChart` wrap | Replace   |
+| D3    | HTML legend (`showLegend` / `legendPosition` / `formatLegendLabel`)   | Green     |
+| D4    | Harness owns width measurement + aspect ratio (opt-in)                | Follow-up |
 
-**Progress:** D0 → D2 in extract pass.
+**Progress:** D0 → D2 in extract pass; D3 for the Beacon status summary.
+
+**D4 (not started):** `useContainerWidth` and a height-from-width helper are repeated
+at every donut call site (Lens coverage report, Lens summary block). Move them into
+this unit once a second consumer needs them. Until then call sites pass `width` /
+`height`.

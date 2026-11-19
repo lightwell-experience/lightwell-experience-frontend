@@ -1,5 +1,5 @@
 import { lightwellConfig } from 'kit/lightwell.config';
-import { BEACON_WORKFLOW, type Severity, type Status } from './types';
+import { BEACON_WORKFLOW, type Severity, type Status, type Vulnerability } from './types';
 
 /**
  * Pipeline stages shown in the stepper and filter panel.
@@ -10,13 +10,14 @@ export const STATUSES: Status[] = [...BEACON_WORKFLOW.pipelineStages];
 
 export const UNREMEDIATED_STATUS: Status = BEACON_WORKFLOW.unremediated;
 export const NO_REMEDIATION_LABEL = 'No remediation';
+export const DUPLICATE_STATUS_LABEL = 'Duplicate';
 
 export const ON_HOLD_STATUS: Status = BEACON_WORKFLOW.onHold;
 
 /** All filter-panel statuses: pipeline stages + the on-hold and unremediated terminal states. */
 export const FILTER_STATUSES: Status[] = [...STATUSES, ON_HOLD_STATUS, UNREMEDIATED_STATUS];
 
-export function statusLabel(status: Status): string {
+export function statusLabel(status: string): string {
   switch (status) {
     case UNREMEDIATED_STATUS:
       return NO_REMEDIATION_LABEL;
@@ -31,8 +32,36 @@ export function statusLabel(status: Status): string {
   }
 }
 
+export function vulnerabilityStatusLabel(
+  vulnerability: Pick<Vulnerability, 'status' | 'duplicate'>,
+): string {
+  return vulnerability.duplicate ? DUPLICATE_STATUS_LABEL : statusLabel(vulnerability.status);
+}
+
 export function severityLabel(severity: Severity): string {
   return severity === 'Minor' ? 'Low' : severity;
+}
+
+type DuplicateTracking = Pick<Vulnerability, 'duplicateOf' | 'duplicateOfStatus'>;
+
+/** Customer-facing link to the canonical tracker, e.g. `Tracking under LTWL-5717 [Submitted]`. */
+export function duplicateTrackingLabel(vulnerability: DuplicateTracking): string | undefined {
+  const key = vulnerability.duplicateOf?.trim();
+  if (!key) {
+    return undefined;
+  }
+  const status = vulnerability.duplicateOfStatus?.trim();
+  return status ? `Tracking under ${key} [${statusLabel(status)}]` : `Tracking under ${key}`;
+}
+
+/** Status-cell detail. A duplicate's own label is already Duplicate, so only the tracker line is added. */
+export function statusDetail(
+  vulnerability: Pick<Vulnerability, 'duplicate' | 'resolutionReason'> & DuplicateTracking,
+): string | undefined {
+  return (
+    duplicateTrackingLabel(vulnerability) ??
+    (vulnerability.duplicate ? undefined : vulnerability.resolutionReason)
+  );
 }
 
 export const STATUS_DESCRIPTIONS: Record<Status, string> = {

@@ -141,6 +141,44 @@ describe('BeaconPdfTemplate', () => {
     expect(statusCell?.querySelector('.beacon-pdf-status-reason')).toHaveTextContent(reason);
   });
 
+  it('prints a duplicate as tracking under the canonical tracker', () => {
+    render(
+      <BeaconPdfTemplate
+        asyncData={{
+          data: {
+            vulnerabilities: [
+              {
+                ...mockVulnerabilities[0],
+                status: 'Unremediated',
+                resolutionReason: 'Duplicate',
+                duplicate: true,
+                duplicateOf: 'LTWL-5717',
+                duplicateOfStatus: 'Unremediated',
+              },
+            ],
+            meta: { ...meta, statusCounts: { Unremediated: 1 } },
+          },
+        }}
+        additionalData={{
+          includeSummary: false,
+          visibleColumns: [
+            { key: 'vulnerabilityId', title: 'Vulnerability ID' },
+            { key: 'status', title: 'Status' },
+          ],
+        }}
+      />,
+    );
+
+    const statusCell = screen
+      .getByText('LWL-2026-4401')
+      .closest('tr')
+      ?.querySelector('[data-label="Status"]');
+    expect(statusCell?.querySelector('span')).toHaveTextContent('Duplicate');
+    expect(statusCell?.querySelector('.beacon-pdf-status-reason')).toHaveTextContent(
+      'Tracking under LTWL-5717 [No remediation]',
+    );
+  });
+
   it('omits the cover summary on continuation pages', () => {
     render(
       <BeaconPdfTemplate

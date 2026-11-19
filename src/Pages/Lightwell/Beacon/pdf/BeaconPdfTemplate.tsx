@@ -15,7 +15,9 @@ import {
   NO_REMEDIATION_LABEL,
   ON_HOLD_STATUS,
   STATUSES,
+  statusDetail,
   statusLabel,
+  vulnerabilityStatusLabel,
   UNREMEDIATED_STATUS,
 } from '../constants';
 import { getPipelineStepPresentation } from '../pipeline';
@@ -309,26 +311,29 @@ const BeaconPdfTemplate = ({ asyncData, additionalData }: BeaconPdfTemplateProps
         <Tbody>
           {vulnerabilities.map((vulnerability) => (
             <Tr key={vulnerability.uuid}>
-              {columns.map((column) => (
-                <Td
-                  key={column.key}
-                  dataLabel={column.title}
-                  className={`beacon-pdf-col-${column.key}`}
-                >
-                  {column.key === 'status' ? (
-                    <>
-                      <span>{statusLabel(vulnerability.status)}</span>
-                      {vulnerability.resolutionReason ? (
-                        <Content component='small' className='beacon-pdf-status-reason'>
-                          {vulnerability.resolutionReason}
-                        </Content>
-                      ) : null}
-                    </>
-                  ) : (
-                    getVulnerabilityColumnValue(column.key, vulnerability)
-                  )}
-                </Td>
-              ))}
+              {columns.map((column) => {
+                const detail = column.key === 'status' ? statusDetail(vulnerability) : undefined;
+                return (
+                  <Td
+                    key={column.key}
+                    dataLabel={column.title}
+                    className={`beacon-pdf-col-${column.key}`}
+                  >
+                    {column.key === 'status' ? (
+                      <>
+                        <span>{vulnerabilityStatusLabel(vulnerability)}</span>
+                        {detail ? (
+                          <Content component='small' className='beacon-pdf-status-reason'>
+                            {detail}
+                          </Content>
+                        ) : null}
+                      </>
+                    ) : (
+                      getVulnerabilityColumnValue(column.key, vulnerability)
+                    )}
+                  </Td>
+                );
+              })}
             </Tr>
           ))}
         </Tbody>

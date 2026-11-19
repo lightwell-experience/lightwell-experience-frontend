@@ -66,6 +66,7 @@ export type LightwellVulnerabilityResponse = {
   age_days: number;
   duplicate: boolean;
   duplicate_of?: string;
+  duplicate_of_status?: string;
   ltwlsupt_ticket_ids: string[];
 };
 
@@ -142,7 +143,8 @@ export function mapLightwellVulnerability(
     lastUpdated: formatDateTime(vulnerability.last_updated),
     ageDays: vulnerability.age_days,
     duplicate: vulnerability.duplicate,
-    duplicateOf: vulnerability.duplicate_of,
+    duplicateOf: vulnerability.duplicate_of?.trim() || undefined,
+    duplicateOfStatus: vulnerability.duplicate_of_status?.trim() || undefined,
     ltwlsupt_ticket_ids: ticketIds,
     ltwlsupt_ticket_id: ticketIds[0],
   };

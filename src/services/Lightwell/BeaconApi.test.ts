@@ -75,6 +75,22 @@ describe('mapLightwellVulnerability', () => {
     expect(mapped.resolutionReason).toBeUndefined();
   });
 
+  it("maps a duplicate onto its canonical tracker and that tracker's Jira status", () => {
+    const mapped = mapLightwellVulnerability({
+      ...baseVulnerability,
+      status: 'Unremediated',
+      resolution_reason: 'Duplicate',
+      duplicate: true,
+      duplicate_of: ' LTWL-5717 ',
+      duplicate_of_status: ' Validation ',
+    });
+
+    expect(mapped.duplicate).toBe(true);
+    expect(mapped.duplicateOf).toBe('LTWL-5717');
+    expect(mapped.duplicateOfStatus).toBe('Validation');
+    expect(mapped.resolutionReason).toBe('Duplicate');
+  });
+
   it('maps Low severity to Minor', () => {
     const mapped = mapLightwellVulnerability({
       ...baseVulnerability,

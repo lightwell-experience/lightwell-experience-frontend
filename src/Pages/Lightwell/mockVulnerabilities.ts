@@ -18,6 +18,7 @@ export const mockVulnerabilities: Vulnerability[] = [
   {
     uuid: 'v1',
     vulnerabilityId: 'LWL-2026-4401',
+    vulnerabilityKey: 'LTWL-4401',
     purl: 'pkg:maven/org.apache.logging.log4j/log4j-core@2.17.1',
     componentName: 'log4j-core',
     componentVersion: '2.17.1',
@@ -42,6 +43,7 @@ export const mockVulnerabilities: Vulnerability[] = [
   {
     uuid: 'v2',
     vulnerabilityId: 'LWL-2026-4301',
+    vulnerabilityKey: 'LTWL-4301',
     purl: 'pkg:pypi/django@4.1.0',
     componentName: 'Django',
     componentVersion: '4.1.0',
@@ -66,6 +68,7 @@ export const mockVulnerabilities: Vulnerability[] = [
   {
     uuid: 'v3',
     vulnerabilityId: 'LWL-2026-4101',
+    vulnerabilityKey: 'LTWL-4101',
     purl: 'pkg:maven/org.apache.commons/commons-text@1.9',
     componentName: 'Apache Commons Text',
     componentVersion: '1.9',
@@ -92,6 +95,7 @@ export const mockVulnerabilities: Vulnerability[] = [
   {
     uuid: 'v4',
     vulnerabilityId: 'LWL-2026-4201',
+    vulnerabilityKey: 'LTWL-4201',
     purl: 'pkg:maven/org.apache.tomcat/tomcat-catalina@9.0.65',
     componentName: 'Tomcat Catalina',
     componentVersion: '9.0.65',
@@ -116,6 +120,7 @@ export const mockVulnerabilities: Vulnerability[] = [
   {
     uuid: 'v5',
     vulnerabilityId: 'LWL-2026-4001',
+    vulnerabilityKey: 'LTWL-4001',
     purl: 'pkg:maven/org.apache.shiro/shiro-core@1.10.0',
     componentName: 'Apache Shiro',
     componentVersion: '1.10.0',
@@ -140,6 +145,7 @@ export const mockVulnerabilities: Vulnerability[] = [
   {
     uuid: 'v6',
     vulnerabilityId: 'LWL-2026-4404',
+    vulnerabilityKey: 'LTWL-4404',
     purl: 'pkg:pypi/requests@2.28.0',
     componentName: 'requests',
     componentVersion: '2.28.0',

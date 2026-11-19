@@ -44,6 +44,7 @@ export type BeaconData = {
 export type LightwellVulnerabilityResponse = {
   uuid: string;
   vulnerability_id: string;
+  vulnerability_key?: string;
   purl?: string;
   component_name: string;
   package: string;
@@ -122,6 +123,7 @@ export function mapLightwellVulnerability(
   return {
     uuid: vulnerability.uuid,
     vulnerabilityId: vulnerability.vulnerability_id,
+    vulnerabilityKey: vulnerability.vulnerability_key?.trim() ?? '',
     purl: vulnerability.purl ?? '',
     componentName: vulnerability.component_name,
     componentVersion: vulnerability.component_version,
@@ -222,6 +224,7 @@ function filterMockVulnerabilities(
       const query = search.toLowerCase();
       if (
         !vulnerability.vulnerabilityId.toLowerCase().includes(query) &&
+        !vulnerability.vulnerabilityKey.toLowerCase().includes(query) &&
         !vulnerability.componentName.toLowerCase().includes(query) &&
         !vulnerability.title.toLowerCase().includes(query)
       ) {

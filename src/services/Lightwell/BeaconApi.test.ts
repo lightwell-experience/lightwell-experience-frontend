@@ -42,6 +42,7 @@ describe('mapLightwellVulnerability', () => {
     expect(mapped).toMatchObject({
       uuid: baseVulnerability.uuid,
       vulnerabilityId: 'LWL-2026-4401',
+      vulnerabilityKey: '',
       componentName: 'log4j-core',
       severity: 'Critical',
       ecosystem: 'java',
@@ -51,6 +52,15 @@ describe('mapLightwellVulnerability', () => {
       ltwlsupt_ticket_id: 'batch-2',
       publishedVersions: [],
     });
+  });
+
+  it('maps the Jira vulnerability key', () => {
+    const mapped = mapLightwellVulnerability({
+      ...baseVulnerability,
+      vulnerability_key: ' LTWL-5717 ',
+    });
+
+    expect(mapped.vulnerabilityKey).toBe('LTWL-5717');
   });
 
   it('maps a closure reason when the API sends one', () => {

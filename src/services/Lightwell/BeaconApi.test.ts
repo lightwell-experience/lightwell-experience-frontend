@@ -75,6 +75,44 @@ describe('mapLightwellVulnerability', () => {
     expect(mapped.resolutionReason).toBeUndefined();
   });
 
+  it('maps On Hold reasons in the order the API sends them', () => {
+    const mapped = mapLightwellVulnerability({
+      ...baseVulnerability,
+      status: 'On Hold',
+      on_hold_reasons: ['Combined build failed', 'Source code unavailable'],
+    });
+
+    expect(mapped.status).toBe('On Hold');
+    expect(mapped.onHoldReasons).toEqual(['Combined build failed', 'Source code unavailable']);
+  });
+
+  it('trims On Hold reasons and drops blanks and repeats', () => {
+    const mapped = mapLightwellVulnerability({
+      ...baseVulnerability,
+      status: 'On Hold',
+      on_hold_reasons: [
+        '  Source code unavailable ',
+        '',
+        '   ',
+        'Source code unavailable',
+        'Combined build failed',
+      ],
+    });
+
+    expect(mapped.onHoldReasons).toEqual(['Source code unavailable', 'Combined build failed']);
+  });
+
+  it('omits On Hold reasons when the API sends none', () => {
+    expect(mapLightwellVulnerability(baseVulnerability).onHoldReasons).toBeUndefined();
+    expect(
+      mapLightwellVulnerability({ ...baseVulnerability, on_hold_reasons: [] }).onHoldReasons,
+    ).toBeUndefined();
+    expect(
+      mapLightwellVulnerability({ ...baseVulnerability, on_hold_reasons: ['', '  '] })
+        .onHoldReasons,
+    ).toBeUndefined();
+  });
+
   it('maps Low severity to Minor', () => {
     const mapped = mapLightwellVulnerability({
       ...baseVulnerability,

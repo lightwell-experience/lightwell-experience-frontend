@@ -1,5 +1,5 @@
 import { lightwellConfig } from 'kit/lightwell.config';
-import { BEACON_WORKFLOW, type Severity, type Status } from './types';
+import { BEACON_WORKFLOW, type Severity, type Status, type Vulnerability } from './types';
 
 /**
  * Pipeline stages shown in the stepper and filter panel.
@@ -29,6 +29,21 @@ export function statusLabel(status: Status): string {
     default:
       return status;
   }
+}
+
+/**
+ * The explanation shown under a vulnerability's status. An On Hold row shows its On Hold
+ * reasons (customer-facing text, joined in the order the API sent them); every other row shows
+ * its closure reason, if it has one. The table, CSV and PDF all use this so they cannot disagree.
+ */
+export function statusReason(
+  vulnerability: Pick<Vulnerability, 'status' | 'onHoldReasons' | 'resolutionReason'>,
+): string | undefined {
+  if (vulnerability.status === ON_HOLD_STATUS) {
+    return vulnerability.onHoldReasons?.join(', ') || undefined;
+  }
+
+  return vulnerability.resolutionReason;
 }
 
 export function severityLabel(severity: Severity): string {

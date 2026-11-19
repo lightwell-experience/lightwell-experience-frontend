@@ -141,6 +141,68 @@ describe('BeaconPdfTemplate', () => {
     expect(statusCell?.querySelector('.beacon-pdf-status-reason')).toHaveTextContent(reason);
   });
 
+  it('prints On Hold reasons under the status', () => {
+    render(
+      <BeaconPdfTemplate
+        asyncData={{
+          data: {
+            vulnerabilities: [
+              {
+                ...mockVulnerabilities[0],
+                status: 'On Hold',
+                onHoldReasons: ['Combined build failed', 'Source code unavailable'],
+              },
+            ],
+            meta: { ...meta, statusCounts: { 'On Hold': 1 } },
+          },
+        }}
+        additionalData={{
+          includeSummary: false,
+          visibleColumns: [
+            { key: 'vulnerabilityId', title: 'Vulnerability ID' },
+            { key: 'status', title: 'Status' },
+          ],
+        }}
+      />,
+    );
+
+    const statusCell = screen
+      .getByText('LWL-2026-4401')
+      .closest('tr')
+      ?.querySelector('[data-label="Status"]');
+    expect(statusCell).toHaveTextContent('On Hold');
+    expect(statusCell?.querySelector('.beacon-pdf-status-reason')).toHaveTextContent(
+      'Combined build failed, Source code unavailable',
+    );
+  });
+
+  it('prints no reason line for an On Hold row without reasons', () => {
+    render(
+      <BeaconPdfTemplate
+        asyncData={{
+          data: {
+            vulnerabilities: [{ ...mockVulnerabilities[0], status: 'On Hold' }],
+            meta: { ...meta, statusCounts: { 'On Hold': 1 } },
+          },
+        }}
+        additionalData={{
+          includeSummary: false,
+          visibleColumns: [
+            { key: 'vulnerabilityId', title: 'Vulnerability ID' },
+            { key: 'status', title: 'Status' },
+          ],
+        }}
+      />,
+    );
+
+    const statusCell = screen
+      .getByText('LWL-2026-4401')
+      .closest('tr')
+      ?.querySelector('[data-label="Status"]');
+    expect(statusCell).toHaveTextContent('On Hold');
+    expect(statusCell?.querySelector('.beacon-pdf-status-reason')).toBeNull();
+  });
+
   it('omits the cover summary on continuation pages', () => {
     render(
       <BeaconPdfTemplate

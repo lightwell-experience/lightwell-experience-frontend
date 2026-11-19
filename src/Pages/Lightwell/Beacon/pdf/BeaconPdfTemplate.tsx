@@ -16,6 +16,7 @@ import {
   ON_HOLD_STATUS,
   STATUSES,
   statusLabel,
+  statusReason,
   UNREMEDIATED_STATUS,
 } from '../constants';
 import { getPipelineStepPresentation } from '../pipeline';
@@ -318,9 +319,9 @@ const BeaconPdfTemplate = ({ asyncData, additionalData }: BeaconPdfTemplateProps
                   {column.key === 'status' ? (
                     <>
                       <span>{statusLabel(vulnerability.status)}</span>
-                      {vulnerability.resolutionReason ? (
+                      {statusReason(vulnerability) ? (
                         <Content component='small' className='beacon-pdf-status-reason'>
-                          {vulnerability.resolutionReason}
+                          {statusReason(vulnerability)}
                         </Content>
                       ) : null}
                     </>

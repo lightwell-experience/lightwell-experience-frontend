@@ -1,5 +1,9 @@
 import {
   Content,
+  DescriptionList,
+  DescriptionListDescription,
+  DescriptionListGroup,
+  DescriptionListTerm,
   Flex,
   FlexItem,
   Grid,
@@ -181,19 +185,26 @@ const RepositoriesTable = () => {
       width: 15,
       info: {
         tooltip: (
-          <>
-            <div>
-              <strong>Predisclosure:</strong> Backported fixes for vulnerabilities not yet publicly
-              disclosed
-            </div>
-            <div>
-              <strong>Remediated:</strong> Backported fixes for known vulnerabilities
-            </div>
-            <div>
-              <strong>Validated:</strong> Artifacts rebuilt from source, verified end-to-end with no
-              modifications
-            </div>
-          </>
+          <DescriptionList>
+            <DescriptionListGroup>
+              <DescriptionListTerm>Predisclosure</DescriptionListTerm>
+              <DescriptionListDescription>
+                Backported fixes for vulnerabilities not yet publicly disclosed
+              </DescriptionListDescription>
+            </DescriptionListGroup>
+            <DescriptionListGroup>
+              <DescriptionListTerm>Remediated</DescriptionListTerm>
+              <DescriptionListDescription>
+                Backported fixes for known vulnerabilities
+              </DescriptionListDescription>
+            </DescriptionListGroup>
+            <DescriptionListGroup>
+              <DescriptionListTerm>Validated</DescriptionListTerm>
+              <DescriptionListDescription>
+                Artifacts rebuilt from source, verified end-to-end with no modifications
+              </DescriptionListDescription>
+            </DescriptionListGroup>
+          </DescriptionList>
         ),
         tooltipProps: { isContentLeftAligned: true },
       },

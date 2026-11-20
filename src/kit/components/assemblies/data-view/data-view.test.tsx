@@ -28,47 +28,33 @@ it('opts into compact density only when isCompact is set', () => {
   expect(screen.getByRole('grid', { name: 'Compact table' })).toHaveClass('pf-m-compact');
 });
 
-// ─── Sticky columns ────────────────────────────────────────────────────────────
-// `isSticky` means sticky COLUMNS (horizontal scroll via Outer/InnerScroll-
-// Container), not sticky header — `DataViewTableBasic` (what `DataViewTable`
-// always renders underneath) couples its own `isSticky` to both at once with
-// no way to opt out of just the header half, and header stickiness needs a
-// height-bounded scroll context LwDataView doesn't have yet (D26, held). So
-// `isSticky` is never forwarded into `DataViewTableBasic`'s own prop — the
-// wrapper is built here instead, and sticky header never activates.
+// ─── Scroll wrappers (always on — D30; sticky header held — D26) ─────────────
 
-it('renders exactly one scroll-wrapper pair when isSticky is set', () => {
+it('always renders exactly one scroll-wrapper pair', () => {
   const { container } = render(
-    <LwDataView aria-label='Sticky table' columns={columns} rows={rows} isSticky />,
+    <LwDataView aria-label='Scrollable table' columns={columns} rows={rows} />,
   );
 
   expect(container.querySelectorAll('.pf-v6-c-scroll-outer-wrapper')).toHaveLength(1);
   expect(container.querySelectorAll('.pf-v6-c-scroll-inner-wrapper')).toHaveLength(1);
 });
 
-it('renders no scroll wrappers when isSticky is not set', () => {
-  const { container } = render(
-    <LwDataView aria-label='Plain table' columns={columns} rows={rows} />,
+it('does not enable sticky header', () => {
+  render(<LwDataView aria-label='Scrollable table' columns={columns} rows={rows} />);
+
+  expect(screen.getByRole('grid', { name: 'Scrollable table' })).not.toHaveClass(
+    'pf-m-sticky-header',
   );
-
-  expect(container.querySelector('.pf-v6-c-scroll-outer-wrapper')).not.toBeInTheDocument();
 });
 
-it('does not enable sticky header when isSticky is set', () => {
-  render(<LwDataView aria-label='Sticky table' columns={columns} rows={rows} isSticky />);
-
-  expect(screen.getByRole('grid', { name: 'Sticky table' })).not.toHaveClass('pf-m-sticky-header');
-});
-
-it('nests the default empty state inside the outer scroll wrapper, as a sibling of the inner wrapper, when isSticky is set', () => {
+it('nests the default empty state inside the outer scroll wrapper, as a sibling of the inner wrapper', () => {
   const { container } = render(
     <LwDataView
-      aria-label='Sticky empty table'
+      aria-label='Empty table'
       columns={columns}
       rows={[]}
       activeState={DataViewState.empty}
       emptyState={{ hasActiveFilters: true, onClearFilters: jest.fn() }}
-      isSticky
     />,
   );
 
@@ -169,7 +155,7 @@ it('renders only the empty state, without table headers, when true empty', () =>
   expect(screen.getByText('No results found')).toBeInTheDocument();
 });
 
-it('nests the default empty state inside the drawer, as a sibling of the table, when panel is set', () => {
+it('keeps the default empty state inside the drawer, not beside the whole drawer+panel row, when panel is set', () => {
   const { container } = render(
     <LwDataView
       aria-label='Empty table'
@@ -181,17 +167,12 @@ it('nests the default empty state inside the drawer, as a sibling of the table, 
     />,
   );
 
-  const drawer = container.querySelector('.pf-v6-c-drawer');
-  expect(drawer).toBeInTheDocument();
-  // Must be inside the drawer's content area (sibling of the table), not a
-  // sibling of the whole drawer+panel row — otherwise it loses its coupling
-  // to the table's column width once a panel is present.
-  expect(within(drawer as HTMLElement).getByText('No results found')).toBeInTheDocument();
-  // Direct sibling of the table (same parent, after it) — not nested in the table.
-  const grid = within(drawer as HTMLElement).getByRole('grid', { name: 'Empty table' });
-  const emptyState = container.querySelector('.pf-v6-c-empty-state') as HTMLElement;
-  expect(emptyState.parentElement).toBe(grid.parentElement);
-  expect(grid.compareDocumentPosition(emptyState)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  // Inside the drawer's content area, so it stays coupled to the table's column
+  // width. Its place relative to the table (sibling of the inner scroll wrapper)
+  // is covered by the no-panel test above.
+  const drawer = container.querySelector('.pf-v6-c-drawer') as HTMLElement;
+  expect(within(drawer).getByText('No results found')).toBeInTheDocument();
+  expect(within(drawer).getByRole('grid', { name: 'Empty table' })).toBeInTheDocument();
 });
 
 it('renders custom titleText when emptyState.titleText is provided', () => {
@@ -1304,4 +1285,195 @@ describe('focus when the toolbar unmounts into true empty', () => {
 
     expect(screen.getByRole('button', { name: 'Elsewhere' })).toHaveFocus();
   });
+});
+
+it('aligns the expansion header with the row toggle and keeps data-column sorting aligned', async () => {
+  const user = userEvent.setup();
+  render(
+    <LwDataView
+      aria-label='Expandable table'
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
+      rows={[
+        { id: 'b', row: ['Beta', 'OK'] },
+        { id: 'a', row: ['Alpha', 'OK'] },
+      ]}
+      isExpandable
+      indexBy='id'
+      expandedRows={[
+        { rowId: 'a', content: 'Alpha details' },
+        { rowId: 'b', content: 'Beta details' },
+      ]}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Expandable table' });
+  const headers = within(table).getAllByRole('columnheader');
+  expect(headers).toHaveLength(3);
+  expect(headers[0]).toHaveAccessibleName('Expand row');
+  expect(headers[0]).toHaveClass('lw-c-data-view__expand-header');
+  expect(headers[1]).toHaveTextContent('Name');
+  const dataRows = () => within(table).getAllByRole('row').slice(1);
+  expect(within(dataRows()[0]).getAllByRole('cell')).toHaveLength(3);
+  await user.click(within(headers[1]).getByRole('button'));
+  expect(within(dataRows()[0]).getByText('Alpha')).toBeInTheDocument();
+  await user.click(within(dataRows()[0]).getByRole('button', { name: 'Details' }));
+  expect(within(table).getByText('Alpha details')).toBeVisible();
+  expect(within(table).queryByText('Beta details')).not.toBeVisible();
+});
+
+// Compound expansion is the branch that can break: PF puts the toggle inside a
+// data cell rather than a leading one, so adding the toggle header there would
+// leave the headers one ahead of every body row.
+it('adds no toggle header when every expansion is compound', async () => {
+  const user = userEvent.setup();
+  render(
+    <LwDataView
+      aria-label='Compound expansions'
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
+      rows={[{ id: 'a', row: ['Alpha', 'OK'] }]}
+      isExpandable
+      indexBy='id'
+      expandedRows={[{ rowId: 'a', columnId: 1, content: 'Status detail' }]}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Compound expansions' });
+  const headers = within(table).getAllByRole('columnheader');
+
+  expect(headers).toHaveLength(2);
+  expect(headers[0]).toHaveTextContent('Name');
+  expect(within(table).queryByRole('columnheader', { name: 'Expand row' })).not.toBeInTheDocument();
+
+  const controlRow = within(table).getAllByRole('row')[1];
+  expect(within(controlRow).getAllByRole('cell')).toHaveLength(2);
+
+  await user.click(within(controlRow).getByRole('button'));
+  expect(within(table).getByText('Status detail')).toBeVisible();
+});
+
+it('reserves the toggle header when expandable content is empty', () => {
+  render(
+    <LwDataView
+      aria-label='Empty expansions'
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
+      rows={rows}
+      isExpandable
+      expandedRows={[]}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Empty expansions' });
+
+  // PF still renders a leading placeholder cell per row, so the header count
+  // has to match it even with nothing to expand.
+  expect(within(table).getAllByRole('columnheader')).toHaveLength(3);
+  expect(within(within(table).getAllByRole('row')[1]).getAllByRole('cell')).toHaveLength(3);
+});
+
+// ─── Resident paging ───────────────────────────────────────────────────────────
+
+const residentRows = ['delta', 'bravo', 'charlie', 'alpha'].map((name) => [
+  { cell: name },
+  { cell: 'OK' },
+]);
+
+it('sorts across every resident row before slicing the requested page', async () => {
+  const user = userEvent.setup();
+  render(
+    <LwDataView
+      aria-label='Resident table'
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
+      rows={residentRows}
+      isResident
+      pagination={{ perPage: 2 }}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Resident table' });
+  const names = () =>
+    within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => within(row).getAllByRole('cell')[0].textContent);
+
+  expect(names()).toEqual(['delta', 'bravo']);
+
+  await user.click(within(within(table).getAllByRole('columnheader')[0]).getByRole('button'));
+
+  // Sorting a pre-sliced page would leave 'bravo'/'delta' here; sorting the
+  // whole set first puts the globally smallest two on page one.
+  expect(names()).toEqual(['alpha', 'bravo']);
+});
+
+it('derives pagination itemCount from the full resident set', () => {
+  render(
+    <LwDataView
+      aria-label='Resident count'
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
+      rows={residentRows}
+      isResident
+      pagination={{ perPage: 2 }}
+    />,
+  );
+
+  // 4 resident rows at perPage 2 — two pages, with no itemCount from the caller.
+  expect(screen.getAllByLabelText('Current page')[0]).toHaveAttribute('max', '2');
+});
+
+it('clamps an uncontrolled page back into range when resident results shrink', async () => {
+  const user = userEvent.setup();
+  const props = {
+    'aria-label': 'Shrinking resident table',
+    columns,
+    isResident: true,
+    pagination: { perPage: 2 },
+  };
+  const { rerender } = render(<LwDataView {...props} rows={residentRows} />);
+  await user.click(screen.getAllByLabelText('Go to next page')[0]);
+  const table = screen.getByRole('grid', { name: 'Shrinking resident table' });
+  expect(within(table).getByText('charlie')).toBeInTheDocument();
+
+  rerender(<LwDataView {...props} rows={residentRows.slice(0, 1)} />);
+
+  // The assembly owns the uncontrolled page — snap it back into range so a
+  // shrunk resident set doesn't render a blank table.
+  expect(within(table).getByText('delta')).toBeInTheDocument();
+  for (const input of screen.getAllByLabelText('Current page')) {
+    expect(input).toHaveValue(1);
+  }
+});
+
+it('leaves a controlled page as the caller set it when resident results shrink', () => {
+  const props = {
+    'aria-label': 'Controlled resident table',
+    columns,
+    isResident: true,
+    pagination: { perPage: 2, page: 2 },
+  };
+  const { rerender } = render(<LwDataView {...props} rows={residentRows} />);
+  const table = screen.getByRole('grid', { name: 'Controlled resident table' });
+  expect(within(table).getByText('charlie')).toBeInTheDocument();
+
+  rerender(<LwDataView {...props} rows={residentRows.slice(0, 1)} />);
+
+  // A controlled page belongs to the caller — the assembly must NOT snap it to 1
+  // (that would desync the caller's state without an onSetPage call). Page 2 is
+  // now out of range, so the slice is empty; the caller resets its own page on
+  // filter change, as Beacon does. Header row only, and page-1 content ('delta')
+  // is not silently shown.
+  expect(within(table).queryByText('delta')).not.toBeInTheDocument();
+  expect(within(table).queryByText('charlie')).not.toBeInTheDocument();
+  expect(within(table).getAllByRole('row')).toHaveLength(1);
+});
+
+it('leaves rows untouched when they are a single server page', () => {
+  render(
+    <LwDataView
+      aria-label='Server paged'
+      columns={columns.map((column) => ({ ...column, props: { isSortable: true } }))}
+      rows={residentRows}
+      pagination={{ itemCount: 97, perPage: 2 }}
+    />,
+  );
+  const table = screen.getByRole('grid', { name: 'Server paged' });
+
+  expect(within(table).getAllByRole('row').slice(1)).toHaveLength(4);
+  // The caller's itemCount stands — 97 items at perPage 2 is 49 pages.
+  expect(screen.getAllByLabelText('Current page')[0]).toHaveAttribute('max', '49');
 });

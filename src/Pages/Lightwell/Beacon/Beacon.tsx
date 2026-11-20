@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRemoteHook } from '@scalprum/react-core';
 import { useFlag } from '@unleash/proxy-client-react';
 import {
@@ -6,6 +6,7 @@ import {
   EmptyStateBody,
   EmptyStateFooter,
   EmptyStateVariant,
+  Flex,
   FormGroup,
   PageSection,
 } from '@patternfly/react-core';
@@ -28,6 +29,7 @@ import {
   PageChromeSlotFooter,
   PageChromeSlots,
   PageTitleStack,
+  type ColumnManagementModalColumn,
   type LwDataViewManageColumn,
   type LwDataViewTh,
   type LwDataViewTr,
@@ -41,6 +43,7 @@ import {
   LwMenu,
   LwPopover,
   LwTitle,
+  LwToggleGroup,
 } from 'kit/components/primitives';
 
 import { lightwellBeaconPerPageKey } from 'Pages/Lightwell/constants';
@@ -56,6 +59,8 @@ import {
 } from './constants';
 import { buildPipelineMetricSteps } from './pipeline';
 import { SLA_POLICY_ITEMS } from './slaPolicyItems';
+import { buildPackageRows, createDefaultPackageColumns } from './utils/packageTableRows';
+import { getAddressedPackageIds, packageIdentity } from './utils/addressedPackages';
 import type { Severity, Status, Vulnerability } from './types';
 import { useBeaconExport } from './hooks/useBeaconExport';
 import { getVulnerabilityTableCellProps } from './components/vulnerabilityTableStickyColumns';
@@ -65,7 +70,11 @@ import {
   type BeaconVulnerabilityFilters,
   type BeaconVulnerabilityFlag,
 } from 'services/Lightwell/BeaconApi';
-import { useBeaconStatusQuery, useLtwlsuptTicketIdsQuery } from 'services/Lightwell/BeaconQueries';
+import {
+  useBeaconStatusQuery,
+  useBeaconVulnerabilitiesQuery,
+  useLtwlsuptTicketIdsQuery,
+} from 'services/Lightwell/BeaconQueries';
 import { useCustomerIdsQuery } from 'services/Lightwell/CustomerQueries';
 import {
   createDefaultVulnerabilityColumns,
@@ -171,6 +180,10 @@ const Beacon = () => {
   });
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>();
+  const [view, setView] = useState<'vulnerabilities' | 'packages'>('vulnerabilities');
+  const isPackageView = view === 'packages';
+  const [allAddressed, setAllAddressed] = useState(false);
+  const filterAddressed = isPackageView && allAddressed;
   const [selectedSeverities, setSelectedSeverities] = useState<Set<Severity>>(new Set());
   const [selectedStatuses, setSelectedStatuses] = useState<Set<Status>>(new Set());
   const [selectedLtwlsuptTickets, setSelectedLtwlsuptTickets] = useState<Set<string>>(new Set());
@@ -181,6 +194,7 @@ const Beacon = () => {
   const paginationProps = { page, perPage, onSetPage, onPerPageSelect };
   const [searchQuery, setSearchQuery] = useState('');
   const [columns, setColumns] = useState(createDefaultVulnerabilityColumns);
+  const [packageColumns, setPackageColumns] = useState(createDefaultPackageColumns);
 
   const debouncedSearch = useDebounce(searchQuery, searchQuery === '' ? 0 : 500);
 
@@ -219,13 +233,14 @@ const Beacon = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [selectedCustomerId, queryFilters]);
+  }, [selectedCustomerId, queryFilters, view, filterAddressed]);
 
   const resetFilters = useCallback(() => {
     setSelectedSeverities(new Set());
     setSelectedStatuses(new Set());
     setSelectedLtwlsuptTickets(new Set());
     setShowDuplicates(false);
+    setAllAddressed(false);
     setSearchQuery('');
     setPage(1);
   }, []);
@@ -267,13 +282,25 @@ const Beacon = () => {
     isPlaceholderData,
     isError,
     error,
-  } = useBeaconData(selectedCustomerId, queryFilters, pagination);
+  } = useBeaconData(selectedCustomerId, queryFilters, isPackageView ? undefined : pagination);
+  // This query is disabled outside the package-only filter. With no display
+  // filters its key matches the main package query, so React Query shares it.
+  const eligibility = useBeaconVulnerabilitiesQuery(selectedCustomerId, undefined, undefined, {
+    enabled: Boolean(selectedCustomerId && filterAddressed),
+  });
+  const eligibilityPending =
+    filterAddressed && (!eligibility.data || eligibility.isPlaceholderData);
   const { data: ltwlsuptTicketIds = [] } = useLtwlsuptTicketIdsQuery(selectedCustomerId);
   const { data: lastUpdated } = useBeaconStatusQuery();
 
+  // Placeholder (stale) rows are passed through to LwDataView as isPlaceholderData,
+  // not folded into isLoading — the assembly keeps the toolbar/panel mounted and
+  // shows the stale rows during a refetch rather than flashing the skeleton and
+  // dropping focus (D28). Same handling for both views.
   const isLoading = !displayData && isLoadingDisplay;
 
   if (isError) throw error;
+  if (filterAddressed && eligibility.isError) throw eligibility.error;
 
   const filteredVulns = displayData?.vulnerabilities ?? [];
   const displayMeta = displayData?.meta;
@@ -313,17 +340,40 @@ const Beacon = () => {
     });
   };
 
-  const activeFilterCount =
+  const vulnerabilityFilterCount =
     selectedSeverities.size +
     selectedStatuses.size +
     selectedLtwlsuptTickets.size +
     (showDuplicates ? 1 : 0) +
     (isSearchApplied(searchQuery) ? 1 : 0);
 
+  const activeFilterCount = vulnerabilityFilterCount + (filterAddressed ? 1 : 0);
+
   const itemCount = displayMeta?.count ?? 0;
   // Export has nothing to export at 0 settled rows. Placeholder data keeps the previous count, so
   // Export doesn't flicker while a refetch is in flight; stay visible while the first load runs.
   const showExport = isLoading || itemCount > 0;
+
+  // Grouping is only ever rendered by the package view; the vulnerability view
+  // would otherwise rebuild every group on each data change and show none.
+  const addressedPackageIds = useMemo(
+    () => getAddressedPackageIds(eligibility.data?.vulnerabilities ?? []),
+    [eligibility.data],
+  );
+  const packageRows = useMemo(() => {
+    if (!isPackageView || eligibilityPending) return [];
+    const vulnerabilities = filterAddressed
+      ? filteredVulns.filter((v) => addressedPackageIds.has(packageIdentity(v)))
+      : filteredVulns;
+    return buildPackageRows(vulnerabilities, packageColumns);
+  }, [
+    isPackageView,
+    eligibilityPending,
+    filterAddressed,
+    filteredVulns,
+    addressedPackageIds,
+    packageColumns,
+  ]);
 
   const visibleColumns = useMemo(
     () =>
@@ -344,19 +394,21 @@ const Beacon = () => {
 
   const dataViewRows: LwDataViewTr[] = useMemo(
     () =>
-      filteredVulns.map((v) => ({
-        id: v.uuid,
-        row: visibleColumns.map((column) => ({
-          cell: renderVulnerabilityCell(column.key, v),
-          props: {
-            dataLabel: column.title,
-            sortValue: getBeaconSortValue(column.key, v),
-            ...getVulnerabilityTableCellProps(column.key),
-            ...(column.key === 'component' ? { modifier: 'breakWord' as const } : null),
-          },
-        })),
-      })),
-    [filteredVulns, visibleColumns],
+      isPackageView
+        ? []
+        : filteredVulns.map((v) => ({
+            id: v.uuid,
+            row: visibleColumns.map((column) => ({
+              cell: renderVulnerabilityCell(column.key, v),
+              props: {
+                dataLabel: column.title,
+                sortValue: getBeaconSortValue(column.key, v),
+                ...getVulnerabilityTableCellProps(column.key),
+                ...(column.key === 'component' ? { modifier: 'breakWord' as const } : null),
+              },
+            })),
+          })),
+    [isPackageView, filteredVulns, visibleColumns],
   );
 
   const manageColumnsCatalog: LwDataViewManageColumn[] = useMemo(
@@ -370,6 +422,59 @@ const Beacon = () => {
       })),
     [columns],
   );
+
+  const visiblePackageColumns = useMemo(
+    () => packageColumns.filter((column) => column.isShown),
+    [packageColumns],
+  );
+
+  // The modal hands back key + visibility only, so the rest of each column
+  // definition is read back out of state. A key with no definition behind it
+  // isn't ours to render — drop it rather than assert it exists.
+  const applyPackageColumns = useCallback(
+    (applied: ColumnManagementModalColumn[]) =>
+      setPackageColumns((current) =>
+        applied.flatMap((column) => {
+          const definition = current.find((c) => c.key === column.key);
+          return definition ? [{ ...definition, isShown: column.isShown ?? false }] : [];
+        }),
+      ),
+    [],
+  );
+
+  /**
+   * Everything the two views disagree on, resolved once. Keeps the return a
+   * single configured table rather than one interleaved by ternary per prop.
+   */
+  const tableView = isPackageView
+    ? {
+        ariaLabel: 'Package tracking table',
+        columnKeys: visiblePackageColumns.map((column) => column.key),
+        columns: visiblePackageColumns,
+        rows: packageRows,
+        expandedRows: packageRows.map((row) => ({ rowId: row.id, content: row.expandedContent })),
+        // Resident rows carry their own count — LwDataView derives it.
+        itemCount: undefined,
+        manageColumns: {
+          columns: packageColumns,
+          onApply: applyPackageColumns,
+          onReset: () => setPackageColumns(createDefaultPackageColumns()),
+        },
+      }
+    : {
+        ariaLabel: 'Vulnerability tracking table',
+        columnKeys: visibleColumns.map((column) => column.key),
+        columns: dataViewColumns,
+        rows: dataViewRows,
+        expandedRows: undefined,
+        itemCount: displayMeta?.count ?? 0,
+        manageColumns: {
+          columns: manageColumnsCatalog,
+          onApply: (applied: ColumnManagementModalColumn[]) =>
+            setColumns(applied as VulnerabilityTableColumn[]),
+          onReset: () => setColumns(createDefaultVulnerabilityColumns()),
+        },
+      };
 
   const isPipelineHydrated = Boolean(selectedCustomerId && !isLoading);
   const pipelineMetricSteps = buildPipelineMetricSteps(
@@ -439,7 +544,7 @@ const Beacon = () => {
           ) : selectedCustomerId ? (
             <PageChromeSlot>
               <LwMetricsCard
-                hasHeader={`Status Summary${activeFilterCount > 0 ? ' (filtered)' : ''}`}
+                hasHeader={`${isPackageView ? 'Vulnerability Status Summary' : 'Status Summary'}${vulnerabilityFilterCount > 0 ? ' (filtered)' : ''}`}
                 hasAction={
                   <LwPopover
                     hasHeader={SLA_POLICY_HEADER}
@@ -491,25 +596,39 @@ const Beacon = () => {
       </LwPageHeader>
       <PageSection data-ouia-component-id='lightwell-beacon-controls'>
         {selectedCustomerId ? (
-          <LwButtonGroup>
-            <LwMenu
-              fieldLabel='Customer ID'
-              label={selectedCustomerId}
-              toggleProps={{ variant: 'primary', ouiaId: 'customer-id-select-toggle' }}
-              isDisabled={customerIdMenuItems.length === 0}
-              items={customerIdMenuItems}
-            />
-            {showExport ? (
+          <Flex
+            justifyContent={{ default: 'justifyContentSpaceBetween' }}
+            alignItems={{ default: 'alignItemsFlexEnd' }}
+          >
+            <LwButtonGroup>
               <LwMenu
-                label='Export'
-                busyLabel='Exporting'
-                isBusy={isExportBusy}
-                toggleProps={{ variant: 'secondary', ouiaId: 'lightwell-beacon-export-toggle' }}
-                popperProps={{ position: 'right' }}
-                items={exportItems}
+                fieldLabel='Customer ID'
+                label={selectedCustomerId}
+                toggleProps={{ variant: 'primary', ouiaId: 'customer-id-select-toggle' }}
+                isDisabled={customerIdMenuItems.length === 0}
+                items={customerIdMenuItems}
               />
-            ) : null}
-          </LwButtonGroup>
+              {showExport ? (
+                <LwMenu
+                  label={isPackageView ? 'Export vulnerabilities' : 'Export'}
+                  busyLabel='Exporting'
+                  isBusy={isExportBusy}
+                  toggleProps={{ variant: 'secondary', ouiaId: 'lightwell-beacon-export-toggle' }}
+                  popperProps={{ position: 'right' }}
+                  items={exportItems}
+                />
+              ) : null}
+            </LwButtonGroup>
+            <LwToggleGroup
+              aria-label='Table view'
+              items={[
+                { value: 'vulnerabilities', label: 'Vulnerabilities' },
+                { value: 'packages', label: 'Packages' },
+              ]}
+              value={view}
+              onChange={(next) => setView(next as 'vulnerabilities' | 'packages')}
+            />
+          </Flex>
         ) : null}
       </PageSection>
       <PageSection
@@ -521,28 +640,25 @@ const Beacon = () => {
             // LwDataView tracks its active sort by column index internally; remount
             // when the visible-column set/order changes so a stale index can't end
             // up pointing at a different field after a column is hidden/shown.
-            key={visibleColumns.map((c) => c.key).join(',')}
-            aria-label='Vulnerability tracking table'
-            // Package + Vulnerability ID columns set isStickyColumn (below) —
-            // isSticky is what actually activates PF's OuterScrollContainer /
-            // InnerScrollContainer wrappers those columns need to render
-            // correctly. Opt-in per the skill (verified layout context, not
-            // auto-derived) — this is that verified case.
-            isSticky
-            manageColumns={{
-              columns: manageColumnsCatalog,
-              onApply: (newColumns) => setColumns(newColumns as VulnerabilityTableColumn[]),
-              onReset: () => setColumns(createDefaultVulnerabilityColumns()),
-            }}
-            columns={dataViewColumns}
-            rows={dataViewRows}
-            isLoading={isLoading}
+            key={`${view}:${tableView.columnKeys.join(',')}`}
+            aria-label={tableView.ariaLabel}
+            columns={tableView.columns}
+            rows={tableView.rows}
+            manageColumns={tableView.manageColumns}
+            expandedRows={tableView.expandedRows}
+            isExpandable={isPackageView}
+            indexBy='id'
+            // Package rows group the whole filtered result, so LwDataView owns
+            // paging and sorts across every package. The vulnerability view is
+            // server-paginated — its rows are one page and stay as given.
+            isResident={isPackageView}
+            isLoading={isLoading || eligibilityPending}
             isPlaceholderData={isPlaceholderData}
             emptyState={{
               // What the displayed rows were fetched with, not the live UI state: the search is
               // debounced, so right after Reset/clear the UI is already empty while the rows are
               // still the filtered result. Using the UI count would flash "no data" for that tick.
-              hasActiveFilters: queryFilters !== undefined,
+              hasActiveFilters: queryFilters !== undefined || filterAddressed,
               titleText: 'No results match the current filters',
               bodyText: 'Reset filters to show more results.',
               onClearFilters: resetFilters,
@@ -557,7 +673,7 @@ const Beacon = () => {
               placeholder: 'Filter by ID, package, or title',
               ariaLabel: 'Filter vulnerabilities by ID, package, or title',
             }}
-            pagination={{ ...paginationProps, itemCount }}
+            pagination={{ ...paginationProps, itemCount: tableView.itemCount }}
             // Uncontrolled — LwDataView owns expanded state, seeded by breakpoint (D15).
             panelToggle={{}}
             panel={
@@ -576,13 +692,22 @@ const Beacon = () => {
                   </FormGroup>
                   <FormGroup label='Status'>
                     {FILTER_STATUSES.map((status) => (
-                      <LwCheckbox
-                        key={status}
-                        id={`status-${status}`}
-                        label={statusLabel(status)}
-                        isChecked={selectedStatuses.has(status)}
-                        onChange={() => toggleStatus(status)}
-                      />
+                      <Fragment key={status}>
+                        <LwCheckbox
+                          id={`status-${status}`}
+                          label={statusLabel(status)}
+                          isChecked={selectedStatuses.has(status)}
+                          onChange={() => toggleStatus(status)}
+                        />
+                        {isPackageView && status === 'Lightwell Network' && (
+                          <LwCheckbox
+                            id='packages-all-addressed'
+                            label='All addressed'
+                            isChecked={allAddressed}
+                            onChange={() => setAllAddressed((current) => !current)}
+                          />
+                        )}
+                      </Fragment>
                     ))}
                   </FormGroup>
                   {ltwlsuptTicketIds.length > 0 && (

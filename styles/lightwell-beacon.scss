@@ -87,3 +87,44 @@
   max-width: 360px;
   min-width: 0;
 }
+
+.beacon-package-counts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+  flex-wrap: wrap;
+}
+
+.beacon-package-counts__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--xs);
+}
+
+.beacon-package-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--md);
+}
+
+/*
+ * Multi-line truncation, same four declarations PatternFly uses for
+ * `.pf-v6-c-alert__title.pf-m-truncate` and `.pf-v6-c-expandable-section.pf-m-truncate`
+ * — the `-webkit-box` prefixes are the only cross-browser clamp today, which is
+ * why PF ships them too. The cell's own `pf-m-break-word` modifier already
+ * handles wrapping, so only the clamp lives here. Full title stays in the tooltip.
+ */
+.beacon-package-vulnerability-title {
+  --beacon-package-vulnerability-title--max-lines: 2;
+
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--beacon-package-vulnerability-title--max-lines);
+}
+
+.beacon-package-status-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+}

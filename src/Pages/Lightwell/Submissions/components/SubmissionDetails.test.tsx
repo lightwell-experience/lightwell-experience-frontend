@@ -5,6 +5,24 @@ import SubmissionDetails from './SubmissionDetails';
 import { useSubmissionDetail } from '../hooks/useSubmissionDetail';
 
 jest.mock('../hooks/useSubmissionDetail');
+jest.mock('./SubmissionPackagesTable', () => ({
+  __esModule: true,
+  default: ({
+    ecosystems,
+    initialValidity,
+  }: {
+    ecosystems: string[];
+    initialValidity?: string[];
+  }) => (
+    <div data-ouia-component-id='packages-table' data-validity={initialValidity?.join(',') ?? ''}>
+      {ecosystems.join(',')}
+    </div>
+  ),
+}));
+jest.mock('./SubmissionEcosystemChart', () => ({
+  __esModule: true,
+  default: () => <div data-ouia-component-id='ecosystem-chart' />,
+}));
 const mockedHook = useSubmissionDetail as jest.Mock;
 
 let mockCurrentUsername: string | undefined;
@@ -420,5 +438,158 @@ describe('SubmissionDetails', () => {
     render(<SubmissionDetails uuid='sub-1' />);
 
     expect(screen.getByText(/Could not load the submission/i)).toBeInTheDocument();
+  });
+});
+
+describe('SubmissionDetails packages', () => {
+  const packageSummary = {
+    total: 128,
+    invalid_purls: 7,
+    ecosystems: [
+      { ecosystem: 'Java', total: 121 },
+      { ecosystem: 'Unknown', total: 7 },
+    ],
+  };
+  const withSummary = () =>
+    mockedHook.mockReturnValue(
+      buildHook({
+        submission: { ...buildHook().submission, package_summary: packageSummary },
+      }),
+    );
+
+  it('shows the package summary next to the status', () => {
+    withSummary();
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(screen.getByText('128 packages')).toBeInTheDocument();
+    expect(screen.getByText('7 invalid')).toBeInTheDocument();
+  });
+
+  it('opens on the Reproducers tab by default and lazily mounts Packages', () => {
+    withSummary();
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(screen.getByRole('tab', { name: 'Reproducers (2)' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByRole('tab', { name: 'Packages (128)' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    );
+    expect(screen.getByText('repro.jpg')).toBeInTheDocument();
+    expect(screen.queryByTestId('packages-table')).not.toBeInTheDocument();
+  });
+
+  it('switches to the Packages tab and reports the change', async () => {
+    const user = userEvent.setup();
+    const onTabChange = jest.fn();
+    withSummary();
+    render(<SubmissionDetails uuid='sub-1' onTabChange={onTabChange} />);
+
+    await user.click(screen.getByRole('tab', { name: 'Packages (128)' }));
+
+    expect(onTabChange).toHaveBeenCalledWith('packages');
+    expect(screen.getByTestId('ecosystem-chart')).toBeInTheDocument();
+    expect(screen.getByTestId('packages-table')).toHaveTextContent('Java,Unknown');
+  });
+
+  it('honours a controlled active tab', () => {
+    withSummary();
+    render(<SubmissionDetails uuid='sub-1' activeTab='packages' />);
+
+    expect(screen.getByRole('tab', { name: 'Packages (128)' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByTestId('packages-table')).toBeInTheDocument();
+  });
+
+  it('shows no tabs or summary for submissions without a package summary', () => {
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(screen.getByText('Reproducers (2)')).toBeInTheDocument();
+    expect(screen.queryByText(/invalid/)).not.toBeInTheDocument();
+  });
+});
+
+describe('SubmissionDetails resend', () => {
+  const packageSummary = {
+    total: 128,
+    invalid_purls: 7,
+    ecosystems: [{ ecosystem: 'Java', total: 128 }],
+  };
+  const withResend = (overrides: Record<string, unknown> = {}) =>
+    mockedHook.mockReturnValue(
+      buildHook({
+        submission: { ...buildHook().submission, package_summary: packageSummary },
+        reproducerFiles: [],
+        canResend: true,
+        invalidPackageCount: 7,
+        resend: jest.fn(),
+        isResending: false,
+        ...overrides,
+      }),
+    );
+  const alert = () => screen.getByTestId('submission-invalid-packages-alert');
+
+  it('explains the invalid packages and offers a resend while it is allowed', () => {
+    withResend();
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(alert()).toHaveTextContent('7 packages have invalid package URLs');
+    expect(alert()).toHaveTextContent(/available only until you add reproducers/);
+    expect(within(alert()).getByRole('button', { name: 'Resend corrected report' })).toBeEnabled();
+  });
+
+  it('uses the singular for a single invalid package', () => {
+    withResend({ invalidPackageCount: 1 });
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(alert()).toHaveTextContent('1 package has an invalid package URL');
+  });
+
+  it('hides the alert when resend is not allowed (e.g. reproducers were added)', () => {
+    withResend({ canResend: false });
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(screen.queryByTestId('submission-invalid-packages-alert')).not.toBeInTheDocument();
+  });
+
+  it('resends the picked file only after confirming the replacement', async () => {
+    const resend = jest.fn();
+    withResend({ resend });
+    const user = userEvent.setup();
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    const file = new File(['{}'], 'fixed.json', { type: 'application/json' });
+    await user.upload(screen.getByTestId('resend-report-file-input'), file);
+    expect(resend).not.toHaveBeenCalled();
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('"fixed.json" will be uploaded as a new submission');
+    await user.click(within(dialog).getByRole('button', { name: 'Resend' }));
+
+    expect(resend).toHaveBeenCalledWith(file);
+  });
+
+  it('disables the resend action while another action runs', () => {
+    withResend({ isMutating: true, isResending: true });
+    render(<SubmissionDetails uuid='sub-1' />);
+
+    expect(within(alert()).getByRole('button', { name: /Resend corrected report/ })).toBeDisabled();
+  });
+
+  it('opens the Packages tab filtered to invalid packages', async () => {
+    const onTabChange = jest.fn();
+    withResend();
+    const user = userEvent.setup();
+    render(<SubmissionDetails uuid='sub-1' onTabChange={onTabChange} />);
+
+    await user.click(within(alert()).getByRole('button', { name: 'View invalid packages' }));
+
+    expect(onTabChange).toHaveBeenCalledWith('packages');
+    expect(screen.getByTestId('packages-table')).toHaveAttribute('data-validity', 'invalid');
   });
 });

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  AlertActionLink,
   Bullseye,
   ButtonVariant,
   Content,
@@ -13,6 +14,9 @@ import {
   Spinner,
   Stack,
   StackItem,
+  Tab,
+  Tabs,
+  TabTitleText,
 } from '@patternfly/react-core';
 import { WarningModal } from '@patternfly/react-component-groups';
 import { CheckCircleIcon, DownloadIcon, PlusCircleIcon, TrashIcon } from '@patternfly/react-icons';
@@ -28,7 +32,11 @@ import type {
 import { formatDateDDMMMYYYY } from '../../../../helpers';
 import { useSubmissionDetail } from '../hooks/useSubmissionDetail';
 import { useCurrentUsername } from '../hooks/useCurrentUsername';
+import type { SubmissionDrawerTab } from '../hooks/useSubmissionDrawerParams';
 import { usePendingReproducers } from './PendingReproducersContext';
+import SubmissionEcosystemChart from './SubmissionEcosystemChart';
+import SubmissionPackageSummary, { pluralizePackages } from './SubmissionPackageSummary';
+import SubmissionPackagesTable from './SubmissionPackagesTable';
 
 export type SubmissionDetailsProps = {
   /** The submission to render; the component fetches it itself. */
@@ -37,6 +45,11 @@ export type SubmissionDetailsProps = {
   onDeleted?: () => void;
   /** Fired after the submission is submitted for validation (close the drawer). */
   onSubmitted?: () => void;
+  /** Fired with the replacement's uuid after the report is resent (open it instead). */
+  onResent?: (newUuid: string) => void;
+  /** Controlled active tab (the drawer keeps it in the URL); falls back to local state. */
+  activeTab?: SubmissionDrawerTab;
+  onTabChange?: (tab: SubmissionDrawerTab) => void;
 };
 
 type ConfirmState = {
@@ -74,23 +87,46 @@ const useStyles = createUseStyles({
     padding: 'var(--pf-t--global--spacer--md)',
     background: 'var(--pf-t--global--background--color--primary--default)',
   },
+  tabBody: {
+    paddingTop: 'var(--pf-t--global--spacer--md)',
+  },
+  packagesTabBody: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--pf-t--global--spacer--md)',
+    paddingTop: 'var(--pf-t--global--spacer--md)',
+  },
 });
 
 /**
  * Drawer body for a single clearinghouse submission. The drawer's own head holds
  * the static "Submission details" title; this fills the rest of the panel: a
- * header block (filename — downloadable on its own — and status, plus a
- * "Download all" archive action), then a scrollable list of reproducer files with
- * an "Add more reproducers" control under the title, above a sticky footer. The
- * footer offers delete-all / submit / download-all / "Mark as processed", each
- * shown only when the backend's permission flag for it is set, and is hidden
- * entirely when no action is available. Per-file controls follow each file's
- * own `can_download` / `can_delete` flags.
+ * header block (filename — downloadable on its own — status and a one-line
+ * package summary, plus a "Download all" archive action), then two tabs:
+ * Reproducers (default; the reproducer files with an "Add more reproducers"
+ * control) and Packages (a per-ecosystem chart and a filterable package table),
+ * above a sticky footer. Submissions created before package parsing have no
+ * package summary, so they show the reproducers without tabs. The footer offers
+ * delete-all / submit / download-all / "Mark as processed", each shown only when
+ * the backend's permission flag for it is set, and is hidden entirely when no
+ * action is available. Per-file controls follow each file's own
+ * `can_download` / `can_delete` flags.
+ *
+ * When the report has invalid packageurls and no reproducers yet, a warning
+ * alert above the tabs explains the problem and offers to resend a corrected
+ * report (which replaces this submission) or jump to the invalid packages.
  *
  * On mount it also consumes any reproducer files handed over from the Submissions hero
  * (via PendingReproducersContext) and uploads them, showing skeleton rows.
  */
-const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsProps) => {
+const SubmissionDetails = ({
+  uuid,
+  onDeleted,
+  onSubmitted,
+  onResent,
+  activeTab,
+  onTabChange,
+}: SubmissionDetailsProps) => {
   const {
     submission,
     isLoading,
@@ -100,6 +136,8 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
     canSubmit,
     canProcess,
     canDownload,
+    canResend,
+    invalidPackageCount,
     mainFile,
     reproducerFiles,
     addFiles,
@@ -107,6 +145,7 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
     deleteWholeSubmission,
     submit,
     process,
+    resend,
     download,
     downloadArchive,
     isAddingFiles,
@@ -115,13 +154,23 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
     isSubmitting,
     isProcessing,
     isDownloadingArchive,
-  } = useSubmissionDetail({ uuid, onDeleted, onSubmitted });
+    isResending,
+  } = useSubmissionDetail({ uuid, onDeleted, onSubmitted, onResent });
 
   const { takePending } = usePendingReproducers();
   const currentUsername = useCurrentUsername();
   const classes = useStyles();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const resendInputRef = useRef<HTMLInputElement>(null);
+  // Bumped by "View invalid packages" to remount the table filtered to invalid ones.
+  const [invalidFilterKey, setInvalidFilterKey] = useState(0);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const [localTab, setLocalTab] = useState<SubmissionDrawerTab>('reproducers');
+  const currentTab = activeTab ?? localTab;
+  const handleTabSelect = (tab: SubmissionDrawerTab) => {
+    setLocalTab(tab);
+    onTabChange?.(tab);
+  };
 
   // Upload any reproducer files handed over from the hero when this drawer opens.
   // `takePending` consumes (clears) the files, so a repeated effect run is a no-op.
@@ -150,6 +199,24 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
     const selected = Array.from(event.target.files ?? []);
     event.target.value = '';
     if (selected.length) addFiles(selected);
+  };
+
+  const handleResendFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const [file] = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!file) return;
+    setConfirm({
+      title: 'Replace submission?',
+      body: `"${file.name}" will be uploaded as a new submission and this one will be permanently deleted.`,
+      confirmLabel: 'Resend',
+      confirmVariant: ButtonVariant.danger,
+      action: () => resend(file),
+    });
+  };
+
+  const showInvalidPackages = () => {
+    setInvalidFilterKey((key) => key + 1);
+    handleTabSelect('packages');
   };
 
   const confirmDeleteFile = (filename: string) =>
@@ -247,6 +314,54 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
   };
 
   const showFooter = canDelete || canSubmit || canProcess || canDownload;
+  const packageSummary = submission.package_summary;
+
+  const reproducersSection = (
+    <>
+      {canAddReproducers ? (
+        <StackItem>
+          <input
+            ref={fileInputRef}
+            type='file'
+            multiple
+            hidden
+            data-ouia-component-id='add-reproducer-file-input'
+            onChange={handleFilesSelected}
+          />
+          <LwButton
+            variant='link'
+            isInline
+            icon={<PlusCircleIcon />}
+            isDisabled={isMutating}
+            onClick={handleUploadClick}
+            ouiaId='add-more-reproducers'
+          >
+            Add more reproducers
+          </LwButton>
+        </StackItem>
+      ) : null}
+
+      {reproducerFiles.length ? (
+        reproducerFiles.map((file) => (
+          <StackItem key={file.uuid}>{renderReproducerRow(file)}</StackItem>
+        ))
+      ) : isAddingFiles ? null : (
+        <StackItem>
+          <Content component='small' data-ouia-component-id='submission-details-empty'>
+            No reproducer files have been added to this submission.
+          </Content>
+        </StackItem>
+      )}
+
+      {isAddingFiles
+        ? Array.from({ length: Math.max(addingCount, 1) }).map((_, index) => (
+            <StackItem key={`uploading-${index}`}>
+              <Skeleton width='70%' screenreaderText='Uploading reproducer file' />
+            </StackItem>
+          ))
+        : null}
+    </>
+  );
 
   return (
     <div className={classes.root} data-ouia-component-id='submission-details'>
@@ -289,59 +404,100 @@ const SubmissionDetails = ({ uuid, onDeleted, onSubmitted }: SubmissionDetailsPr
                   {capitalize(submission.status)}
                 </Label>
               </FlexItem>
+              {packageSummary ? (
+                <FlexItem>
+                  <SubmissionPackageSummary summary={packageSummary} />
+                </FlexItem>
+              ) : null}
             </Flex>
           </StackItem>
+
+          {canResend ? (
+            <StackItem>
+              <input
+                ref={resendInputRef}
+                type='file'
+                accept='.json,application/json'
+                hidden
+                data-ouia-component-id='resend-report-file-input'
+                onChange={handleResendFileSelected}
+              />
+              <Alert
+                variant='warning'
+                isInline
+                title={`${pluralizePackages(invalidPackageCount)} ${invalidPackageCount === 1 ? 'has an invalid package URL' : 'have invalid package URLs'}`}
+                actionLinks={
+                  <>
+                    <AlertActionLink
+                      isLoading={isResending}
+                      isDisabled={isMutating}
+                      onClick={() => resendInputRef.current?.click()}
+                      ouiaId='resend-report'
+                    >
+                      Resend corrected report
+                    </AlertActionLink>
+                    <AlertActionLink onClick={showInvalidPackages} ouiaId='view-invalid-packages'>
+                      View invalid packages
+                    </AlertActionLink>
+                  </>
+                }
+                ouiaId='submission-invalid-packages-alert'
+              >
+                Fix the report and resend it. The corrected file replaces this submission. Resend is
+                available only until you add reproducers.
+              </Alert>
+            </StackItem>
+          ) : null}
 
           <StackItem>
             <Divider />
           </StackItem>
 
-          <StackItem>
-            <Content component='h4'>Reproducers ({reproducerFiles.length})</Content>
-          </StackItem>
-
-          {canAddReproducers ? (
+          {packageSummary ? (
             <StackItem>
-              <input
-                ref={fileInputRef}
-                type='file'
-                multiple
-                hidden
-                data-ouia-component-id='add-reproducer-file-input'
-                onChange={handleFilesSelected}
-              />
-              <LwButton
-                variant='link'
-                isInline
-                icon={<PlusCircleIcon />}
-                isDisabled={isMutating}
-                onClick={handleUploadClick}
-                ouiaId='add-more-reproducers'
+              <Tabs
+                activeKey={currentTab}
+                onSelect={(_event, key) => handleTabSelect(key as SubmissionDrawerTab)}
+                mountOnEnter
+                aria-label='Submission details tabs'
+                ouiaId='submission-details-tabs'
               >
-                Add more reproducers
-              </LwButton>
+                <Tab
+                  eventKey='reproducers'
+                  title={<TabTitleText>Reproducers ({reproducerFiles.length})</TabTitleText>}
+                  ouiaId='submission-details-tab-reproducers'
+                >
+                  <Stack hasGutter className={classes.tabBody}>
+                    {reproducersSection}
+                  </Stack>
+                </Tab>
+                <Tab
+                  eventKey='packages'
+                  title={<TabTitleText>Packages ({packageSummary.total})</TabTitleText>}
+                  ouiaId='submission-details-tab-packages'
+                >
+                  <div className={classes.packagesTabBody}>
+                    {packageSummary.ecosystems.length ? (
+                      <SubmissionEcosystemChart ecosystems={packageSummary.ecosystems} />
+                    ) : null}
+                    <SubmissionPackagesTable
+                      key={invalidFilterKey}
+                      initialValidity={invalidFilterKey ? ['invalid'] : undefined}
+                      uuid={uuid}
+                      ecosystems={packageSummary.ecosystems.map(({ ecosystem }) => ecosystem)}
+                    />
+                  </div>
+                </Tab>
+              </Tabs>
             </StackItem>
-          ) : null}
-
-          {reproducerFiles.length ? (
-            reproducerFiles.map((file) => (
-              <StackItem key={file.uuid}>{renderReproducerRow(file)}</StackItem>
-            ))
-          ) : isAddingFiles ? null : (
-            <StackItem>
-              <Content component='small' data-ouia-component-id='submission-details-empty'>
-                No reproducer files have been added to this submission.
-              </Content>
-            </StackItem>
+          ) : (
+            <>
+              <StackItem>
+                <Content component='h4'>Reproducers ({reproducerFiles.length})</Content>
+              </StackItem>
+              {reproducersSection}
+            </>
           )}
-
-          {isAddingFiles
-            ? Array.from({ length: Math.max(addingCount, 1) }).map((_, index) => (
-                <StackItem key={`uploading-${index}`}>
-                  <Skeleton width='70%' screenreaderText='Uploading reproducer file' />
-                </StackItem>
-              ))
-            : null}
         </Stack>
       </div>
 

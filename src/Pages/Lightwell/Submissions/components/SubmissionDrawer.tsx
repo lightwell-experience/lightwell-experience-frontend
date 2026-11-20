@@ -42,11 +42,13 @@ type SubmissionDrawerProps = PropsWithChildren;
  * The head holds the static "Submission details" title; the panel body is
  * SubmissionDetails (which renders the filename, status, and downloads).
  * Destructive/terminal actions close the drawer (the table refetches via the
- * mutations themselves).
+ * mutations themselves); resending a corrected report swaps the drawer to the
+ * replacement submission.
  */
 const SubmissionDrawer = ({ children }: SubmissionDrawerProps) => {
   const classes = useStyles();
-  const { openUuid, isDrawerExpanded, closeDrawer } = useSubmissionDrawerParams();
+  const { openUuid, isDrawerExpanded, closeDrawer, openTab, setOpenTab, openSubmission } =
+    useSubmissionDrawerParams();
 
   const { isOverlayMounted, isOverlayExpanded, onOverlayTransitionEnd, onEscape } =
     useDrawerOverlay({
@@ -78,7 +80,17 @@ const SubmissionDrawer = ({ children }: SubmissionDrawerProps) => {
         </DrawerActions>
       </DrawerHead>
       {openUuid ? (
-        <SubmissionDetails uuid={openUuid} onDeleted={closeDrawer} onSubmitted={closeDrawer} />
+        <SubmissionDetails
+          // Keyed so a resend (which swaps in the replacement's uuid) starts fresh.
+          key={openUuid}
+          uuid={openUuid}
+          onDeleted={closeDrawer}
+          onSubmitted={closeDrawer}
+          // Replace history: the old submission no longer exists to go back to.
+          onResent={(newUuid) => openSubmission(newUuid, 'reproducers', { replace: true })}
+          activeTab={openTab}
+          onTabChange={setOpenTab}
+        />
       ) : null}
     </DrawerPanelContent>
   );

@@ -16,6 +16,11 @@ jest.mock('services/Lightwell/CoverageReportsApi', () => {
   };
 });
 
+jest.mock('../pdf/coveragePdf', () => {
+  const actual = jest.requireActual('../pdf/coveragePdf');
+  return { ...actual, buildCoveragePdfPayload: jest.fn(actual.buildCoveragePdfPayload) };
+});
+
 jest.mock('Hooks/useErrorNotification', () => ({
   __esModule: true,
   default: () => jest.fn(),
@@ -28,6 +33,7 @@ jest.mock('Hooks/useNotification', () => ({
 
 import { useChrome } from '@redhat-cloud-services/frontend-components/useChrome';
 import useNotification from 'Hooks/useNotification';
+import { buildCoveragePdfPayload } from '../pdf/coveragePdf';
 
 const requestPdf = jest.fn().mockResolvedValue(undefined);
 const notify = jest.fn();
@@ -47,6 +53,7 @@ beforeEach(() => {
   requestPdf.mockReset();
   requestPdf.mockResolvedValue(undefined);
   notify.mockClear();
+  (buildCoveragePdfPayload as jest.Mock).mockClear();
   (getCoverageReportPackages as jest.Mock).mockReset();
   (getCoverageReportPackages as jest.Mock).mockResolvedValue({
     data: [],
@@ -179,6 +186,29 @@ describe('ExportMenu PDF', () => {
     expect(requestPdf.mock.calls[0][0].payload[0].fetchDataParams).toMatchObject({
       includePackages: true,
     });
+    expect(buildCoveragePdfPayload).toHaveBeenCalledWith(
+      expect.objectContaining({ packageCount: 1500 }),
+    );
+  });
+
+  it('plans the PDF from the fetched package count when none is passed in', async () => {
+    (getCoverageReportPackages as jest.Mock).mockResolvedValue({
+      data: [],
+      links: { first: '', last: '' },
+      meta: { count: 42, limit: 1, offset: 0 },
+    });
+    const user = userEvent.setup();
+    render(<ExportMenu uuid='report-uuid' filename='sbom.json' />);
+
+    await user.click(screen.getByRole('button', { name: 'Export as' }));
+    await user.click(screen.getByRole('menuitem', { name: 'PDF' }));
+
+    await waitFor(() => {
+      expect(requestPdf).toHaveBeenCalledTimes(1);
+    });
+    expect(buildCoveragePdfPayload).toHaveBeenCalledWith(
+      expect.objectContaining({ packageCount: 42 }),
+    );
   });
 
   it('explains the PDF limit and can export the overview only', async () => {

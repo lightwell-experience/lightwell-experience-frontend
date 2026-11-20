@@ -63,6 +63,7 @@ export function ExportMenu({
   const [isPdfLimitModalOpen, setIsPdfLimitModalOpen] = useState(false);
   const decisionRef = useRef<((decision: PdfSizeDecision) => void) | null>(null);
   const overviewOnlyRef = useRef(false);
+  const exportCountRef = useRef<number | undefined>(undefined);
 
   const settleDecision = (decision: PdfSizeDecision) => {
     const resolve = decisionRef.current;
@@ -75,6 +76,7 @@ export function ExportMenu({
     overviewOnlyRef.current = false;
     const count =
       packageCount ?? (await getCoverageReportPackages(uuid!, 1, 1, filters)).meta.count;
+    exportCountRef.current = count;
     if (count <= COVERAGE_PDF_MAX_PACKAGES) {
       return true;
     }
@@ -110,6 +112,7 @@ export function ExportMenu({
             filters,
             includeCveData,
             includePackages: !overviewOnlyRef.current,
+            packageCount: exportCountRef.current,
           }) as unknown as PDFRequestPayload,
         })}
         errorNotification={{

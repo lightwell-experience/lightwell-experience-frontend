@@ -331,13 +331,15 @@ it('defines each security level in a tooltip on the Security level column header
   await user.hover(within(header).getByRole('button'));
 
   const tooltip = await screen.findByRole('tooltip');
-  expect(tooltip).toHaveTextContent(
-    'Predisclosure: Backported fixes for vulnerabilities not yet publicly disclosed',
-  );
-  expect(tooltip).toHaveTextContent('Remediated: Backported fixes for known vulnerabilities');
-  expect(tooltip).toHaveTextContent(
-    'Validated: Artifacts rebuilt from source, verified end-to-end with no modifications',
-  );
+  const definitions = [
+    ['Predisclosure', 'Backported fixes for vulnerabilities not yet publicly disclosed'],
+    ['Remediated', 'Backported fixes for known vulnerabilities'],
+    ['Validated', 'Artifacts rebuilt from source, verified end-to-end with no modifications'],
+  ];
+  definitions.forEach(([term, description]) => {
+    expect(within(tooltip).getByText(term)).toBeInTheDocument();
+    expect(within(tooltip).getByText(description)).toBeInTheDocument();
+  });
 });
 
 it('hides notification features when the feature flag is off', async () => {

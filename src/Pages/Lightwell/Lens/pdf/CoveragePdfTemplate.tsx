@@ -1,5 +1,8 @@
 import { Content, Title } from '@patternfly/react-core';
-import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import { RhUiSeverityCriticalFillIconConfig } from '@patternfly/react-icons/dist/esm/icons/rh-ui-severity-critical-fill-icon';
+import { RhUiSeverityImportantFillIconConfig } from '@patternfly/react-icons/dist/esm/icons/rh-ui-severity-important-fill-icon';
+import { RhUiSeverityMinorFillIconConfig } from '@patternfly/react-icons/dist/esm/icons/rh-ui-severity-minor-fill-icon';
+import { RhUiSeverityModerateFillIconConfig } from '@patternfly/react-icons/dist/esm/icons/rh-ui-severity-moderate-fill-icon';
 import type { AsyncState } from '@redhat-cloud-services/types';
 
 import type { CoverageMatchStatus } from 'services/Lightwell/CoverageReportsApi';
@@ -38,11 +41,31 @@ const PACKAGE_COLUMNS = [
   { label: 'CVSS Scores', slug: 'cvss' },
 ] as const;
 
-// Raw severity SVG icon with inline color so it renders in the server-side PDF HTML.
-const SeverityGlyph = ({ meta }: { meta: CveSeverityMeta }) => {
-  const Glyph = meta.icon;
-  return <Glyph style={{ color: meta.color, fontSize: '11px', verticalAlign: '-2px' }} />;
+// The PDF never becomes interactive, so the table and its icons are written as plain
+// elements carrying PatternFly's class names. PatternFly's stylesheet still styles them,
+// and no component hooks run for the thousands of rows a report can have.
+const SEVERITY_ICON_PATH: Record<CveSeverity, string> = {
+  critical: RhUiSeverityCriticalFillIconConfig.icon.svgPathData,
+  important: RhUiSeverityImportantFillIconConfig.icon.svgPathData,
+  moderate: RhUiSeverityModerateFillIconConfig.icon.svgPathData,
+  low: RhUiSeverityMinorFillIconConfig.icon.svgPathData,
 };
+
+// Same markup PatternFly's icon component renders, with inline color so it shows in the PDF.
+const SeverityGlyph = ({ meta }: { meta: CveSeverityMeta }) => (
+  <svg
+    className='pf-v6-svg'
+    fill='currentColor'
+    viewBox='0 0 32 32'
+    aria-hidden='true'
+    role='img'
+    width='1em'
+    height='1em'
+    style={{ color: meta.color, fontSize: '11px', verticalAlign: '-2px' }}
+  >
+    <path d={SEVERITY_ICON_PATH[meta.key]} />
+  </svg>
+);
 
 const MATCH_STATUS_LABEL: Record<CoverageMatchStatus, string> = {
   exact: 'Exact',
@@ -186,7 +209,12 @@ const CoveragePdfTemplate = ({ asyncData, additionalData }: CoveragePdfTemplateP
           text-align: left;
         }
         .coverage-pdf td { padding: 6px 8px; }
-        .coverage-pdf .coverage-pdf-table tbody tr:nth-child(even) td {
+        /* PatternFly positions every cell, and Chrome prints each positioned box as its own
+           layer. Body cells are unpositioned here. The zebra stripe moves to the row, which
+           stays positioned so the stripe still paints over the row borders as before. */
+        .coverage-pdf .coverage-pdf-table tbody td { position: static; }
+        .coverage-pdf .coverage-pdf-table tbody tr:nth-child(even) {
+          position: relative;
           background-color: #fafafa;
         }
         .coverage-pdf .coverage-pdf-col-package {
@@ -328,44 +356,46 @@ const CoveragePdfTemplate = ({ asyncData, additionalData }: CoveragePdfTemplateP
               Packages
             </Title>
           ) : null}
-          <Table
-            variant='compact'
-            className='coverage-pdf-table'
+          <table
             aria-label='Coverage report packages'
-            gridBreakPoint=''
+            role='grid'
+            className='coverage-pdf-table pf-v6-c-table pf-m-compact'
           >
-            <Thead>
-              <Tr>
+            <thead className='pf-v6-c-table__thead'>
+              <tr className='pf-v6-c-table__tr'>
                 {packageColumns.map(({ label, slug }) => (
-                  <Th key={slug} className={`coverage-pdf-col-${slug}`}>
+                  <th
+                    key={slug}
+                    scope='col'
+                    className={`pf-v6-c-table__th coverage-pdf-col-${slug}`}
+                  >
                     {label}
-                  </Th>
+                  </th>
                 ))}
-              </Tr>
-            </Thead>
-            <Tbody>
+              </tr>
+            </thead>
+            <tbody role='rowgroup' className='pf-v6-c-table__tbody'>
               {packages.map((pkg) => (
-                <Tr key={`${pkg.ecosystem}-${pkg.name}-${pkg.version}`}>
-                  <Td dataLabel='Package' className='coverage-pdf-col-package'>
-                    {pkg.name}
-                  </Td>
-                  <Td dataLabel='Version' className='coverage-pdf-col-version'>
+                <tr
+                  key={`${pkg.ecosystem}-${pkg.name}-${pkg.version}`}
+                  className='pf-v6-c-table__tr'
+                >
+                  <td className='pf-v6-c-table__td coverage-pdf-col-package'>{pkg.name}</td>
+                  <td className='pf-v6-c-table__td coverage-pdf-col-version'>
                     {pkg.version || '—'}
-                  </Td>
-                  <Td dataLabel='Ecosystem' className='coverage-pdf-col-ecosystem'>
-                    {pkg.ecosystem}
-                  </Td>
-                  <Td dataLabel='Match' className='coverage-pdf-col-match'>
+                  </td>
+                  <td className='pf-v6-c-table__td coverage-pdf-col-ecosystem'>{pkg.ecosystem}</td>
+                  <td className='pf-v6-c-table__td coverage-pdf-col-match'>
                     <span
                       className='coverage-pdf-pill'
                       style={{ backgroundColor: PILL_COLORS[pkg.match_status] }}
                     >
                       {MATCH_STATUS_LABEL[pkg.match_status]}
                     </span>
-                  </Td>
+                  </td>
                   {includeCveData ? (
                     <>
-                      <Td dataLabel='CVE Fixes (net delta)' className='coverage-pdf-col-cve'>
+                      <td className='pf-v6-c-table__td coverage-pdf-col-cve'>
                         {getTotalCveCount(pkg.cve_count) === 0
                           ? '—'
                           : CVE_SEVERITIES.filter((meta) => pkg.cve_count[meta.key] > 0).map(
@@ -375,16 +405,16 @@ const CoveragePdfTemplate = ({ asyncData, additionalData }: CoveragePdfTemplateP
                                 </span>
                               ),
                             )}
-                      </Td>
-                      <Td dataLabel='CVSS Scores' className='coverage-pdf-col-cvss'>
+                      </td>
+                      <td className='pf-v6-c-table__td coverage-pdf-col-cvss'>
                         {formatCvssRange(pkg.cve_range)}
-                      </Td>
+                      </td>
                     </>
                   ) : null}
-                </Tr>
+                </tr>
               ))}
-            </Tbody>
-          </Table>
+            </tbody>
+          </table>
         </>
       ) : null}
     </div>

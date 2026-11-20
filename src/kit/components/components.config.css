@@ -50,6 +50,10 @@
   --lw-font-weight--field-label: var(--pf-t--global--font--weight--body--bold);
   --lw-color--field-label: var(--pf-t--global--text--color--regular);
 
+  /* LwModal subtext — header description + helper text inside the modal */
+  --lw-font-size--modal-subtext: var(--pf-t--global--font--size--body--default);
+  --lw-color--modal-description: var(--pf-t--global--text--color--regular);
+
   /* Base page gaps */
   --lw-base--page--inline-padding: var(--pf-t--global--spacer--lg);
   --lw-base--page--block-padding: var(--pf-t--global--spacer--lg);

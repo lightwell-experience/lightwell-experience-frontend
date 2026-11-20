@@ -4,5 +4,12 @@
  */
 
 .lw-c-modal {
-  /* Presentational baseline — PF dialog chrome only until Lightwell earns overrides. */
+  /* PF default description is xs + subtle; Lightwell uses body default + regular text color. */
+  --pf-v6-c-modal-box__description--FontSize: var(--lw-font-size--modal-subtext);
+  --pf-v6-c-modal-box__description--Color: var(--lw-color--modal-description);
+}
+
+/* HelperText sets its own size var on its root, so it is not inherited from the modal host. */
+.lw-c-modal .pf-v6-c-helper-text {
+  --pf-v6-c-helper-text--FontSize: var(--lw-font-size--modal-subtext);
 }

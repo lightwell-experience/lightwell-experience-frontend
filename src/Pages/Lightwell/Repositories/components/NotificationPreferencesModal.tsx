@@ -1,7 +1,6 @@
 import {
   Button,
   Flex,
-  Modal,
   ModalBody,
   ModalFooter,
   ModalHeader,
@@ -12,6 +11,7 @@ import spacing from '@patternfly/react-styles/css/utilities/Spacing/spacing';
 import { isEqual } from 'lodash';
 import React, { cloneElement, ReactElement, useEffect, useState } from 'react';
 
+import { LwModal } from 'kit/components/primitives';
 import { useSetUserPreferencesMutation } from 'services/Lightwell/UserPreferencesQueries';
 
 import { DEFAULT_LIGHTWELL_NOTIFICATION_PREFS, LightwellNotificationPrefs } from '../../constants';
@@ -92,7 +92,7 @@ const NotificationPreferencesModal = ({ children }: NotificationPreferencesModal
   return (
     <>
       {trigger}
-      <Modal
+      <LwModal
         variant={ModalVariant.medium}
         position='top'
         isOpen={isOpen}
@@ -143,7 +143,7 @@ const NotificationPreferencesModal = ({ children }: NotificationPreferencesModal
             Cancel
           </Button>
         </ModalFooter>
-      </Modal>
+      </LwModal>
     </>
   );
 };

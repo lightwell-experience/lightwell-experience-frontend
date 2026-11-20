@@ -315,6 +315,33 @@ it('renders repository table column headers', async () => {
   expect(screen.getByRole('columnheader', { name: 'Versions' })).toBeInTheDocument();
 });
 
+it('defines each security level in a tooltip on the Security level column header', async () => {
+  (useContentListQuery as jest.Mock).mockImplementation(() => ({
+    isLoading: false,
+    data: {
+      data: [defaultLightwellContentItem],
+      meta: { count: 1, limit: 20, offset: 0 },
+    },
+  }));
+  const user = userEvent.setup();
+
+  renderRepositoriesTable();
+
+  const header = await screen.findByRole('columnheader', { name: 'Security level' });
+  await user.hover(within(header).getByRole('button'));
+
+  const tooltip = await screen.findByRole('tooltip');
+  const definitions = [
+    ['Predisclosure', 'Backported fixes for vulnerabilities not yet publicly disclosed'],
+    ['Remediated', 'Backported fixes for known vulnerabilities'],
+    ['Validated', 'Artifacts rebuilt from source, verified end-to-end with no modifications'],
+  ];
+  definitions.forEach(([term, description]) => {
+    expect(within(tooltip).getByText(term)).toBeInTheDocument();
+    expect(within(tooltip).getByText(description)).toBeInTheDocument();
+  });
+});
+
 it('hides notification features when the feature flag is off', async () => {
   (useContentListQuery as jest.Mock).mockImplementation(() => ({
     isLoading: false,

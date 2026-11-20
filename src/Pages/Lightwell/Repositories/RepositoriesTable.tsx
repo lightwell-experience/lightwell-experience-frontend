@@ -1,5 +1,9 @@
 import {
   Content,
+  DescriptionList,
+  DescriptionListDescription,
+  DescriptionListGroup,
+  DescriptionListTerm,
   Flex,
   FlexItem,
   Grid,
@@ -176,7 +180,35 @@ const RepositoriesTable = () => {
   }[] = [
     { title: 'Repository' },
     { title: 'Ecosystem', width: 15 },
-    { title: 'Security level', width: 15 },
+    {
+      title: 'Security level',
+      width: 15,
+      info: {
+        tooltip: (
+          <DescriptionList>
+            <DescriptionListGroup>
+              <DescriptionListTerm>Predisclosure</DescriptionListTerm>
+              <DescriptionListDescription>
+                Backported fixes for vulnerabilities not yet publicly disclosed
+              </DescriptionListDescription>
+            </DescriptionListGroup>
+            <DescriptionListGroup>
+              <DescriptionListTerm>Remediated</DescriptionListTerm>
+              <DescriptionListDescription>
+                Backported fixes for known vulnerabilities
+              </DescriptionListDescription>
+            </DescriptionListGroup>
+            <DescriptionListGroup>
+              <DescriptionListTerm>Validated</DescriptionListTerm>
+              <DescriptionListDescription>
+                Artifacts rebuilt from source, verified end-to-end with no modifications
+              </DescriptionListDescription>
+            </DescriptionListGroup>
+          </DescriptionList>
+        ),
+        tooltipProps: { isContentLeftAligned: true },
+      },
+    },
     {
       title: 'Packages',
       width: 10,

@@ -217,6 +217,7 @@ it('renders the beacon page with status summary and vulnerability table', async 
 
   expect(screen.getByLabelText('Submission pipeline metrics')).not.toHaveTextContent('On Hold');
   expect(screen.getByText('JNDI injection via crafted log message')).toBeInTheDocument();
+  expect(screen.queryByRole('columnheader', { name: 'Vulnerability Key' })).not.toBeInTheDocument();
   expect(screen.getByRole('form', { name: 'Filter categories' })).toBeInTheDocument();
   expect(screen.getByText('Customer ID')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'CID-01' })).toBeInTheDocument();
@@ -331,7 +332,7 @@ it('hides the filters, table headers and Export when the customer has no data', 
   expect(await screen.findByText('No submissions yet')).toBeInTheDocument();
   expect(screen.queryByRole('form', { name: 'Filter categories' })).not.toBeInTheDocument();
   expect(
-    screen.queryByRole('textbox', { name: 'Filter vulnerabilities by ID, package, or title' }),
+    screen.queryByRole('textbox', { name: 'Filter vulnerabilities by ID, key, package, or title' }),
   ).not.toBeInTheDocument();
   expect(
     screen.queryByRole('grid', { name: 'Vulnerability tracking table' }),
@@ -406,7 +407,7 @@ it('keeps the filtered view, not "No submissions yet", while Reset refetches (pl
   expect(screen.queryByText('No submissions yet')).not.toBeInTheDocument();
   expect(screen.getByRole('form', { name: 'Filter categories' })).toBeInTheDocument();
   expect(
-    screen.getByRole('textbox', { name: 'Filter vulnerabilities by ID, package, or title' }),
+    screen.getByRole('textbox', { name: 'Filter vulnerabilities by ID, key, package, or title' }),
   ).toBeInTheDocument();
   // Placeholder rows still carry the previous 0 count, so there is nothing to export yet.
   expect(screen.queryByRole('button', { name: 'Export' })).not.toBeInTheDocument();
@@ -424,7 +425,7 @@ it('does not count a 1-character search as an applied filter in the status summa
 
   renderBeacon();
   const user = await selectCustomer('CID-01');
-  const searchName = 'Filter vulnerabilities by ID, package, or title';
+  const searchName = 'Filter vulnerabilities by ID, key, package, or title';
   const search = await screen.findByRole('textbox', { name: searchName });
   expect(screen.getByText('Status Summary')).toBeInTheDocument();
 
@@ -440,7 +441,7 @@ it('does not count a 1-character search as an applied filter in the status summa
 });
 
 it('keeps the search box mounted while a search refetches in filtered-to-zero', async () => {
-  const searchName = 'Filter vulnerabilities by ID, package, or title';
+  const searchName = 'Filter vulnerabilities by ID, key, package, or title';
   (useBeaconData as jest.Mock).mockImplementation(() => ({
     isLoading: false,
     isPlaceholderData: true,
@@ -466,7 +467,7 @@ it('keeps the search box mounted while a search refetches in filtered-to-zero', 
 // the displayed rows are still the filtered result. That must stay "filtered to zero" (toolbar and
 // Reset mounted), never flash "No submissions yet" or drop focus.
 describe('clearing a search-only filter that returned zero rows', () => {
-  const searchName = 'Filter vulnerabilities by ID, package, or title';
+  const searchName = 'Filter vulnerabilities by ID, key, package, or title';
 
   const setUpFilteredToZero = async () => {
     mockDebounce.isReal = true;

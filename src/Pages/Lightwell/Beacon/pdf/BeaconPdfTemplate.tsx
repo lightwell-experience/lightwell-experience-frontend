@@ -208,6 +208,7 @@ const BeaconPdfTemplate = ({ asyncData, additionalData }: BeaconPdfTemplateProps
           background-color: #fafafa;
         }
         .beacon-pdf .beacon-pdf-col-vulnerabilityId,
+        .beacon-pdf .beacon-pdf-col-vulnerabilityKey,
         .beacon-pdf .beacon-pdf-col-lastUpdated,
         .beacon-pdf .beacon-pdf-col-severity,
         .beacon-pdf .beacon-pdf-col-cvss,

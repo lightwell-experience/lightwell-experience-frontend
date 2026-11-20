@@ -28,6 +28,7 @@ export type BeaconPdfColumn = Pick<VulnerabilityTableColumn, 'key' | 'title'>;
 /** Approximate character widths used to pick portrait vs landscape. */
 const COLUMN_PDF_WIDTH: Record<string, number> = {
   vulnerabilityId: 14,
+  vulnerabilityKey: 12,
   component: 22,
   lastUpdated: 16,
   status: 16,

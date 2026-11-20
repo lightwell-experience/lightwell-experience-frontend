@@ -176,7 +176,28 @@ const RepositoriesTable = () => {
   }[] = [
     { title: 'Repository' },
     { title: 'Ecosystem', width: 15 },
-    { title: 'Security level', width: 15 },
+    {
+      title: 'Security level',
+      width: 15,
+      info: {
+        tooltip: (
+          <>
+            <div>
+              <strong>Predisclosure:</strong> Backported fixes for vulnerabilities not yet publicly
+              disclosed
+            </div>
+            <div>
+              <strong>Remediated:</strong> Backported fixes for known vulnerabilities
+            </div>
+            <div>
+              <strong>Validated:</strong> Artifacts rebuilt from source, verified end-to-end with no
+              modifications
+            </div>
+          </>
+        ),
+        tooltipProps: { isContentLeftAligned: true },
+      },
+    },
     {
       title: 'Packages',
       width: 10,

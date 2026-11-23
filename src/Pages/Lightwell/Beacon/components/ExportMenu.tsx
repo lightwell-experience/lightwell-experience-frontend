@@ -1,6 +1,10 @@
 import type { PDFRequestPayload } from '@redhat-cloud-services/types';
 
-import { getVulnerabilities, type BeaconVulnerabilityFilters } from 'services/Lightwell/BeaconApi';
+import {
+  getVulnerabilities,
+  type BeaconSort,
+  type BeaconVulnerabilityFilters,
+} from 'services/Lightwell/BeaconApi';
 import type { Vulnerability } from '../types';
 
 import { buildBeaconPdfPayload } from '../pdf/beaconPdf';
@@ -19,12 +23,18 @@ type ExportMenuProps = {
 export function fetchAllFilteredVulnerabilities(
   customerId: string,
   filters?: BeaconVulnerabilityFilters,
+  sort?: BeaconSort,
 ): Promise<Vulnerability[]> {
   return fetchAllPages((pageSize, pageIndex) =>
-    getVulnerabilities(customerId, filters, {
-      limit: pageSize,
-      offset: pageIndex * pageSize,
-    }).then(({ vulnerabilities }) => vulnerabilities),
+    getVulnerabilities(
+      customerId,
+      filters,
+      {
+        limit: pageSize,
+        offset: pageIndex * pageSize,
+      },
+      sort,
+    ).then(({ vulnerabilities }) => vulnerabilities),
   );
 }
 

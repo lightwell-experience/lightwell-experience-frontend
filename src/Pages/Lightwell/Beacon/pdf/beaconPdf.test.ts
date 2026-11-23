@@ -75,6 +75,22 @@ describe('fetchData', () => {
     });
   });
 
+  it('forwards the table sort as sort_by', async () => {
+    const createAsyncRequest = jest.fn().mockResolvedValue(collection);
+
+    await fetchData(createAsyncRequest, {
+      customerId: 'CID-01',
+      sort: { sortBy: 'severity', direction: 'asc' },
+    });
+
+    expect(createAsyncRequest).toHaveBeenCalledWith(
+      'content-sources-backend',
+      expect.objectContaining({
+        params: expect.objectContaining({ sort_by: 'severity:asc' }),
+      }),
+    );
+  });
+
   it('requires a customerId', async () => {
     await expect(fetchData(jest.fn())).rejects.toThrow('customerId');
   });
@@ -110,6 +126,18 @@ describe('buildBeaconPdfPayload', () => {
     expect(payload[1].fetchDataParams).toMatchObject({ offset: 50 });
     expect(payload[1].additionalData).toMatchObject({ includeSummary: false });
     expect(payload[2].fetchDataParams).toMatchObject({ offset: 100 });
+  });
+
+  it('passes the table sort to every task', () => {
+    const sort = { sortBy: 'last_updated', direction: 'asc' } as const;
+    const payload = buildBeaconPdfPayload({
+      customerId: 'CID-01',
+      sort,
+      visibleColumns,
+      itemCount: 120,
+    });
+
+    expect(payload.map((task) => task.fetchDataParams?.sort)).toEqual([sort, sort, sort]);
   });
 
   it('emits a single task when the filtered set is empty', () => {

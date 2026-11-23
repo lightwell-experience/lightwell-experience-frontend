@@ -31,6 +31,11 @@ jest.mock('Hooks/useNotification', () => ({
   default: jest.fn(),
 }));
 
+jest.mock('../../utils/exportUtils', () => ({
+  ...jest.requireActual('../../utils/exportUtils'),
+  exportToCsv: jest.fn(),
+}));
+
 jest.mock('../pdf/beaconPdf', () => ({
   buildBeaconPdfPayload: jest.fn(() => [{ module: './BeaconPdfEntry' }]),
 }));
@@ -38,6 +43,7 @@ jest.mock('../pdf/beaconPdf', () => ({
 import { useChrome } from '@redhat-cloud-services/frontend-components/useChrome';
 import useNotification from 'Hooks/useNotification';
 import { fetchAllFilteredVulnerabilities } from '../components/ExportMenu';
+import { exportToCsv } from '../../utils/exportUtils';
 
 const requestPdf = jest.fn().mockResolvedValue(undefined);
 const notify = jest.fn();
@@ -95,6 +101,22 @@ it('requests a split PDF using crc-pdf-generator without fetching every row', as
   expect(notify).toHaveBeenCalledWith(
     expect.objectContaining({ variant: AlertVariant.success, title: 'PDF ready' }),
   );
+});
+
+it('exports CSV and PDF in the table sort order', async () => {
+  const sort = { sortBy: 'cvss', direction: 'desc' } as const;
+  const { result } = renderHook(() => useBeaconExport({ ...defaultProps, sort }));
+
+  await act(async () => {
+    result.current.items.find((i) => i.id === 'csv')!.onSelect?.();
+  });
+  expect(fetchAllFilteredVulnerabilities).toHaveBeenCalledWith('CID-01', undefined, sort);
+  expect(exportToCsv).toHaveBeenCalledWith([], 'lightwell-vulnerabilities.csv');
+
+  await act(async () => {
+    result.current.items.find((i) => i.id === 'pdf')!.onSelect?.();
+  });
+  expect(buildBeaconPdfPayload).toHaveBeenLastCalledWith(expect.objectContaining({ sort }));
 });
 
 it('disables items and sets isBusy while a PDF export is in progress', async () => {

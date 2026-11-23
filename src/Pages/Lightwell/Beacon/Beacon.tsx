@@ -62,6 +62,7 @@ import { getVulnerabilityTableCellProps } from './components/vulnerabilityTableS
 import { renderVulnerabilityCell } from './utils/vulnerabilityTableCells';
 import { useBeaconData } from './hooks/useBeaconData';
 import {
+  BEACON_SORT_FIELDS,
   type BeaconSort,
   type BeaconSortBy,
   type BeaconVulnerabilityFilters,
@@ -162,14 +163,7 @@ function getBeaconSortValue(key: string, vulnerability: Vulnerability): string |
 }
 
 /** Table column key → API `sort_by` field. Only columns listed here are sortable. */
-const SERVER_SORT_FIELDS: Partial<Record<string, BeaconSortBy>> = {
-  lastUpdated: 'last_updated',
-  age: 'submitted_date',
-  cvss: 'cvss',
-  severity: 'severity',
-  status: 'status',
-  vulnerabilityId: 'vulnerability_id',
-};
+const SERVER_SORT_FIELDS: Partial<Record<string, BeaconSortBy>> = BEACON_SORT_FIELDS;
 
 const Beacon = () => {
   const rootPath = useLightwellRootPath();
@@ -294,6 +288,7 @@ const Beacon = () => {
   const { isBusy: isExportBusy, items: exportItems } = useBeaconExport({
     customerId: selectedCustomerId,
     filters: queryFilters,
+    sort,
     visibleColumns: getVisibleVulnerabilityColumns(columns),
     itemCount: displayMeta?.count ?? 0,
     lastUpdated: lastUpdated ?? undefined,

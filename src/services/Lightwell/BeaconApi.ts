@@ -30,9 +30,19 @@ export type BeaconVulnerabilityFilters = {
 
 export type BeaconPagination = Pick<Meta, 'limit' | 'offset'>;
 
+/** Table column key → API `sort_by` field. Only columns listed here are sortable. */
+export const BEACON_SORT_FIELDS = {
+  lastUpdated: 'last_updated',
+  age: 'submitted_date',
+  cvss: 'cvss',
+  severity: 'severity',
+  status: 'status',
+  vulnerabilityId: 'vulnerability_id',
+} as const;
+
 /** Fields the Beacon vulnerabilities API can sort by. */
-export type BeaconSortBy =
-  'last_updated' | 'submitted_date' | 'cvss' | 'severity' | 'status' | 'vulnerability_id';
+export type BeaconSortBy = (typeof BEACON_SORT_FIELDS)[keyof typeof BEACON_SORT_FIELDS];
+
 export type BeaconSort = { sortBy: BeaconSortBy; direction: SortDirection };
 
 export type BeaconVulnerabilityMeta = {
@@ -368,10 +378,15 @@ export const getVulnerabilities = async (
   while (offset < total) {
     const { data } = await axios.get<LightwellVulnerabilityCollectionResponse>(
       `${VULNERABILITIES_PATH}?${objectToUrlParams(
-        buildVulnerabilityQueryParams(customerId, filters, {
-          limit: PAGE_SIZE,
-          offset,
-        }),
+        buildVulnerabilityQueryParams(
+          customerId,
+          filters,
+          {
+            limit: PAGE_SIZE,
+            offset,
+          },
+          sort,
+        ),
       )}`,
     );
 

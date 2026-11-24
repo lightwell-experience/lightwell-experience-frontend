@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertVariant } from '@patternfly/react-core';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -136,7 +136,14 @@ export const useSubmissionDetail = ({
 
   // Spans both steps (create, then delete) so the action stays busy throughout.
   const [isResending, setIsResending] = useState(false);
-  const resend = (file: File) => {
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+  const resend = async (file: File) => {
     const fileError = validateSubmissionFile(file);
     if (fileError) {
       notify({
@@ -148,34 +155,36 @@ export const useSubmissionDetail = ({
     }
 
     setIsResending(true);
-    createSubmissionMutation.mutate(file, {
-      onSuccess: (created) => {
-        deleteSubmissionMutation.mutate(uuid, {
-          onSuccess: () => {
-            notify({ variant: AlertVariant.success, title: 'Corrected report resent' });
-          },
-          onError: () => {
-            // The delete mutation only refreshes the list on success; the new
-            // submission must still show up in the table.
-            queryClient.invalidateQueries({ queryKey: [CLEARINGHOUSE_SUBMISSIONS_KEY] });
-            notify({
-              variant: AlertVariant.warning,
-              title: 'Corrected report uploaded',
-              description:
-                'The original submission could not be deleted. Delete it from the submissions table.',
-            });
-          },
-          onSettled: () => {
-            setIsResending(false);
-            onResent?.(created.uuid);
-          },
-        });
-      },
-      onError: (err) => {
-        setIsResending(false);
-        notifyError('Could not resend report', err);
-      },
-    });
+    // Chained with promises rather than per-call `mutate` callbacks: those are
+    // dropped when the component unmounts (e.g. the drawer closes mid-upload),
+    // which would skip the delete and leave both submissions behind.
+    let created: Awaited<ReturnType<typeof createSubmissionMutation.mutateAsync>>;
+    try {
+      created = await createSubmissionMutation.mutateAsync(file);
+    } catch (err) {
+      setIsResending(false);
+      notifyError('Could not resend report', err);
+      return;
+    }
+
+    try {
+      await deleteSubmissionMutation.mutateAsync(uuid);
+      notify({ variant: AlertVariant.success, title: 'Corrected report resent' });
+    } catch {
+      // The delete mutation only refreshes the list on success; the new
+      // submission must still show up in the table.
+      queryClient.invalidateQueries({ queryKey: [CLEARINGHOUSE_SUBMISSIONS_KEY] });
+      notify({
+        variant: AlertVariant.warning,
+        title: 'Corrected report uploaded',
+        description:
+          'The original submission could not be deleted. Delete it from the submissions table.',
+      });
+    } finally {
+      setIsResending(false);
+      // Don't reopen the drawer if the user closed it while the resend ran.
+      if (isMountedRef.current) onResent?.(created.uuid);
+    }
   };
 
   const download = (filename: string) => {

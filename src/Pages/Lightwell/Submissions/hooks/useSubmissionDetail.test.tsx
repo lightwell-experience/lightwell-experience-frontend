@@ -15,7 +15,8 @@ const mockDeleteFileMutate = jest.fn();
 const mockDeleteSubmissionMutate = jest.fn();
 const mockSubmitMutate = jest.fn();
 const mockProcessMutate = jest.fn();
-const mockCreateMutate = jest.fn();
+const mockCreateMutateAsync = jest.fn();
+const mockDeleteSubmissionMutateAsync = jest.fn();
 const mockInvalidateQueries = jest.fn();
 
 jest.mock('@tanstack/react-query', () => ({
@@ -24,7 +25,7 @@ jest.mock('@tanstack/react-query', () => ({
 
 jest.mock('services/Lightwell/ClearinghouseQueries', () => ({
   CLEARINGHOUSE_SUBMISSIONS_KEY: 'CLEARINGHOUSE_SUBMISSIONS_KEY',
-  useCreateSubmissionMutation: () => ({ mutate: mockCreateMutate, isPending: false }),
+  useCreateSubmissionMutation: () => ({ mutateAsync: mockCreateMutateAsync, isPending: false }),
   useSubmissionQuery: () => ({
     data: mockSubmission,
     isLoading: mockIsLoading,
@@ -32,7 +33,11 @@ jest.mock('services/Lightwell/ClearinghouseQueries', () => ({
   }),
   useAddSubmissionFilesMutation: () => ({ mutate: mockAddMutate, isPending: false }),
   useDeleteSubmissionFileMutation: () => ({ mutate: mockDeleteFileMutate, isPending: false }),
-  useDeleteSubmissionMutation: () => ({ mutate: mockDeleteSubmissionMutate, isPending: false }),
+  useDeleteSubmissionMutation: () => ({
+    mutate: mockDeleteSubmissionMutate,
+    mutateAsync: mockDeleteSubmissionMutateAsync,
+    isPending: false,
+  }),
   useSubmitSubmissionMutation: () => ({ mutate: mockSubmitMutate, isPending: false }),
   useProcessSubmissionMutation: () => ({ mutate: mockProcessMutate, isPending: false }),
 }));
@@ -291,22 +296,19 @@ describe('useSubmissionDetail', () => {
       expect(result.current.canResend).toBe(false);
     });
 
-    it('creates the new submission, then deletes this one and reports the new uuid', () => {
-      mockCreateMutate.mockImplementation((_file, opts) => opts?.onSuccess?.({ uuid: 'sub-2' }));
-      mockDeleteSubmissionMutate.mockImplementation((_uuid, opts) => {
-        opts?.onSuccess?.();
-        opts?.onSettled?.();
-      });
+    it('creates the new submission, then deletes this one and reports the new uuid', async () => {
+      mockCreateMutateAsync.mockResolvedValue({ uuid: 'sub-2' });
+      mockDeleteSubmissionMutateAsync.mockResolvedValue(undefined);
       const onResent = jest.fn();
       const onDeleted = jest.fn();
       const { result } = render({ uuid: 'sub-1', onResent, onDeleted });
 
-      act(() => result.current.resend(corrected));
+      await act(() => result.current.resend(corrected));
 
-      expect(mockCreateMutate).toHaveBeenCalledWith(corrected, expect.any(Object));
-      expect(mockDeleteSubmissionMutate).toHaveBeenCalledWith('sub-1', expect.any(Object));
-      expect(mockCreateMutate.mock.invocationCallOrder[0]).toBeLessThan(
-        mockDeleteSubmissionMutate.mock.invocationCallOrder[0],
+      expect(mockCreateMutateAsync).toHaveBeenCalledWith(corrected);
+      expect(mockDeleteSubmissionMutateAsync).toHaveBeenCalledWith('sub-1');
+      expect(mockCreateMutateAsync.mock.invocationCallOrder[0]).toBeLessThan(
+        mockDeleteSubmissionMutateAsync.mock.invocationCallOrder[0],
       );
       expect(onResent).toHaveBeenCalledWith('sub-2');
       expect(onDeleted).not.toHaveBeenCalled();
@@ -314,29 +316,26 @@ describe('useSubmissionDetail', () => {
       expect(result.current.isResending).toBe(false);
     });
 
-    it('keeps the original when creating the replacement fails', () => {
-      mockCreateMutate.mockImplementation((_file, opts) => opts?.onError?.(new Error('bad')));
+    it('keeps the original when creating the replacement fails', async () => {
+      mockCreateMutateAsync.mockRejectedValue(new Error('bad'));
       const onResent = jest.fn();
       const { result } = render({ uuid: 'sub-1', onResent });
 
-      act(() => result.current.resend(corrected));
+      await act(() => result.current.resend(corrected));
 
-      expect(mockDeleteSubmissionMutate).not.toHaveBeenCalled();
+      expect(mockDeleteSubmissionMutateAsync).not.toHaveBeenCalled();
       expect(onResent).not.toHaveBeenCalled();
       expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ variant: 'danger' }));
       expect(result.current.isResending).toBe(false);
     });
 
-    it('still opens the replacement and warns when deleting the original fails', () => {
-      mockCreateMutate.mockImplementation((_file, opts) => opts?.onSuccess?.({ uuid: 'sub-2' }));
-      mockDeleteSubmissionMutate.mockImplementation((_uuid, opts) => {
-        opts?.onError?.(new Error('x'));
-        opts?.onSettled?.();
-      });
+    it('still opens the replacement and warns when deleting the original fails', async () => {
+      mockCreateMutateAsync.mockResolvedValue({ uuid: 'sub-2' });
+      mockDeleteSubmissionMutateAsync.mockRejectedValue(new Error('x'));
       const onResent = jest.fn();
       const { result } = render({ uuid: 'sub-1', onResent });
 
-      act(() => result.current.resend(corrected));
+      await act(() => result.current.resend(corrected));
 
       expect(onResent).toHaveBeenCalledWith('sub-2');
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
@@ -345,12 +344,37 @@ describe('useSubmissionDetail', () => {
       expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ variant: 'warning' }));
     });
 
+    it('still deletes the original when unmounted mid-upload, without reopening it', async () => {
+      let resolveCreate!: (value: { uuid: string }) => void;
+      mockCreateMutateAsync.mockReturnValue(
+        new Promise((resolve) => {
+          resolveCreate = resolve;
+        }),
+      );
+      mockDeleteSubmissionMutateAsync.mockResolvedValue(undefined);
+      const onResent = jest.fn();
+      const { result, unmount } = render({ uuid: 'sub-1', onResent });
+
+      let pending!: Promise<void>;
+      act(() => {
+        pending = result.current.resend(corrected);
+      });
+      // The drawer closes while the upload is still in flight.
+      unmount();
+      resolveCreate({ uuid: 'sub-2' });
+      await pending;
+
+      expect(mockDeleteSubmissionMutateAsync).toHaveBeenCalledWith('sub-1');
+      expect(onResent).not.toHaveBeenCalled();
+      expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ variant: 'success' }));
+    });
+
     it('rejects a non-JSON file without calling the backend', () => {
       const { result } = render({ uuid: 'sub-1' });
 
       act(() => result.current.resend(new File(['x'], 'report.txt')));
 
-      expect(mockCreateMutate).not.toHaveBeenCalled();
+      expect(mockCreateMutateAsync).not.toHaveBeenCalled();
       expect(mockNotify).toHaveBeenCalledWith(
         expect.objectContaining({
           variant: 'danger',

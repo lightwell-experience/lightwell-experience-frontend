@@ -19,6 +19,7 @@ import { useSubmissionDetail } from '../hooks/useSubmissionDetail';
 import { useSubmissionDrawerParams } from '../hooks/useSubmissionDrawerParams';
 import { usePendingReproducers } from './PendingReproducersContext';
 import SubmissionPackageSummary from './SubmissionPackageSummary';
+import SubmissionFindingsSummary from './SubmissionFindingsSummary';
 
 export type UploadSuccessStepProps = {
   /** The freshly-created submission; the component fetches it itself. */
@@ -103,6 +104,12 @@ const UploadSuccessStep = ({ uuid, onSubmitted, onOpenedInDrawer }: UploadSucces
               onOpenedInDrawer?.();
             }}
           />
+        </StackItem>
+      ) : null}
+
+      {submission?.findings_summary?.total ? (
+        <StackItem>
+          <SubmissionFindingsSummary summary={submission.findings_summary} />
         </StackItem>
       ) : null}
 

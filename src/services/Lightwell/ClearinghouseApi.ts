@@ -48,6 +48,23 @@ export type ClearinghouseSubmission = {
   // Per-ecosystem breakdown of the unique packages in the report. Absent for
   // submissions created before the backend started parsing packages.
   package_summary?: ClearinghousePackageSummary;
+  // Counts of possible personal data and secrets the backend found when scanning
+  // the report. The report is stored unchanged; counts can include false
+  // positives and zero does not prove the report holds no sensitive data.
+  // Absent for submissions created before the backend started scanning.
+  findings_summary?: ClearinghouseFindingsSummary;
+};
+
+export type ClearinghouseFindingsSummary = {
+  // Findings across all kinds; every occurrence is counted.
+  total: number;
+  emails: number;
+  // Usernames in home directory paths such as /home/<user>.
+  home_usernames: number;
+  // Tokens, keys, passwords and other credentials.
+  credentials: number;
+  // IPv4 and IPv6 addresses.
+  ip_addresses: number;
 };
 
 export type ClearinghousePackageEcosystemSummary = {

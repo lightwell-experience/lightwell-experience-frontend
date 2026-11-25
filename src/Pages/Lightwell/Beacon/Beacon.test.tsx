@@ -1,9 +1,8 @@
-import type { ReactElement } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import Beacon from './Beacon';
-import { buildPackageRows, PACKAGE_COLUMNS } from './utils/packageTableRows';
+import { buildPackageRows } from './utils/packageTableRows';
 import { ReactQueryTestWrapper } from 'testingHelpers';
 
 jest.mock('@scalprum/react-core', () => ({
@@ -641,12 +640,7 @@ it('keeps ecosystems distinct and counts unique vulnerability IDs per package ve
     { ...first, uuid: 'other-ecosystem', ecosystem: 'different-ecosystem' },
   ]);
   expect(rows).toHaveLength(2);
-  expect(rows[0]).toMatchObject({
-    row: expect.arrayContaining([
-      expect.objectContaining({ cell: 2 }),
-      expect.objectContaining({ cell: 'Critical' }),
-    ]),
-  });
+  expect(rows[0].summary).toMatchObject({ vulnerabilities: 2, severity: 'Critical' });
 });
 
 it('summarises a package with its highest published version', () => {
@@ -655,11 +649,9 @@ it('summarises a package with its highest published version', () => {
     { ...first, publishedVersions: ['1.9.0', '1.11.0'] },
     { ...first, uuid: 'second', vulnerabilityId: 'CVE-SECOND', publishedVersions: ['1.10.0'] },
   ];
-  const [summaryRow] = buildPackageRows(group) as { row: { cell: ReactElement }[] }[];
-  const summaryCell =
-    summaryRow.row[PACKAGE_COLUMNS.findIndex((column) => column.key === 'publishedVersions')];
+  const [summaryRow] = buildPackageRows(group);
 
-  render(summaryCell.cell);
+  render(summaryRow.summary.publishedVersions);
   expect(screen.getByText('1.11.0')).toBeInTheDocument();
   expect(screen.queryByText('1.10.0')).not.toBeInTheDocument();
   expect(
@@ -693,8 +685,7 @@ it('counts each CVE once at its highest severity and includes zero counts', () =
     { ...first, uuid: 'duplicate', severity: 'Critical' },
     { ...first, uuid: 'second', vulnerabilityId: 'CVE-SECOND', severity: 'Moderate' },
   ]);
-  const row = rows[0] as { row: { cell: ReactElement }[] };
-  render(row.row[PACKAGE_COLUMNS.findIndex((column) => column.key === 'severityCounts')].cell);
+  render(rows[0].summary.severityCounts);
   for (const label of ['Critical: 1', 'Important: 0', 'Moderate: 1', 'Low: 0']) {
     const severityCount = screen.getByLabelText(label);
     expect(severityCount).toHaveTextContent(label.split(': ')[1]);
@@ -706,7 +697,7 @@ it('counts each CVE once at its highest severity and includes zero counts', () =
  * One package carrying a vulnerability in every status, plus a second package
  * so assertions can prove the expansion is scoped to the row it belongs to.
  */
-const renderPackageView = async () => {
+const renderPackageView = async (extraSubmitted = 0) => {
   const first = mockVulnerabilities[0];
   const statuses = [
     'Published',
@@ -719,117 +710,261 @@ const renderPackageView = async () => {
     'Fix in Progress',
     'Upstreaming',
   ] as const;
-  (useBeaconData as jest.Mock).mockReturnValue({
-    isLoading: false,
-    isError: false,
-    data: {
-      ...mockBeaconData,
-      vulnerabilities: [
-        ...statuses.map((status, index) => ({
-          ...first,
-          uuid: `detail-${index}`,
-          vulnerabilityId: `CVE-DETAIL-${index}`,
-          status,
-          title: `Vulnerability ${index}`,
-          description: `Description ${index}`,
-          resolutionReason:
-            status === 'On Hold'
-              ? 'Waiting for customer input'
-              : status === 'Unremediated'
-                ? 'No supported fix available'
-                : undefined,
-        })),
-        {
-          ...first,
-          uuid: 'other-package',
-          componentName: 'other-package',
-          vulnerabilityId: 'CVE-OTHER',
-        },
-      ],
-    },
-  });
+  const data = {
+    ...mockBeaconData,
+    vulnerabilities: [
+      ...statuses.map((status, index) => ({
+        ...first,
+        uuid: `detail-${index}`,
+        vulnerabilityId: `CVE-DETAIL-${index}`,
+        status,
+        title: `Vulnerability ${index}`,
+        description: `Description ${index}`,
+        resolutionReason:
+          status === 'On Hold'
+            ? 'Waiting for customer input'
+            : status === 'Unremediated'
+              ? 'No supported fix available'
+              : undefined,
+      })),
+      ...Array.from({ length: extraSubmitted }, (_, index) => ({
+        ...first,
+        status: 'Submitted',
+        uuid: `extra-${index}`,
+        vulnerabilityId: `CVE-EXTRA-${index}`,
+      })),
+      {
+        ...first,
+        uuid: 'other-package',
+        componentName: 'other-package',
+        vulnerabilityId: 'CVE-OTHER',
+      },
+    ],
+  };
+  (useBeaconData as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data });
+  // Unfiltered, both hooks hit the same query key and return the same collection.
+  // The drawer reads this one; tests that need the two to differ override it.
+  (useBeaconVulnerabilitiesQuery as jest.Mock).mockReturnValue({ data });
   renderBeacon();
   const user = await selectCustomer('CID-01');
   await user.click(screen.getByRole('button', { name: 'Packages' }));
   const table = screen.getByRole('grid', { name: 'Package tracking table' });
 
-  return { user, table, toggles: within(table).getAllByRole('button', { name: 'Details' }) };
+  return {
+    user,
+    toggles: within(table).getAllByRole('button', { name: / package details$/ }),
+  };
 };
 
-it('expands one package at a time into details grouped in pipeline order', async () => {
-  const { user, table, toggles } = await renderPackageView();
+const findPackageDrawer = async (name = mockVulnerabilities[0].componentName) => {
+  const heading = await screen.findByRole('heading', { name });
+  return heading.closest<HTMLElement>('#beacon-package-drawer')!;
+};
+
+/** Status down the drawer's Status column. The cell is an icon — a tooltip span,
+ * or a popover trigger where there's a reason — so the label is read off the
+ * accessible name rather than the text. */
+const drawerStatuses = (panel: HTMLElement) =>
+  [...panel.querySelectorAll('[data-label="Status"]')].map((cell) =>
+    cell.querySelector('[aria-label]')?.getAttribute('aria-label'),
+  );
+
+it('opens a package drawer listing the package CVEs in pipeline order', async () => {
+  const { user, toggles } = await renderPackageView();
   expect(toggles).toHaveLength(2);
+  expect(toggles[0]).toHaveTextContent(mockVulnerabilities[0].componentName);
+  expect(screen.queryByRole('columnheader', { name: 'Details' })).not.toBeInTheDocument();
   expect(toggles[0]).toHaveAttribute('aria-expanded', 'false');
 
   await user.click(toggles[0]);
+  const panel = await findPackageDrawer();
+  const drawer = within(panel);
 
   expect(toggles[0]).toHaveAttribute('aria-expanded', 'true');
   expect(toggles[1]).toHaveAttribute('aria-expanded', 'false');
   expect(
-    within(table)
-      .getAllByRole('region')
-      .map((region) => region.getAttribute('aria-label')),
-  ).toEqual([
-    'Submitted vulnerabilities',
-    'Classified vulnerabilities',
-    'Fix in progress vulnerabilities',
-    'Validating vulnerabilities',
-    'Available in Lightwell Network vulnerabilities',
-    'Upstreaming vulnerabilities',
-    'Published vulnerabilities',
-    'On Hold vulnerabilities',
-    'No remediation vulnerabilities',
-  ]);
-
-  await user.click(toggles[0]);
-
-  expect(toggles[0]).toHaveAttribute('aria-expanded', 'false');
-  expect(within(table).queryByRole('region')).not.toBeInTheDocument();
-});
-
-it('lists each CVE in its own status group and excludes other packages', async () => {
-  const { user, table, toggles } = await renderPackageView();
-  await user.click(toggles[0]);
-  const submitted = within(table).getAllByRole('region')[0];
-
-  expect(within(submitted).getByText('CVE-DETAIL-3')).toBeInTheDocument();
-  expect(within(submitted).getByText('Vulnerability 3')).toBeInTheDocument();
-  expect(within(submitted).queryByText('Description 3')).not.toBeInTheDocument();
-  expect(within(submitted).queryByText('CVE-OTHER')).not.toBeInTheDocument();
-});
-
-it('shows published versions only in Lightwell Network and reasons in terminal groups', async () => {
-  const { user, table, toggles } = await renderPackageView();
-  await user.click(toggles[0]);
-  const regions = within(table).getAllByRole('region');
-
-  expect(
-    within(regions[4]).getByRole('columnheader', { name: 'Published versions' }),
+    drawer.getByRole('heading', { name: mockVulnerabilities[0].componentName }),
   ).toBeInTheDocument();
-  expect(
-    within(regions[0]).queryByRole('columnheader', { name: 'Reason' }),
-  ).not.toBeInTheDocument();
-
-  for (const region of regions.filter((_, index) => index !== 4)) {
-    expect(
-      within(region).queryByRole('columnheader', { name: 'Published versions' }),
-    ).not.toBeInTheDocument();
-    expect(region.querySelector('[data-label="Published versions"]')).not.toBeInTheDocument();
+  expect(panel.closest('.pf-v6-c-backdrop')?.parentElement).toBe(document.body);
+  expect(drawer.getByLabelText(/^Highest severity:/)).toBeInTheDocument();
+  expect(drawer.getByText('CVEs by severity')).toBeInTheDocument();
+  // One list, sorted into pipeline order — not a table per status.
+  expect(drawer.getByRole('heading', { name: 'Vulnerabilities (9)' })).toBeInTheDocument();
+  expect(drawerStatuses(panel)).toEqual([
+    'Submitted',
+    'Classified',
+    'Fix in progress',
+    'Validating',
+    'Available in Lightwell Network',
+    'Upstreaming',
+    'Published',
+    'On Hold',
+    'No remediation',
+  ]);
+  // Severity is icon-only too — no visible text, label on the accessible name.
+  const severityCells = [...panel.querySelectorAll('[data-label="Severity"]')];
+  expect(severityCells).toHaveLength(9);
+  for (const cell of severityCells) {
+    expect(cell).toHaveTextContent('');
+    expect(cell.querySelector('span[aria-label]')).toHaveAttribute('aria-label', 'Critical');
   }
 
-  for (const [region, reason] of [
-    [regions[7], 'Waiting for customer input'],
-    [regions[8], 'No supported fix available'],
+  await user.click(drawer.getByRole('button', { name: 'Close package details' }));
+
+  expect(toggles[0]).toHaveAttribute('aria-expanded', 'false');
+  expect(drawer.queryByRole('columnheader', { name: 'Vulnerability ID' })).not.toBeInTheDocument();
+});
+
+it('lists the selected package CVEs and excludes other packages', async () => {
+  const { user, toggles } = await renderPackageView();
+  await user.click(toggles[0]);
+  const drawer = within(await findPackageDrawer());
+
+  expect(drawer.getByText('CVE-DETAIL-3')).toBeInTheDocument();
+  expect(drawer.getByText('Vulnerability 3')).toBeInTheDocument();
+  expect(drawer.queryByText('Description 3')).not.toBeInTheDocument();
+  expect(drawer.queryByText('CVE-OTHER')).not.toBeInTheDocument();
+});
+
+it('forgets the open package once a filter excludes it, so undoing that filter leaves it closed', async () => {
+  const { user, toggles } = await renderPackageView();
+  const packageHeading = { name: mockVulnerabilities[0].componentName };
+  await user.click(toggles[0]);
+  await findPackageDrawer();
+
+  // Nothing is addressed, so All addressed excludes every package and the open
+  // one stops resolving.
+  (useBeaconVulnerabilitiesQuery as jest.Mock).mockReturnValue({ data: { vulnerabilities: [] } });
+  await user.click(screen.getByRole('checkbox', { name: 'All addressed' }));
+  expect(screen.queryByRole('heading', packageHeading)).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole('checkbox', { name: 'All addressed' }));
+
+  expect(screen.getByRole('grid', { name: 'Package tracking table' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', packageHeading)).not.toBeInTheDocument();
+});
+
+it('reports the whole package in the drawer even while filters narrow the table', async () => {
+  const first = mockVulnerabilities[0];
+  const inTable = { ...first, uuid: 'shown', vulnerabilityId: 'CVE-SHOWN', status: 'Submitted' };
+  const filteredOut = {
+    ...first,
+    uuid: 'hidden',
+    vulnerabilityId: 'CVE-HIDDEN',
+    status: 'Published',
+  };
+  // The table query is filtered down to one CVE; the complete collection isn't.
+  (useBeaconData as jest.Mock).mockReturnValue({
+    isLoading: false,
+    isError: false,
+    data: { ...mockBeaconData, vulnerabilities: [inTable] },
+  });
+  (useBeaconVulnerabilitiesQuery as jest.Mock).mockReturnValue({
+    data: { ...mockBeaconData, vulnerabilities: [inTable, filteredOut] },
+  });
+  renderBeacon();
+  const user = await selectCustomer('CID-01');
+  await user.click(screen.getByRole('button', { name: 'Packages' }));
+
+  const table = screen.getByRole('grid', { name: 'Package tracking table' });
+  expect(table.querySelector('[data-label="Vulnerabilities"]')).toHaveTextContent('1');
+
+  await user.click(within(table).getByRole('button', { name: / package details$/ }));
+  const panel = await findPackageDrawer();
+  const drawer = within(panel);
+
+  expect(drawer.getByText('CVE-SHOWN')).toBeInTheDocument();
+  expect(drawer.getByText('CVE-HIDDEN')).toBeInTheDocument();
+  expect(drawerStatuses(panel)).toEqual(['Submitted', 'Published']);
+  // The header counts the whole package too, not the one CVE left in the table.
+  expect(panel.querySelector('.beacon-package-drawer-header')).toHaveTextContent(
+    '2 vulnerabilities',
+  );
+});
+
+it('shows the published version summary term and column only when the package has one', async () => {
+  const first = mockVulnerabilities[0];
+  const data = {
+    ...mockBeaconData,
+    vulnerabilities: [
+      { ...first, publishedVersions: ['2.17.2'] },
+      { ...first, uuid: 'unfixed', componentName: 'unfixed-package', publishedVersions: [] },
+    ],
+  };
+  (useBeaconData as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data });
+  (useBeaconVulnerabilitiesQuery as jest.Mock).mockReturnValue({ data });
+  renderBeacon();
+  const user = await selectCustomer('CID-01');
+  await user.click(screen.getByRole('button', { name: 'Packages' }));
+  const table = screen.getByRole('grid', { name: 'Package tracking table' });
+  const [fixed, unfixed] = within(table).getAllByRole('button', { name: / package details$/ });
+
+  // Scoped to the summary list: the version also appears in the table below it.
+  const drawerSummary = (panel: HTMLElement) =>
+    within(panel.querySelector<HTMLElement>('.beacon-package-drawer-summary')!);
+
+  await user.click(fixed);
+  const withPanel = await findPackageDrawer();
+  const withVersion = drawerSummary(withPanel);
+  expect(withVersion.getByText('Published version')).toBeInTheDocument();
+  expect(withVersion.getByText('2.17.2')).toBeInTheDocument();
+  expect(
+    within(withPanel).getByRole('columnheader', { name: 'Published versions' }),
+  ).toBeInTheDocument();
+
+  await user.click(unfixed);
+  const withoutPanel = await findPackageDrawer('unfixed-package');
+  const withoutVersion = drawerSummary(withoutPanel);
+  expect(withoutVersion.getByText('CVEs by severity')).toBeInTheDocument();
+  expect(withoutVersion.queryByText('Published version')).not.toBeInTheDocument();
+  expect(
+    within(withoutPanel).queryByRole('columnheader', { name: 'Published versions' }),
+  ).not.toBeInTheDocument();
+});
+
+it('paginates the package vulnerability list as a whole', async () => {
+  const { user, toggles } = await renderPackageView(10);
+  await user.click(toggles[0]);
+  const drawer = within(await findPackageDrawer());
+
+  expect(drawer.getByText('CVE-DETAIL-3')).toBeInTheDocument();
+  expect(drawer.queryByText('CVE-EXTRA-9')).not.toBeInTheDocument();
+
+  await user.click(drawer.getByRole('button', { name: 'Go to next page' }));
+
+  expect(drawer.getByText('CVE-EXTRA-9')).toBeInTheDocument();
+  expect(drawer.queryByText('CVE-DETAIL-3')).not.toBeInTheDocument();
+});
+
+it('opens the resolution reason in a popover, only for statuses that carry one', async () => {
+  const { user, toggles } = await renderPackageView();
+  await user.click(toggles[0]);
+  const panel = await findPackageDrawer();
+  const drawer = within(panel);
+
+  // One column set for the whole list — the reason no longer earns one of its own.
+  expect(drawer.queryByRole('columnheader', { name: 'Reason' })).not.toBeInTheDocument();
+
+  // Two of the nine statuses have a reason, so only those two are triggers.
+  const triggers = drawer.getAllByRole('button', { name: /^(On Hold|No remediation)$/ });
+  expect(triggers.map((trigger) => trigger.getAttribute('aria-label'))).toEqual([
+    'On Hold',
+    'No remediation',
+  ]);
+
+  for (const [status, reason] of [
+    ['On Hold', 'Waiting for customer input'],
+    ['No remediation', 'No supported fix available'],
   ] as const) {
-    const headers = within(region).getAllByRole('columnheader');
-    expect(headers).toHaveLength(6);
-    expect(headers[headers.length - 1]).toHaveTextContent('Reason');
-    const reasonCell = within(region).getByText(reason).closest('td');
-    expect(reasonCell).toHaveAttribute('data-label', 'Reason');
-    // The section heading already names the status — the cell is the reason
-    // alone, not the status label with the reason appended underneath.
-    expect(reasonCell?.textContent).toBe(reason);
-    expect(within(region).getAllByText(reason)).toHaveLength(1);
+    // The reason is behind the popover, not sitting in the cell.
+    expect(screen.queryByText(reason)).not.toBeInTheDocument();
+
+    await user.click(drawer.getByRole('button', { name: status }));
+    const popover = await screen.findByRole('dialog', { name: status });
+
+    expect(within(popover).getByText(reason)).toBeInTheDocument();
+    await user.click(within(popover).getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByText(reason)).not.toBeInTheDocument());
   }
 });
 
@@ -842,10 +977,7 @@ it('shows distinct CVE counts with status icons in workflow order', () => {
     { ...first, uuid: 'validating', status: 'Validation', vulnerabilityId: 'CVE-VALIDATING' },
     { ...first, uuid: 'on-hold', status: 'On Hold', vulnerabilityId: 'CVE-ON-HOLD' },
   ]);
-  const row = rows[0] as { row: { cell: ReactElement }[] };
-  const { container } = render(
-    row.row[PACKAGE_COLUMNS.findIndex((column) => column.key === 'statuses')].cell,
-  );
+  const { container } = render(rows[0].summary.statuses);
   const labels = ['Submitted: 1', 'Validating: 1', 'On Hold: 1', 'No remediation: 1'];
   expect(
     [...container.querySelectorAll('[aria-label]')].map((item) => item.getAttribute('aria-label')),
@@ -942,7 +1074,9 @@ it('resets All addressed when the customer changes', async () => {
   await user.click(screen.getByRole('button', { name: 'CID-01' }));
   await user.click(await screen.findByRole('menuitem', { name: 'CID-214' }));
   expect(screen.getByRole('checkbox', { name: 'All addressed' })).not.toBeChecked();
+  // Still in the package view, so the complete collection stays on — it backs the
+  // drawer as well as All addressed — but re-keys to the customer now selected.
   expect(useBeaconVulnerabilitiesQuery).toHaveBeenLastCalledWith('CID-214', undefined, undefined, {
-    enabled: false,
+    enabled: true,
   });
 });

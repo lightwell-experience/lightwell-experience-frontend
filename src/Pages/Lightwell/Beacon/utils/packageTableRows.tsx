@@ -1,16 +1,15 @@
-import {
-  LwDataView,
-  type LwDataViewManageColumn,
-  type LwDataViewTd,
-} from 'kit/components/assemblies';
-import { LwIcon, LwTitle, LwTooltip } from 'kit/components/primitives';
+import type { ReactNode } from 'react';
+
+import { LwDataView, type LwDataViewManageColumn } from 'kit/components/assemblies';
+import { LwButton, LwIcon, LwPopover, LwTitle, LwTooltip } from 'kit/components/primitives';
+import { getLwDataViewDefaults } from 'kit/components/components.config';
 import { lightwellConfig } from 'kit/lightwell.config';
 import {
   CVE_SEVERITIES,
   renderCveSeverityIcon,
   type CveSeverity,
 } from '../../Lens/utils/cveSeverity';
-import { BEACON_WORKFLOW, type Severity, type Vulnerability } from '../types';
+import { BEACON_WORKFLOW, type Severity, type Status, type Vulnerability } from '../types';
 import { renderVulnerabilityCell } from './vulnerabilityTableCells';
 import { SEVERITIES, severityLabel, statusLabel } from '../constants';
 import { formatEcosystem } from './vulnerabilityTableColumns';
@@ -22,7 +21,7 @@ import { packageIdentity } from './addressedPackages';
 // Sorting is off for every package column until the API can support it
 // (LWLP-4495) — the vulnerabilities endpoint takes no sort parameter. No column
 // sets `isSortable`, so LwDataView renders the headers unsortable.
-export const PACKAGE_COLUMNS: LwDataViewManageColumn[] = [
+const packageColumnDefinitions = [
   { key: 'package', cell: 'Package', props: { width: 15 as const } },
   { key: 'version', cell: 'Version' },
   { key: 'ecosystem', cell: 'Ecosystem' },
@@ -31,13 +30,17 @@ export const PACKAGE_COLUMNS: LwDataViewManageColumn[] = [
   { key: 'severityCounts', cell: 'CVEs by severity' },
   { key: 'statuses', cell: 'Statuses' },
   { key: 'publishedVersions', cell: 'Published version' },
-].map((column) => ({
+] as const satisfies readonly Pick<LwDataViewManageColumn, 'key' | 'cell' | 'props'>[];
+
+type PackageColumnKey = (typeof packageColumnDefinitions)[number]['key'];
+
+export const PACKAGE_COLUMNS = packageColumnDefinitions.map((column) => ({
   ...column,
   isShown: true,
   isShownByDefault: true,
 }));
 
-export function createDefaultPackageColumns(): LwDataViewManageColumn[] {
+export function createDefaultPackageColumns() {
   return PACKAGE_COLUMNS.map((column) => ({ ...column }));
 }
 
@@ -59,105 +62,153 @@ const CVE_SEVERITY_KEY: Record<Severity, CveSeverity> = {
   Minor: 'low',
 };
 
-const DETAIL_COLUMNS = [
-  { key: 'vulnerabilityId', cell: 'Vulnerability ID' },
-  { key: 'title', cell: 'Title', props: { width: 40 as const } },
-  { key: 'severity', cell: 'Severity' },
-  { key: 'cvss', cell: 'CVSS' },
-  { key: 'lastUpdated', cell: 'Last updated' },
-];
-
-/**
- * `hasStatusReason` groups (On Hold, No remediation) carry the reason in its own
- * column; every other group appends it under the title. Either way the section
- * heading already names the status, so the reason is shown on its own rather
- * than through `renderVulnerabilityCell('status')`, which repeats the label.
- */
-function renderDetailCell(columnKey: string, v: Vulnerability, hasStatusReason: boolean) {
-  if (columnKey === 'title') {
-    return (
-      <>
-        <LwTooltip content={v.title}>
-          <span className='beacon-package-vulnerability-title'>{v.title}</span>
-        </LwTooltip>
-        {!hasStatusReason && v.resolutionReason && <p>{v.resolutionReason}</p>}
-      </>
-    );
-  }
-  if (columnKey === 'resolutionReason') return v.resolutionReason ?? '—';
-  return renderVulnerabilityCell(columnKey, v);
-}
-
-/**
- * A component, not a `render*` helper: `buildPackageRows` groups every package
- * in the filtered result, but only the packages on the current page are ever
- * rendered. As an element the detail tree costs one object per package and is
- * built by React when the row renders, instead of eagerly for all of them.
- */
-function PackageDetails({ group }: { group: Vulnerability[] }) {
+/** The pipeline stage's icon in its stage color. Decorative — the caller names
+ * the status on the element around it. */
+function statusIcon(status: Status) {
+  const presentation = getPipelineStepPresentation(status);
   return (
-    <div className='beacon-package-details'>
-      {PACKAGE_STATUS_ORDER.map((status) => {
-        const vulnerabilities = group.filter((v) => v.status === status);
-        if (!vulnerabilities.length) return null;
-        const presentation = getPipelineStepPresentation(status);
-        const hasStatusReason =
-          status === BEACON_WORKFLOW.onHold || status === BEACON_WORKFLOW.unremediated;
-        const columns = hasStatusReason
-          ? [
-              ...DETAIL_COLUMNS.map((column) =>
-                column.key === 'title' ? { ...column, props: { width: 30 as const } } : column,
-              ),
-              { key: 'resolutionReason', cell: 'Reason', props: { width: 25 as const } },
-            ]
-          : status === 'Lightwell Network'
-            ? [...DETAIL_COLUMNS, { key: 'publishedVersions', cell: 'Published versions' }]
-            : DETAIL_COLUMNS;
-        return (
-          <section key={status} aria-label={`${statusLabel(status)} vulnerabilities`}>
-            <LwTitle headingLevel='h3' size='md' className='beacon-package-status-heading'>
-              <LwIcon
-                size='sm'
-                aria-hidden='true'
-                style={{ color: lightwellConfig.colors.stepIcon[presentation.color] }}
-              >
-                {presentation.icon}
-              </LwIcon>
-              {statusLabel(status)} ({vulnerabilities.length})
-            </LwTitle>
-            <LwDataView
-              isCardless
-              isCompact
-              aria-label={`${statusLabel(status)} vulnerabilities for ${group[0].componentName} ${group[0].componentVersion}`}
-              columns={columns}
-              rows={vulnerabilities.map((v) => ({
-                id: v.uuid,
-                row: columns.map((column) => ({
-                  cell: renderDetailCell(column.key, v, hasStatusReason),
-                  props: {
-                    dataLabel: column.cell,
-                    modifier: 'breakWord' as const,
-                  },
-                })),
-              }))}
-            />
-          </section>
-        );
-      })}
-    </div>
+    <LwIcon
+      size='sm'
+      aria-hidden='true'
+      style={{ color: lightwellConfig.colors.stepIcon[presentation.color] }}
+    >
+      {presentation.icon}
+    </LwIcon>
   );
 }
 
-/** Wrap a cell with its column name — PF shows `dataLabel` in the stacked/mobile layout. */
-function withDataLabel(cell: React.ReactNode, dataLabel: string): LwDataViewTd {
-  return { cell, props: { dataLabel } };
+/** Beacon severity → the shared CVE severity icon, in its severity color. */
+function severityIcon(severity: Severity) {
+  const meta = CVE_SEVERITIES.find(({ key }) => key === CVE_SEVERITY_KEY[severity]);
+  return meta ? renderCveSeverityIcon(meta) : null;
 }
 
-/** Group the full filtered result, never a single API page. */
-export function buildPackageRows(
-  vulnerabilities: Vulnerability[],
-  columns: LwDataViewManageColumn[] = PACKAGE_COLUMNS,
-): { id: string; row: LwDataViewTd[]; expandedContent: React.ReactNode }[] {
+/** An icon standing in for a text cell. The tooltip and the accessible name
+ * carry the label, so the column can be as narrow as the glyph; `tabIndex`
+ * keeps the tooltip reachable without a pointer. */
+function iconCell(label: string, icon: ReactNode, className?: string) {
+  return (
+    <LwTooltip content={label} position='top'>
+      <span className={className} aria-label={label} tabIndex={0}>
+        {icon}
+      </span>
+    </LwTooltip>
+  );
+}
+
+/**
+ * Status and severity read as icons alone — in a list sorted by status, those
+ * two columns would otherwise spend width on labels that repeat down the page.
+ *
+ * A status carrying a resolution reason (only On Hold and No remediation ever
+ * do) becomes a link-styled trigger and the reason opens in a popover. That
+ * keeps the column icon-narrow while still marking, at a glance, which rows
+ * have something more to say. The dashed blue rule is drawn on the inner span
+ * rather than the button — see `beacon-package-status-reason` for why. The
+ * popover's own header names the status, so the trigger drops the tooltip
+ * rather than stacking two overlays on one target.
+ */
+function renderDetailCell(columnKey: string, v: Vulnerability) {
+  if (columnKey === 'severity') {
+    return iconCell(severityLabel(v.severity), severityIcon(v.severity));
+  }
+  if (columnKey === 'status') {
+    const label = statusLabel(v.status);
+    // Both forms wear `beacon-package-status-icon`, so the glyphs stay in one
+    // column whether or not the row has a reason — the underline needs room
+    // either side of the icon, and an unpadded one would sit left of the rest.
+    if (!v.resolutionReason) {
+      return iconCell(label, statusIcon(v.status), 'beacon-package-status-icon');
+    }
+    return (
+      <LwPopover
+        hasHeader={label}
+        hasBody={v.resolutionReason}
+        hasTrigger={
+          <LwButton variant='link' isInline aria-label={label}>
+            <span className='beacon-package-status-icon beacon-package-status-reason'>
+              {statusIcon(v.status)}
+            </span>
+          </LwButton>
+        }
+      />
+    );
+  }
+  return renderVulnerabilityCell(columnKey, v);
+}
+
+// One flat list, so every column applies to every row: `status` carries the
+// resolution reason under its icon, which is what the per-status `Reason`
+// column and the reason-under-title used to do, and `publishedVersions` is a
+// plain column instead of a Lightwell Network extra.
+const DETAIL_COLUMNS = [
+  { key: 'vulnerabilityId', cell: 'Vulnerability ID' },
+  { key: 'title', cell: 'Title', props: { width: 40 as const } },
+  { key: 'status', cell: 'Status' },
+  { key: 'severity', cell: 'Severity' },
+  { key: 'cvss', cell: 'CVSS' },
+  { key: 'publishedVersions', cell: 'Published versions' },
+  { key: 'lastUpdated', cell: 'Last updated' },
+];
+
+const PACKAGE_VULNERABILITIES_PER_PAGE = getLwDataViewDefaults().defaultPerPage ?? 10;
+
+/** Whether any CVE on the package names a published (fixed) version. Stated
+ * once: the drawer drops both the summary term and the table column when it's
+ * false, and the two must agree. */
+const groupHasPublishedVersion = (group: Vulnerability[]) =>
+  group.some(({ publishedVersions }) => publishedVersions.length > 0);
+
+/**
+ * Every CVE on the package as one paginated list in pipeline order, rather than
+ * a stack of per-status tables each paging on its own. Sorting is fixed, not
+ * user-driven: the order is the pipeline, same as the stepper reads.
+ */
+export function PackageDetails({ group }: { group: Vulnerability[] }) {
+  const vulnerabilities = [...group].sort(
+    (a, b) => PACKAGE_STATUS_ORDER.indexOf(a.status) - PACKAGE_STATUS_ORDER.indexOf(b.status),
+  );
+  // No fixed release anywhere on the package means the column would be empty
+  // down every row — drop it, as the summary drops the matching term.
+  const columns = groupHasPublishedVersion(group)
+    ? DETAIL_COLUMNS
+    : DETAIL_COLUMNS.filter(({ key }) => key !== 'publishedVersions');
+  return (
+    <>
+      <LwTitle headingLevel='h3' size='lg' className='beacon-package-details-heading'>
+        Vulnerabilities ({vulnerabilities.length})
+      </LwTitle>
+      <LwDataView
+        wrapperClassName='beacon-package-status-table'
+        isCardless
+        isCompact
+        isResident
+        pagination={
+          vulnerabilities.length > PACKAGE_VULNERABILITIES_PER_PAGE
+            ? { widgetId: 'beacon-package-vulnerabilities' }
+            : undefined
+        }
+        showBottomPagination={false}
+        aria-label={`Vulnerabilities for ${group[0].componentName} ${group[0].componentVersion}`}
+        columns={columns}
+        rows={vulnerabilities.map((v) => ({
+          id: v.uuid,
+          row: columns.map((column) => ({
+            cell: renderDetailCell(column.key, v),
+            props: { dataLabel: column.cell, modifier: 'breakWord' as const },
+          })),
+        }))}
+      />
+    </>
+  );
+}
+
+/**
+ * Group the full filtered result, never a single API page. Returns the summary
+ * cell per column key — which of them is visible, and how a cell becomes a `<Td>`,
+ * is the table's business, so the caller assembles the row from `summary`.
+ */
+export function buildPackageRows(vulnerabilities: Vulnerability[]) {
   const packages = new Map<string, Vulnerability[]>();
   for (const vulnerability of vulnerabilities) {
     // Ecosystem separates identically named packages in different registries;
@@ -191,10 +242,10 @@ export function buildPackageRows(
     const versions = [...new Set(group.flatMap((v) => v.publishedVersions))];
     // Summary rows aggregate every CVE in the group, so the full list would
     // dominate the row — show the highest version only. Per-vulnerability cells
-    // (vulnerability table, expanded package details) keep the whole list
+    // (vulnerability table, package drawer) keep the whole list
     // behind `PublishedVersions`' overflow popover.
     const highestVersion = sortVersionsDesc(versions).slice(0, 1);
-    const cells: Record<string, React.ReactNode> = {
+    const cells = {
       package: first.componentName,
       version: first.componentVersion || '—',
       ecosystem: formatEcosystem(first.ecosystem),
@@ -249,16 +300,16 @@ export function buildPackageRows(
         </span>
       ),
       publishedVersions: <PublishedVersions versions={highestVersion} />,
-    };
+    } satisfies Record<PackageColumnKey, React.ReactNode>;
+    // `summary.publishedVersions` is an element that renders nothing when the
+    // list is empty, so it can't be tested for emptiness — the drawer uses this
+    // to decide whether the term is worth a row at all.
     return {
       id,
-      expandedContent: <PackageDetails group={group} />,
-      // `dataLabel` is the column name PF shows before each cell in the stacked
-      // (mobile/narrow) layout — attach the header to every cell so the package
-      // view reads correctly there, same as the vulnerability view.
-      row: columns
-        .filter((column) => column.isShown)
-        .map((column) => withDataLabel(cells[column.key], String(column.cell))),
+      group,
+      summary: cells,
+      severity,
+      hasPublishedVersion: groupHasPublishedVersion(group),
     };
   });
 }

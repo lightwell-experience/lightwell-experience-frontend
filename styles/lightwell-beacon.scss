@@ -12,8 +12,23 @@
   align-items: flex-start;
 }
 
+.lightwell-status-cell-label {
+  white-space: nowrap;
+}
+
+// Same ceiling as .lightwell-vuln-title. A long On Hold or closure line would
+// otherwise widen the column. Clamp to two lines; the tooltip on the span has
+// the full text.
 .lightwell-status-cell-reason {
-  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 360px;
+  min-width: 0;
+  font-size: var(--pf-t--global--font--size--body--sm);
+  line-height: var(--pf-t--global--font--line-height--body);
+  color: var(--pf-t--global--text--color--subtle);
 }
 
 /* UNUSED — FilterSidePanel sidebar → LwDrawer panel. Dissolution sweep.

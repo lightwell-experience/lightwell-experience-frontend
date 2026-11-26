@@ -117,6 +117,16 @@
   border-radius: var(--pf-t--global--border--radius--medium);
 }
 
+/*
+ * PF floors every outer scroll wrapper at 25rem (`--MinHeight`). LwDataView wraps
+ * every table, including one nested in an expanded row, where the floor leaves a
+ * tall empty gap under a short table. Reset it for nested tables only — top-level
+ * tables keep PF's floor.
+ */
+.pf-v6-c-table__expandable-row-content .pf-v6-c-scroll-outer-wrapper {
+  --pf-v6-c-scroll-outer-wrapper--MinHeight: auto;
+}
+
 /* Responsive grid vs table: `gridBreakPoint="grid-lg"` keeps `.pf-m-grid-lg` on
  * the element at every width. PF only applies grid layout inside this
  * container query (see table-grid.css — `:root` is named

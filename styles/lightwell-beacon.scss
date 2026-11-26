@@ -102,3 +102,118 @@
   max-width: 360px;
   min-width: 0;
 }
+
+.beacon-package-counts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+  flex-wrap: wrap;
+}
+
+.beacon-package-counts__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--xs);
+}
+
+/*
+ * Status icons that open a resolution reason read as links. The rule is drawn
+ * on this span inside the button, not on the button itself, because neither
+ * other route works:
+ *
+ *   - PF's `TextDecoration*` tokens never render here. The button is a flex
+ *     container whose only child is an icon, so there is no inline text box to
+ *     underline and `text-decoration` doesn't reach flex items.
+ *   - A border on the button follows PF's *pill* `BorderRadius`, curving up at
+ *     both ends, and the radius can't be overridden from a single class —
+ *     `.pf-v6-c-button.pf-m-link` sets it with two.
+ *
+ * A plain span we own has square corners and sizes to the glyph, so the rule
+ * is straight and only a little wider than the icon. Blue is stated here
+ * because the icon keeps its own pipeline-stage color.
+ *
+ * 1.5px is deliberate and has no PF token behind it: `regular` (1px) reads
+ * thinner than the browser's `auto` text-decoration underlines elsewhere on
+ * the page, and `strong` (2px) reads heavier. The browser derives the dash
+ * length and gap from this width, so it is also what spaces the stripes.
+ */
+/*
+ * The box every status glyph sits in, with or without a reason. The underline
+ * needs room either side of the icon, so that padding has to apply to the
+ * plain icons too — otherwise the two kinds of row disagree on where the
+ * column starts and the glyphs stagger.
+ */
+.beacon-package-status-icon {
+  display: inline-flex;
+  padding-inline: var(--pf-t--global--spacer--xs);
+}
+
+.beacon-package-status-reason {
+  padding-block-end: var(--pf-t--global--spacer--xs);
+  border-block-end: 1.5px dashed var(--pf-t--global--text--color--link--default);
+
+  &:hover {
+    border-block-end-style: solid;
+  }
+}
+
+.lw-c-data-view.beacon-package-status-table {
+  gap: 0;
+
+  .pf-v6-c-toolbar {
+    --pf-v6-c-toolbar--PaddingBlockEnd: 0;
+  }
+
+  /*
+   * PF floors every outer scroll wrapper at 25rem, which only makes sense for a
+   * table that fills a page. Here it pads a two-CVE list out to 400px and pushes
+   * the drawer past the viewport, so the panel scrolls through empty space. The
+   * kit already resets this for tables nested in an expanded row
+   * (patternfly-base-overrides.css) — these tables used to be such a table,
+   * until they moved into the drawer and fell out of that selector. The kit-wide
+   * fix belongs in data-view.css; it is held here only because it would move
+   * filtered-to-zero empty states on Packages and Submissions too.
+   */
+  .pf-v6-c-scroll-outer-wrapper {
+    --pf-v6-c-scroll-outer-wrapper--MinHeight: auto;
+  }
+}
+
+.beacon-package-drawer-header {
+  min-width: 0;
+  padding-inline-end: var(--pf-t--global--spacer--2xl);
+  overflow-wrap: anywhere;
+}
+
+.beacon-package-details-heading {
+  margin-block-end: var(--pf-t--global--spacer--md);
+}
+
+.pf-v6-c-description-list.beacon-package-drawer-summary {
+  --pf-v6-c-description-list--m-horizontal__term--width: 10rem;
+
+  margin-block-end: var(--pf-t--global--spacer--lg);
+
+  .pf-v6-c-description-list__term {
+    white-space: nowrap;
+  }
+}
+
+.beacon-package-drawer {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  pointer-events: none;
+}
+
+.beacon-package-drawer-panel {
+  pointer-events: auto;
+}
+
+.beacon-package-drawer-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--pf-t--global--spacer--sm);
+  margin-block-end: var(--pf-t--global--spacer--sm);
+}

@@ -82,6 +82,7 @@ const NotificationPreferencesContent = ({
                 <Severity
                   severity={LIGHTWELL_TO_PF_SEVERITY[option.value]}
                   label={option.label}
+                  title=''
                   ouiaId={`lightwell-notification-severity-icon-${option.value}`}
                 />
               }

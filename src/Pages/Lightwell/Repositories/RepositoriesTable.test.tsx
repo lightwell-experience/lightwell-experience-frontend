@@ -389,7 +389,7 @@ it('shows notification column and modal when user has stored notification prefer
 
   await waitFor(() => {
     expect(within(modal).getByRole('switch', { name: 'Email notifications' })).toBeChecked();
-    expect(within(modal).getByRole('radio', { name: 'Critical' })).toBeChecked();
+    expect(within(modal).getByRole('radio', { name: 'Critical only' })).toBeChecked();
   });
 });
 

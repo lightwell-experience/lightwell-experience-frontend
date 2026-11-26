@@ -62,6 +62,9 @@ import { getVulnerabilityTableCellProps } from './components/vulnerabilityTableS
 import { renderVulnerabilityCell } from './utils/vulnerabilityTableCells';
 import { useBeaconData } from './hooks/useBeaconData';
 import {
+  BEACON_SORT_FIELDS,
+  type BeaconSort,
+  type BeaconSortBy,
   type BeaconVulnerabilityFilters,
   type BeaconVulnerabilityFlag,
 } from 'services/Lightwell/BeaconApi';
@@ -134,8 +137,9 @@ function parseDisplayDate(value: string): number {
  * Comparable value for `LwDataViewTd.props.sortValue` (content-based sort, D16) —
  * distinct from `getVulnerabilityColumnValue` (export/display string) because sort
  * needs the *orderable* form, not the *displayed* one. Severity's rank — already
- * centralized in `SEVERITIES` — not its label, so "Critical" sorts above
- * "Important" instead of alphabetically; CVSS as a number, not a string, so "10.0"
+ * centralized in `SEVERITIES`, reversed to match the API — not its label, so
+ * "Critical" sorts above "Important" instead of alphabetically; status by its
+ * `FILTER_STATUSES` position; CVSS as a number, not a string, so "10.0"
  * doesn't sort before "9.8"; dates parsed to a timestamp since their display
  * format isn't lexically sortable. Every other column already has a directly-
  * comparable display string (IDs and text sort lexicographically), so delegates
@@ -144,7 +148,9 @@ function parseDisplayDate(value: string): number {
 function getBeaconSortValue(key: string, vulnerability: Vulnerability): string | number {
   switch (key) {
     case 'severity':
-      return SEVERITIES.indexOf(vulnerability.severity);
+      return SEVERITIES.length - 1 - SEVERITIES.indexOf(vulnerability.severity);
+    case 'status':
+      return FILTER_STATUSES.indexOf(vulnerability.status);
     case 'cvss':
       return vulnerability.cvss;
     case 'lastUpdated':
@@ -155,6 +161,9 @@ function getBeaconSortValue(key: string, vulnerability: Vulnerability): string |
       return getVulnerabilityColumnValue(key, vulnerability);
   }
 }
+
+/** Table column key → API `sort_by` field. Only columns listed here are sortable. */
+const SERVER_SORT_FIELDS: Partial<Record<string, BeaconSortBy>> = BEACON_SORT_FIELDS;
 
 const Beacon = () => {
   const rootPath = useLightwellRootPath();
@@ -181,6 +190,7 @@ const Beacon = () => {
   const paginationProps = { page, perPage, onSetPage, onPerPageSelect };
   const [searchQuery, setSearchQuery] = useState('');
   const [columns, setColumns] = useState(createDefaultVulnerabilityColumns);
+  const [sort, setSort] = useState<BeaconSort>();
 
   const debouncedSearch = useDebounce(searchQuery, searchQuery === '' ? 0 : 500);
 
@@ -219,7 +229,7 @@ const Beacon = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [selectedCustomerId, queryFilters]);
+  }, [selectedCustomerId, queryFilters, sort]);
 
   const resetFilters = useCallback(() => {
     setSelectedSeverities(new Set());
@@ -258,16 +268,13 @@ const Beacon = () => {
     onSelect: () => handleCustomerIdChange(customerId),
   }));
 
-  // TODO: pass sort params to the API query when backend supports it.
-  // Wire `onSortChange` on LwDataView when that work begins.
-
   const {
     data: displayData,
     isLoading: isLoadingDisplay,
     isPlaceholderData,
     isError,
     error,
-  } = useBeaconData(selectedCustomerId, queryFilters, pagination);
+  } = useBeaconData(selectedCustomerId, queryFilters, pagination, sort);
   const { data: ltwlsuptTicketIds = [] } = useLtwlsuptTicketIdsQuery(selectedCustomerId);
   const { data: lastUpdated } = useBeaconStatusQuery();
 
@@ -281,6 +288,7 @@ const Beacon = () => {
   const { isBusy: isExportBusy, items: exportItems } = useBeaconExport({
     customerId: selectedCustomerId,
     filters: queryFilters,
+    sort,
     visibleColumns: getVisibleVulnerabilityColumns(columns),
     itemCount: displayMeta?.count ?? 0,
     lastUpdated: lastUpdated ?? undefined,
@@ -332,12 +340,21 @@ const Beacon = () => {
       ),
     [columns],
   );
+  const visibleColumnsKey = visibleColumns.map((c) => c.key).join(',');
+
+  // Changing visible columns remounts LwDataView and clears its sort indicator; clear the API sort too.
+  useEffect(() => {
+    setSort(undefined);
+  }, [visibleColumnsKey]);
 
   const dataViewColumns: LwDataViewTh[] = useMemo(
     () =>
       visibleColumns.map((column) => ({
         cell: column.title,
-        props: getVulnerabilityTableCellProps(column.key),
+        props: {
+          ...getVulnerabilityTableCellProps(column.key),
+          isSortable: column.key in SERVER_SORT_FIELDS,
+        },
       })),
     [visibleColumns],
   );
@@ -521,7 +538,7 @@ const Beacon = () => {
             // LwDataView tracks its active sort by column index internally; remount
             // when the visible-column set/order changes so a stale index can't end
             // up pointing at a different field after a column is hidden/shown.
-            key={visibleColumns.map((c) => c.key).join(',')}
+            key={visibleColumnsKey}
             aria-label='Vulnerability tracking table'
             // Package + Vulnerability ID columns set isStickyColumn (below) —
             // isSticky is what actually activates PF's OuterScrollContainer /
@@ -536,6 +553,10 @@ const Beacon = () => {
             }}
             columns={dataViewColumns}
             rows={dataViewRows}
+            onSortChange={(columnIndex, direction) => {
+              const sortBy = SERVER_SORT_FIELDS[visibleColumns[columnIndex]?.key];
+              setSort(sortBy ? { sortBy, direction } : undefined);
+            }}
             isLoading={isLoading}
             isPlaceholderData={isPlaceholderData}
             emptyState={{

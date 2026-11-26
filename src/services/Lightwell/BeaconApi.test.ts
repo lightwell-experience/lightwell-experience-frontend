@@ -193,6 +193,29 @@ describe('getVulnerabilities', () => {
     get.mockRestore();
   });
 
+  it('keeps the sort on every page when pagination is omitted', async () => {
+    const get = jest
+      .spyOn(axios, 'get')
+      .mockResolvedValueOnce({ data: collection([baseVulnerability], 2, 0) })
+      .mockResolvedValueOnce({ data: collection([baseVulnerability], 2, 1) });
+
+    await getVulnerabilities('CID-01', undefined, undefined, {
+      sortBy: 'cvss',
+      direction: 'desc',
+    });
+
+    expect(get).toHaveBeenNthCalledWith(
+      1,
+      '/api/content-sources/v1/lightwell/beacon/vulnerabilities/?customer_id=CID-01&limit=200&offset=0&sort_by=cvss:desc',
+    );
+    expect(get).toHaveBeenNthCalledWith(
+      2,
+      '/api/content-sources/v1/lightwell/beacon/vulnerabilities/?customer_id=CID-01&limit=200&offset=1&sort_by=cvss:desc',
+    );
+
+    get.mockRestore();
+  });
+
   it('fetches a single page when pagination is provided', async () => {
     const get = jest.spyOn(axios, 'get').mockResolvedValue({
       data: collection([baseVulnerability], 40, 20),
@@ -205,6 +228,25 @@ describe('getVulnerabilities', () => {
       '/api/content-sources/v1/lightwell/beacon/vulnerabilities/?customer_id=CID-01&limit=20&offset=20',
     );
     expect(result.vulnerabilities).toHaveLength(1);
+
+    get.mockRestore();
+  });
+
+  it('sends the sort field and direction as sort_by', async () => {
+    const get = jest.spyOn(axios, 'get').mockResolvedValue({
+      data: collection([baseVulnerability], 1, 0),
+    });
+
+    await getVulnerabilities(
+      'CID-01',
+      undefined,
+      { limit: 20, offset: 0 },
+      { sortBy: 'last_updated', direction: 'asc' },
+    );
+
+    expect(get).toHaveBeenCalledWith(
+      '/api/content-sources/v1/lightwell/beacon/vulnerabilities/?customer_id=CID-01&limit=20&offset=0&sort_by=last_updated:asc',
+    );
 
     get.mockRestore();
   });

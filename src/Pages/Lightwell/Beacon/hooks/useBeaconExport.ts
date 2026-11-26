@@ -5,7 +5,11 @@ import type { PDFRequestPayload } from '@redhat-cloud-services/types';
 import type { LwMenuItem } from 'kit/components/primitives';
 import useErrorNotification from 'Hooks/useErrorNotification';
 import useNotification from 'Hooks/useNotification';
-import { getVulnerabilities, type BeaconVulnerabilityFilters } from 'services/Lightwell/BeaconApi';
+import {
+  getVulnerabilities,
+  type BeaconSort,
+  type BeaconVulnerabilityFilters,
+} from 'services/Lightwell/BeaconApi';
 import { buildBeaconPdfPayload } from '../pdf/beaconPdf';
 import { fetchAllFilteredVulnerabilities } from '../components/ExportMenu';
 import {
@@ -20,6 +24,7 @@ import type { VulnerabilityTableColumn } from '../utils/vulnerabilityTableColumn
 export type UseBeaconExportProps = {
   customerId: string | undefined;
   filters: BeaconVulnerabilityFilters | undefined;
+  sort?: BeaconSort;
   visibleColumns: Pick<VulnerabilityTableColumn, 'key' | 'title'>[];
   itemCount: number;
   lastUpdated?: string;
@@ -38,6 +43,7 @@ export type UseBeaconExportResult = {
 export function useBeaconExport({
   customerId,
   filters,
+  sort,
   visibleColumns,
   itemCount,
   lastUpdated,
@@ -65,6 +71,7 @@ export function useBeaconExport({
         const payload = buildBeaconPdfPayload({
           customerId,
           filters,
+          sort,
           visibleColumns,
           itemCount: count,
           lastUpdated,
@@ -74,7 +81,7 @@ export function useBeaconExport({
         return;
       }
 
-      const rows = await fetchAllFilteredVulnerabilities(customerId, filters);
+      const rows = await fetchAllFilteredVulnerabilities(customerId, filters, sort);
 
       if (format === 'csv') {
         exportToCsv(rows, 'lightwell-vulnerabilities.csv');

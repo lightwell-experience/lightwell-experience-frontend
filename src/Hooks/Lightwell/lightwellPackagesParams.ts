@@ -1,8 +1,10 @@
+import type { SortDirection } from 'services/Lightwell/types';
+
 /**
  * Helpers for Lightwell packages table URL search params (search, sort, and page)
  */
 export type LightwellPackagesSortBy = 'name' | 'last_updated';
-export type LightwellPackagesSortDirection = 'asc' | 'desc';
+export type LightwellPackagesSortDirection = SortDirection;
 
 export type LightwellPackagesParams = {
   search: string;

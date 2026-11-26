@@ -4,7 +4,7 @@ import { objectToUrlParams } from 'helpers';
 import type { Severity, Status, Vulnerability } from 'Pages/Lightwell/Beacon/types';
 import { LIGHTWELL_BEACON_USE_MOCK } from 'Pages/Lightwell/constants';
 import { mockVulnerabilities } from 'Pages/Lightwell/mockVulnerabilities';
-import type { Meta } from './types';
+import type { Meta, SortDirection } from './types';
 
 export const VULNERABILITIES_PATH = '/api/content-sources/v1/lightwell/beacon/vulnerabilities/';
 const STATUS_PATH = '/api/content-sources/v1/lightwell/beacon/status/';
@@ -29,6 +29,21 @@ export type BeaconVulnerabilityFilters = {
 };
 
 export type BeaconPagination = Pick<Meta, 'limit' | 'offset'>;
+
+/** Table column key → API `sort_by` field. Only columns listed here are sortable. */
+export const BEACON_SORT_FIELDS = {
+  lastUpdated: 'last_updated',
+  age: 'submitted_date',
+  cvss: 'cvss',
+  severity: 'severity',
+  status: 'status',
+  vulnerabilityId: 'vulnerability_id',
+} as const;
+
+/** Fields the Beacon vulnerabilities API can sort by. */
+export type BeaconSortBy = (typeof BEACON_SORT_FIELDS)[keyof typeof BEACON_SORT_FIELDS];
+
+export type BeaconSort = { sortBy: BeaconSortBy; direction: SortDirection };
 
 export type BeaconVulnerabilityMeta = {
   count: number;
@@ -164,6 +179,7 @@ export function buildVulnerabilityQueryParams(
   customerId: string,
   filters?: BeaconVulnerabilityFilters,
   pagination?: { limit: number; offset: number },
+  sort?: BeaconSort,
 ): Record<string, string> {
   const params: Record<string, string> = {
     customer_id: customerId,
@@ -186,6 +202,9 @@ export function buildVulnerabilityQueryParams(
   const search = normalizeSearch(filters?.search);
   if (search) {
     params.search = search;
+  }
+  if (sort) {
+    params.sort_by = `${sort.sortBy}:${sort.direction}`;
   }
 
   return params;
@@ -311,6 +330,7 @@ export const getVulnerabilities = async (
   customerId: string,
   filters?: BeaconVulnerabilityFilters,
   pagination?: BeaconPagination,
+  sort?: BeaconSort,
 ): Promise<BeaconData> => {
   if (LIGHTWELL_BEACON_USE_MOCK) {
     const batchId = MOCK_CUSTOMER_BATCHES[customerId];
@@ -338,7 +358,7 @@ export const getVulnerabilities = async (
   if (pagination) {
     const { data } = await axios.get<LightwellVulnerabilityCollectionResponse>(
       `${VULNERABILITIES_PATH}?${objectToUrlParams(
-        buildVulnerabilityQueryParams(customerId, filters, pagination),
+        buildVulnerabilityQueryParams(customerId, filters, pagination, sort),
       )}`,
     );
 
@@ -360,10 +380,15 @@ export const getVulnerabilities = async (
   while (offset < total) {
     const { data } = await axios.get<LightwellVulnerabilityCollectionResponse>(
       `${VULNERABILITIES_PATH}?${objectToUrlParams(
-        buildVulnerabilityQueryParams(customerId, filters, {
-          limit: PAGE_SIZE,
-          offset,
-        }),
+        buildVulnerabilityQueryParams(
+          customerId,
+          filters,
+          {
+            limit: PAGE_SIZE,
+            offset,
+          },
+          sort,
+        ),
       )}`,
     );
 

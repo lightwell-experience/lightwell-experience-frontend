@@ -6,6 +6,7 @@ import {
   getVulnerabilities,
   type BeaconData,
   type BeaconPagination,
+  type BeaconSort,
   type BeaconVulnerabilityFilters,
 } from './BeaconApi';
 
@@ -42,11 +43,13 @@ export const useBeaconVulnerabilitiesQuery = (
   customerId?: string,
   filters?: BeaconVulnerabilityFilters,
   pagination?: BeaconPagination,
+  sort?: BeaconSort,
   options?: { enabled?: boolean },
 ) =>
   useQuery({
-    queryKey: [BEACON_VULNERABILITIES_KEY, customerId, filters, pagination],
-    queryFn: async (): Promise<BeaconData> => getVulnerabilities(customerId!, filters, pagination),
+    queryKey: [BEACON_VULNERABILITIES_KEY, customerId, filters, pagination, sort],
+    queryFn: async (): Promise<BeaconData> =>
+      getVulnerabilities(customerId!, filters, pagination, sort),
     staleTime: 20_000,
     enabled: options?.enabled ?? Boolean(customerId),
     placeholderData: (previousData, previousQuery) => {

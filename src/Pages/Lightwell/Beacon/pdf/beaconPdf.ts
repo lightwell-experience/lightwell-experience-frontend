@@ -6,6 +6,7 @@ import {
   mapLightwellVulnerability,
   VULNERABILITIES_PATH,
   type BeaconData,
+  type BeaconSort,
   type BeaconVulnerabilityFilters,
   type LightwellVulnerabilityCollectionResponse,
 } from 'services/Lightwell/BeaconApi';
@@ -66,6 +67,7 @@ export type BeaconPdfFetchParams = {
   limit?: number;
   offset?: number;
   filters?: BeaconVulnerabilityFilters;
+  sort?: BeaconSort;
 };
 
 export type BeaconPdfAdditionalData = {
@@ -112,10 +114,15 @@ export const fetchData = async (
   const response = await createAsyncRequest('content-sources-backend', {
     method: 'GET',
     url: VULNERABILITIES_PATH,
-    params: buildVulnerabilityQueryParams(customerId, options?.filters, {
-      limit: options?.limit ?? BEACON_PDF_PAGE_SIZE,
-      offset: options?.offset ?? 0,
-    }),
+    params: buildVulnerabilityQueryParams(
+      customerId,
+      options?.filters,
+      {
+        limit: options?.limit ?? BEACON_PDF_PAGE_SIZE,
+        offset: options?.offset ?? 0,
+      },
+      options?.sort,
+    ),
   });
 
   if (!isCollectionResponse(response)) {
@@ -131,6 +138,7 @@ export const fetchData = async (
 export function buildBeaconPdfPayload({
   customerId,
   filters,
+  sort,
   visibleColumns,
   itemCount,
   generatedAt = formatBeaconPdfGeneratedAt(),
@@ -138,6 +146,7 @@ export function buildBeaconPdfPayload({
 }: {
   customerId: string;
   filters?: BeaconVulnerabilityFilters;
+  sort?: BeaconSort;
   visibleColumns: BeaconPdfColumn[];
   itemCount: number;
   generatedAt?: string;
@@ -156,6 +165,7 @@ export function buildBeaconPdfPayload({
       limit: BEACON_PDF_PAGE_SIZE,
       offset: pageIndex * BEACON_PDF_PAGE_SIZE,
       filters,
+      sort,
     },
     additionalData: {
       visibleColumns,

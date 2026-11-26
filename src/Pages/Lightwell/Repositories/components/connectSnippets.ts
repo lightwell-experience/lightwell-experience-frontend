@@ -321,7 +321,7 @@ default = true`,
   ];
 };
 
-// TODO: add docsUrl to each tab once the JavaScript build tool docs page is published.
+// TODO: add docsUrl to the yarn and artifactory tabs once the respective JavaScript docs pages are published.
 const getNpmSnippetTabs = (repository: RepositoryContext): ConnectSnippetTab[] => {
   const registryUrl = formatDistributionUrl(repository.published_distribution_url || '');
   // npm keys per-registry auth on the protocol-less registry URL.
@@ -331,6 +331,8 @@ const getNpmSnippetTabs = (repository: RepositoryContext): ConnectSnippetTab[] =
     {
       eventKey: 'npm',
       title: 'npm',
+      docsUrl:
+        'https://docs.redhat.com/en/documentation/lightwell_network/current/configure-configure_your_npm_client_to_use_the_lightwell_network_repository',
       snippets: [
         {
           label: 'Add credentials to ~/.npmrc:',
@@ -388,6 +390,8 @@ npmAuthIdent: "<service_account_username>:<service_account_token>"`,
     {
       eventKey: 'nexus',
       title: 'Nexus',
+      docsUrl:
+        'https://docs.redhat.com/en/documentation/lightwell_network/current/configure-configure_nexus_for_the_lightwell_network_javascript_repository',
       snippets: [
         {
           label: 'Configure as an npm proxy repository:',

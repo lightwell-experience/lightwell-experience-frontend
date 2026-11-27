@@ -109,7 +109,7 @@ export const LIGHTWELL_VULNERABILITY_SEVERITY_OPTIONS: {
   value: LightwellNotificationSeverity;
   label: string;
 }[] = [
-  { value: 'critical', label: 'Critical' },
+  { value: 'critical', label: 'Critical only' },
   { value: 'high', label: 'Important and above' },
   { value: 'medium', label: 'Moderate and above' },
   { value: 'low', label: 'All severities' },

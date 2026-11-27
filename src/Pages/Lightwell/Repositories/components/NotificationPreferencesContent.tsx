@@ -16,11 +16,13 @@ import {
   LightwellNotificationSeverity,
 } from '../../constants';
 
-const LIGHTWELL_TO_PF_SEVERITY: Record<LightwellNotificationSeverity, SeverityType> = {
+const LIGHTWELL_TO_PF_SEVERITY: Record<
+  Exclude<LightwellNotificationSeverity, 'low'>,
+  SeverityType
+> = {
   critical: SeverityType.critical,
   high: SeverityType.important,
   medium: SeverityType.moderate,
-  low: SeverityType.minor,
 };
 
 type NotificationPreferencesContentProps = {
@@ -79,11 +81,16 @@ const NotificationPreferencesContent = ({
               isDisabled={isReadOnly}
               onChange={() => handleSeverityChange(option.value)}
               label={
-                <Severity
-                  severity={LIGHTWELL_TO_PF_SEVERITY[option.value]}
-                  label={option.label}
-                  ouiaId={`lightwell-notification-severity-icon-${option.value}`}
-                />
+                option.value === 'low' ? (
+                  option.label
+                ) : (
+                  <Severity
+                    severity={LIGHTWELL_TO_PF_SEVERITY[option.value]}
+                    label={option.label}
+                    title=''
+                    ouiaId={`lightwell-notification-severity-icon-${option.value}`}
+                  />
+                )
               }
             />
           ))}

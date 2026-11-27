@@ -161,3 +161,40 @@ describe('UploadSuccessStep package summary', () => {
     expect(screen.queryByRole('button', { name: 'Details' })).not.toBeInTheDocument();
   });
 });
+
+describe('UploadSuccessStep findings summary', () => {
+  const withFindings = (total: number) =>
+    buildHook({
+      submission: {
+        uuid: 'sub-1',
+        name: 'RHOSE-4.9.json',
+        findings_summary: {
+          total,
+          emails: total ? 1 : 0,
+          home_usernames: 0,
+          credentials: total ? 1 : 0,
+          ip_addresses: 0,
+        },
+      },
+    });
+
+  it('shows what the scan found right after upload', () => {
+    mockedHook.mockReturnValue(withFindings(2));
+    render(<UploadSuccessStep uuid='sub-1' />);
+
+    expect(screen.getByText(/2 possible sensitive items found/)).toBeInTheDocument();
+  });
+
+  it('shows nothing when the scan found nothing', () => {
+    mockedHook.mockReturnValue(withFindings(0));
+    render(<UploadSuccessStep uuid='sub-1' />);
+
+    expect(screen.queryByText(/possible sensitive/)).not.toBeInTheDocument();
+  });
+
+  it('shows nothing for submissions created before scanning existed', () => {
+    render(<UploadSuccessStep uuid='sub-1' />);
+
+    expect(screen.queryByText(/possible sensitive/)).not.toBeInTheDocument();
+  });
+});

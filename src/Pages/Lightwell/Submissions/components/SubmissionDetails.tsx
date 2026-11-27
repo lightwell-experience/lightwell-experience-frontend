@@ -37,6 +37,7 @@ import { usePendingReproducers } from './PendingReproducersContext';
 import SubmissionEcosystemChart from './SubmissionEcosystemChart';
 import SubmissionPackageSummary, { pluralizePackages } from './SubmissionPackageSummary';
 import SubmissionPackagesTable from './SubmissionPackagesTable';
+import SubmissionFindingsSummary from './SubmissionFindingsSummary';
 
 export type SubmissionDetailsProps = {
   /** The submission to render; the component fetches it itself. */
@@ -411,6 +412,12 @@ const SubmissionDetails = ({
               ) : null}
             </Flex>
           </StackItem>
+
+          {submission.findings_summary?.total ? (
+            <StackItem>
+              <SubmissionFindingsSummary summary={submission.findings_summary} />
+            </StackItem>
+          ) : null}
 
           {canResend ? (
             <StackItem>
